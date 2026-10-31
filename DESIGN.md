@@ -1473,6 +1473,11 @@ open http://localhost:8080/cats/1
 
 `[@@sse]` и `[@@@gateway]`/`[@@subscribe]` для websockets с типами из shared; `[@@cron]`; `Events` (типизированная шина); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth-стратегии (session, JWT) + `Auth.role`; helmet/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Forge_db_pgx`. Критерий: главы Security, HTTP, WebSockets, Events, Task scheduling, Caching закрыты.
 
+**Статус фазы 2** (по мере работы):
+- ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
+- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
+- ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
+
 ### Фаза 3 — экосистема
 
 `forge migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice-транспорты. Приоритизируется по первому реальному проекту на Forge.

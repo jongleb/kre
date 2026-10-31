@@ -500,9 +500,95 @@ let migration =
              ]));
   ]
 
+let ok_handler _ = Dream.respond "ok"
+
+let security =
+  [
+    Alcotest.test_case "cors: preflight and simple requests" `Quick (fun () ->
+        let cors =
+          Dream.test
+            (Forge.Cors.middleware
+               ~origins:(Forge.Cors.Only [ "https://cats.io" ]) () ok_handler)
+        in
+        let preflight =
+          cors
+            (Dream.request ~method_:`OPTIONS ~target:"/cats"
+               ~headers:
+                 [
+                   ("Origin", "https://cats.io");
+                   ("Access-Control-Request-Method", "POST");
+                 ]
+               "")
+        in
+        let simple origin =
+          Dream.header
+            (cors
+               (Dream.request ~target:"/cats"
+                  ~headers:[ ("Origin", origin) ]
+                  ""))
+            "Access-Control-Allow-Origin"
+        in
+        Alcotest.(check (list (option string)))
+          "headers"
+          [
+            Some "https://cats.io";
+            Some "GET, POST, PUT, PATCH, DELETE";
+            Some "https://cats.io";
+            None;
+          ]
+          [
+            Dream.header preflight "Access-Control-Allow-Origin";
+            Dream.header preflight "Access-Control-Allow-Methods";
+            simple "https://cats.io";
+            simple "https://evil.io";
+          ]);
+    Alcotest.test_case "secure headers keep what the handler set" `Quick
+      (fun () ->
+        let response =
+          Dream.test
+            (Forge.Secure_headers.middleware () (fun _ ->
+                 Dream.respond
+                   ~headers:[ ("X-Frame-Options", "SAMEORIGIN") ]
+                   "ok"))
+            (Dream.request "")
+        in
+        Alcotest.(check (list (option string)))
+          "headers"
+          [ Some "nosniff"; Some "SAMEORIGIN"; Some "default-src 'self'" ]
+          [
+            Dream.header response "X-Content-Type-Options";
+            Dream.header response "X-Frame-Options";
+            Dream.header response "Content-Security-Policy";
+          ]);
+    Alcotest.test_case "rate limit: a fixed window per client" `Quick (fun () ->
+        let now = ref 0. in
+        let limited =
+          Dream.test
+            (Forge.Rate_limit.middleware ~limit:2 ~window:10.
+               ~clock:(fun () -> !now)
+               () ok_handler)
+        in
+        let hit () =
+          let response = limited (Dream.request "") in
+          ( Dream.status_to_int (Dream.status response),
+            Dream.header response "Retry-After" )
+        in
+        let first = hit () in
+        let second = hit () in
+        now := 4.;
+        let third = hit () in
+        now := 11.;
+        let fourth = hit () in
+        Alcotest.(check (list (pair int (option string))))
+          "statuses"
+          [ (200, None); (200, None); (429, Some "6"); (200, None) ]
+          [ first; second; third; fourth ]);
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Security", security);
       ("Migration", migration);
       ("Validation", validation);
       ("Scalar", scalar);
