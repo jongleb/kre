@@ -157,19 +157,19 @@ let structure ~ctxt (_, declarations) =
       load;
       [%stri let load_exn ?env () = Forge.Config.exit_on_error (load ?env ())];
       [%stri
-        let pp ppf (config : t) =
-          Forge.Config.pp ppf
-            [%e
-              elist ~loc
-                (List.map
-                   (fun (label : label_declaration) ->
-                     [%expr
-                       Forge.Config.show
-                         [%e evar ~loc (field_variable label)]
-                         [%e
-                           pexp_field ~loc [%expr config]
-                             { txt = Lident label.pld_name.txt; loc }]])
-                   labels)]];
+        let pairs (config : t) =
+          [%e
+            elist ~loc
+              (List.map
+                 (fun (label : label_declaration) ->
+                   [%expr
+                     Forge.Config.show
+                       [%e evar ~loc (field_variable label)]
+                       [%e
+                         pexp_field ~loc [%expr config]
+                           { txt = Lident label.pld_name.txt; loc }]])
+                 labels)]];
+      [%stri let pp ppf config = Forge.Config.pp ppf (pairs config)];
     ]
 
 let signature ~ctxt (_, declarations) =
@@ -178,5 +178,6 @@ let signature ~ctxt (_, declarations) =
   [
     [%sigi: val load : ?env:Forge.Config.env -> unit -> (t, string list) result];
     [%sigi: val load_exn : ?env:Forge.Config.env -> unit -> t];
+    [%sigi: val pairs : t -> (string * string) list];
     [%sigi: val pp : Format.formatter -> t -> unit];
   ]

@@ -15,4 +15,14 @@ module Make (Settings : Settings.S) = struct
              conn
              (Result.get_ok
                 (Forge.Migration.of_files [%embed_dir "migrations"]))))
+
+  let ping () =
+    Lwt.catch
+      (fun () ->
+        with_conn (fun conn ->
+            Lwt.map
+              (fun _ -> Ok ())
+              (Forge_db_mariadb.Driver.strings conn "SELECT 1")))
+      (fun exn -> Lwt.return_error (Printexc.to_string exn))
+  [@@health "db"]
 end

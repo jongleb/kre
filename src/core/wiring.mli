@@ -2,6 +2,7 @@ type t = private {
   controllers : Controller.t list;
   on_start : unit -> unit Lwt.t;  (** Provider hooks, in dependency order. *)
   on_shutdown : unit -> unit Lwt.t;  (** The same hooks, in reverse. *)
+  health : Actuator.check list;  (** [[@@health]] functions of the providers. *)
 }
 (** An application assembled by [[%wire]]. *)
 
@@ -10,5 +11,6 @@ val make :
   on_start:(unit -> unit Lwt.t) list ->
   on_shutdown:(unit -> unit Lwt.t) list ->
   ?jobs:Schedule.job list ->
+  ?health:Actuator.check list ->
   unit ->
   t

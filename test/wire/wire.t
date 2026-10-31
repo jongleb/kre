@@ -35,7 +35,7 @@ alone.
       let module Report = ((Report.Make)(Repo))(Clock) in
         Forge.Wiring.make
           ~controllers:[Reports_controller.register (module Report)]
-          ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ()
+          ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ~health:[] ()
 
 A dependency nobody provides is a build error.
 

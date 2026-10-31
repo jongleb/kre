@@ -43,7 +43,7 @@ let () =
                  CORS_ORIGINS=\n\
                  SESSION_SECRET=***\n\
                  ADMIN_EMAIL=me@cats.io\n\
-                 DATABASE_URL=\n\
+                 DATABASE_URL=***\n\
                  WEB_DIR=/srv/cats/web"
                 (Format.asprintf "%a" Config.pp
                    (Result.get_ok

@@ -21,9 +21,16 @@ end
 ```ocaml
 let () =
   let app = [%wire] in
+  let actuator =
+    Forge.Actuator.make ~checks:app.health
+      ~env:(Config.pairs Settings.config)
+      app.controllers
+  in
   Forge.App.run ~port:Settings.config.port
-    ~middleware:[ Dream.logger; Web.use ~dir:Settings.config.web ]
-    ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
+    ~middleware:
+      [ Dream.logger; actuator.metrics; Web.use ~dir:Settings.config.web ]
+    ~on_start:app.on_start ~on_shutdown:app.on_shutdown
+    (actuator.controller :: app.controllers)
 ```
 
 Провайдер базы с хуком `on_start` (миграции при старте):
@@ -47,5 +54,15 @@ module Make (Settings : Settings.S) = struct
              conn
              (Result.get_ok
                 (Forge.Migration.of_files [%embed_dir "migrations"]))))
+
+  let ping () =
+    Lwt.catch
+      (fun () ->
+        with_conn (fun conn ->
+            Lwt.map
+              (fun _ -> Ok ())
+              (Forge_db_mariadb.Driver.strings conn "SELECT 1")))
+      (fun exn -> Lwt.return_error (Printexc.to_string exn))
+  [@@health "db"]
 end
 ```

@@ -51,12 +51,13 @@ config with secrets hidden.
       let _ = load
       let load_exn ?env () = Forge.Config.exit_on_error (load ?env ())
       let _ = load_exn
-      let pp ppf (config : t) =
-        Forge.Config.pp ppf
-          [Forge.Config.show __forge_config_port config.port;
-          Forge.Config.show __forge_config_secret config.secret;
-          Forge.Config.show __forge_config_tags config.tags;
-          Forge.Config.show __forge_config_admin config.admin]
+      let pairs (config : t) =
+        [Forge.Config.show __forge_config_port config.port;
+        Forge.Config.show __forge_config_secret config.secret;
+        Forge.Config.show __forge_config_tags config.tags;
+        Forge.Config.show __forge_config_admin config.admin]
+      let _ = pairs
+      let pp ppf config = Forge.Config.pp ppf (pairs config)
       let _ = pp
     end[@@ocaml.doc "@inline"][@@merlin.hide ]
 

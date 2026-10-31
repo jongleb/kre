@@ -1,6 +1,6 @@
 (test
  (name test_events)
- (libraries events_server forge dream alcotest lwt lwt.unix)
+ (libraries events_server forge dream alcotest lwt lwt.unix yojson)
  (preprocess
   (pps forge-ppx))
  (preprocessor_deps

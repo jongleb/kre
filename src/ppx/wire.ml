@@ -20,6 +20,8 @@ type provider = {
       (** [on_start] and/or [on_shutdown] defined by the provider. *)
   listeners : (string * expression) list;
       (** Functions marked [[@@on_event topic]]. *)
+  checks : (string * string) list;
+      (** Functions marked [[@@health "name"]], with that name. *)
   jobs : (string * expression) list;
       (** Functions marked [[@@cron]], [[@@interval]] or [[@@after]], with their
           timing. *)
@@ -262,6 +264,53 @@ let scan path =
               provides;
               construction;
               hooks = hooks (items body);
+              checks =
+                List.concat_map
+                  (fun (item : structure_item) ->
+                    match item.pstr_desc with
+                    | Pstr_value (_, bindings) ->
+                        List.filter_map
+                          (fun (binding : value_binding) ->
+                            match
+                              ( binding.pvb_pat.ppat_desc,
+                                List.find_map
+                                  (fun (attribute : attribute) ->
+                                    match
+                                      ( attribute.attr_name.txt,
+                                        attribute.attr_payload )
+                                    with
+                                    | ( "health",
+                                        PStr
+                                          [
+                                            {
+                                              pstr_desc =
+                                                Pstr_eval
+                                                  ( {
+                                                      pexp_desc =
+                                                        Pexp_constant
+                                                          (Pconst_string
+                                                             (check, _, _));
+                                                      _;
+                                                    },
+                                                    _ );
+                                              _;
+                                            };
+                                          ] ) ->
+                                        Some check
+                                    | "health", _ ->
+                                        Location.raise_errorf
+                                          ~loc:attribute.attr_loc
+                                          "[@@health] takes the check's name: \
+                                           [@@health \"db\"]"
+                                    | _ -> None)
+                                  binding.pvb_attributes )
+                            with
+                            | Ppat_var { txt; _ }, Some check ->
+                                Some (txt, check)
+                            | _ -> None)
+                          bindings
+                    | _ -> [])
+                  (items body);
               jobs =
                 List.concat_map
                   (fun (item : structure_item) ->
@@ -561,6 +610,26 @@ let expand ~loc ~input directories =
                              pexp_ident ~loc
                                { txt = Ldot (Lident provider.name, job); loc }]])
                      provider.jobs)
+                 order)]
+        ~health:
+          [%e
+            elist ~loc
+              (List.concat_map
+                 (fun provider ->
+                   List.map
+                     (fun (check, name) ->
+                       [%expr
+                         {
+                           Forge.Actuator.name = [%e estring ~loc name];
+                           run =
+                             [%e
+                               pexp_ident ~loc
+                                 {
+                                   txt = Ldot (Lident provider.name, check);
+                                   loc;
+                                 }];
+                         }])
+                     provider.checks)
                  order)]
         ()]
   in

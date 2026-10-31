@@ -1,6 +1,11 @@
 let () =
   let app = [%wire] in
-  let handler = Dream.test (Forge.App.handler app.controllers) in
+  let actuator = Forge.Actuator.make ~checks:app.health app.controllers in
+  let handler =
+    Dream.test
+      (Forge.App.handler ~middleware:[ actuator.metrics ]
+         (actuator.controller :: app.controllers))
+  in
   let call method_ target body =
     let response = handler (Dream.request ~method_ ~target body) in
     ( Dream.status_to_int (Dream.status response),
@@ -31,5 +36,23 @@ let () =
               Alcotest.(check (pair bool int))
                 "ran a few times, then stopped" (true, ran)
                 (ran >= 2, count ()));
+          Alcotest.test_case "actuator" `Quick (fun () ->
+              let health = call `GET "/actuator/health" "" in
+              let metrics = snd (call `GET "/actuator/metrics" "") in
+              let routes = snd (call `GET "/actuator/routes" "") in
+              Alcotest.(check (list string))
+                "answers"
+                [ {|{"status":"up","checks":{"mailer":"up"}}|}; "true"; "true" ]
+                [
+                  snd health;
+                  string_of_bool
+                    (List.exists
+                       (String.starts_with ~prefix:"forge_requests_total")
+                       (String.split_on_char '\n' metrics));
+                  string_of_bool
+                    (Yojson.Basic.Util.(
+                       List.length (to_list (Yojson.Basic.from_string routes)))
+                    = 1);
+                ]);
         ] );
     ]

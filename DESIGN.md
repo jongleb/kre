@@ -1517,6 +1517,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
+- ✅ Actuator: `Forge.Actuator.make` (`/health`, `/info`, `/env`, `/routes`, `/openapi.json`, `/metrics`), `[@@health]` в провайдерах, `Config.pairs` из деривера (`docs/actuator.md`)
 - ✅ кэш: `[@@cache ttl]` (ответ GET по URL, `X-Cache`), `Forge.Cache.memoize` (`find`/`evict`/`clear`) (`docs/caching.md`)
 - ✅ расписание: `[@@cron]` (`Forge_shared.Cron` разбирается в ppx при сборке, `next` без `Unix` — работает и в Melange), `[@@interval]`, `[@@after]`; `Forge.Schedule`, запуск/остановка через `Forge.Wiring` (`docs/task-scheduling.md`)
 - ✅ события: `Forge.Events` (`'a topic` с `Type.Id`, шина `Make ()` как провайдер), `[@@on_event]` в провайдере, подписку генерирует `[%wire]` (`docs/events.md`, `examples/events`)

@@ -96,7 +96,7 @@
 | `@OnEvent`, EventEmitter | `@EventListener` | `Forge.Events` (топик с типом события), `[@@on_event]`, подписка через `[%wire]` | ✅ |
 | `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]` (проверка при сборке), `[@@interval]`, `[@@after]` | ✅ |
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable`, `@CacheEvict` | `[@@cache ttl]` на GET; `Forge.Cache.memoize` → `{ find; evict; clear }` | ✅ |
-| Terminus | Actuator | `Forge.Actuator` | 🔜 |
+| Terminus | Actuator | `Forge.Actuator`: health (`[@@health]` через `[%wire]`), info, env (секреты скрыты), routes, openapi, Prometheus metrics | ✅ |
 | `@WebSocketGateway`, `@SubscribeMessage` | `@MessageMapping` | `[@@@gateway]`, `[@@subscribe]` | 🔜 |
 | — | — | live loaders (IHP Auto Refresh) | 🔜 |
 | queues, microservices, GraphQL | `@Async`, Spring Cloud | | ⏳ |

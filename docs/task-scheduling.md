@@ -17,6 +17,7 @@ module type S = sig
   val welcome : Signup.t -> unit Lwt.t
   val digests : unit -> int
   val digest : unit -> unit Lwt.t
+  val healthy : unit -> (unit, string) result Lwt.t
 end
 
 module Make () = struct
@@ -35,5 +36,7 @@ module Make () = struct
     incr sent_digests;
     Lwt.return_unit
   [@@interval 0.02]
+
+  let healthy () = Lwt.return_ok () [@@health "mailer"]
 end
 ```
