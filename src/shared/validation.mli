@@ -17,6 +17,14 @@ val to_list : t -> error list
 val to_json : t -> Jsonkit.t
 val rule : name:string -> ('a -> ('a, string) result) -> 'a rule
 val check : 'a rule list -> 'a -> ('a, t) result
+val field : string -> 'a rule list -> 'a -> ('a, t) result
+
+(** Applicative composition: [and+] keeps the failures of both sides. *)
+module Syntax : sig
+  val ( let+ ) : ('a, t) result -> ('a -> 'b) -> ('b, t) result
+  val ( and+ ) : ('a, t) result -> ('b, t) result -> ('a * 'b, t) result
+end
+
 val min_length : int -> string rule
 val max_length : int -> string rule
 val min : int -> int rule

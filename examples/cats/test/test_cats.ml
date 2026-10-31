@@ -44,6 +44,31 @@ let () =
               Alcotest.(check (pair int (list string)))
                 "range" (422, [ "range" ])
                 (status response, rules response));
+          Alcotest.test_case "[@validate] reports the field path" `Quick
+            (fun () ->
+              let response =
+                call ~headers:user
+                  ~body:
+                    {|{"name":"tom","age":3,"breed":"siamese","note":"far too long for a note"}|}
+                  `POST "/cats"
+              in
+              Alcotest.(check (pair int (list string)))
+                "max_length" (422, [ "max_length" ])
+                (status response, rules response);
+              Alcotest.(check (list string))
+                "path" [ "note" ]
+                Yojson.Basic.Util.(
+                  List.map to_string
+                    (to_list
+                       (member "path"
+                          (List.hd (to_list (member "errors" (json response))))))));
+          Alcotest.test_case "~strict rejects unknown fields" `Quick (fun () ->
+              Alcotest.(check int)
+                "extra" 422
+                (status
+                   (call ~headers:user
+                      ~body:{|{"name":"tom","age":3,"breed":"siamese","x":1}|}
+                      `POST "/cats")));
           Alcotest.test_case "create answers 201 with the cat" `Quick (fun () ->
               Alcotest.(check (pair int string))
                 "created"

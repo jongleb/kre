@@ -69,6 +69,22 @@ let validation =
                   Validation.one_of [ "x" ];
                 ]
                 "abc")));
+    Alcotest.test_case "and+ keeps the failures of both sides" `Quick (fun () ->
+        Alcotest.(check (list (pair (list string) string)))
+          "errors"
+          [ ([ "a" ], "min_length"); ([ "b" ], "range") ]
+          (Result.fold
+             ~ok:(fun _ -> [])
+             ~error:(fun errors ->
+               List.map
+                 (fun (e : Validation.error) -> (e.path, e.rule))
+                 (Validation.to_list errors))
+             (let open Validation.Syntax in
+              let+ a = Validation.field "a" [ Validation.min_length 2 ] "x"
+              and+ b =
+                Validation.field "b" [ Validation.range ~min:0 ~max:1 ] 5
+              in
+              (a, b))));
     Alcotest.test_case "email" `Quick (fun () ->
         Alcotest.(check (list (list string)))
           "rules"

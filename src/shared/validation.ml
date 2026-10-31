@@ -52,6 +52,19 @@ let check rules value =
   | [] -> Ok value
   | first :: rest -> Error { first; rest }
 
+let field name rules value = Result.map_error (at [ name ]) (check rules value)
+
+module Syntax = struct
+  let ( let+ ) result f = Result.map f result
+
+  let ( and+ ) left right =
+    match (left, right) with
+    | Ok left, Ok right -> Ok (left, right)
+    | Error errors, Ok _ | Ok _, Error errors -> Error errors
+    | Error left, Error right ->
+        Error { left with rest = left.rest @ (right.first :: right.rest) }
+end
+
 let min_length n =
   rule ~name:"min_length" (fun s ->
       if String.length s >= n then Ok s

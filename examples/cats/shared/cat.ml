@@ -18,4 +18,4 @@ module Breed = Forge_shared.Refined.Enum (struct
 end)
 
 type t = { id : int; name : Name.t; age : Age.t; breed : Breed.t }
-[@@deriving json, jsonschema]
+[@@deriving dto]

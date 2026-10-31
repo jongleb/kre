@@ -497,6 +497,11 @@ module Validation : sig
   val to_json : t -> Jsonkit.t
   val rule : name:string -> ('a -> ('a, string) result) -> 'a rule
   val check : 'a rule list -> 'a -> ('a, t) result   (* все упавшие правила, не fail-fast *)
+  val field : string -> 'a rule list -> 'a -> ('a, t) result   (* check + путь [name] *)
+  module Syntax : sig   (* аппликативно: and+ накапливает ошибки обеих сторон *)
+    val ( let+ ) : ('a, t) result -> ('a -> 'b) -> ('b, t) result
+    val ( and+ ) : ('a, t) result -> ('b, t) result -> ('a * 'b, t) result
+  end
   val min_length : int -> string rule   val max_length : int -> string rule
   val min : int -> int rule             val max : int -> int rule
   val range : min:int -> max:int -> int rule
@@ -889,16 +894,32 @@ module Email  : S with type repr = string
 
 [typegist](https://github.com/dbuenzli/typegist) представляет OCaml-типы как значения, поверх которых пишутся generic-кодеки. Решение — (б): `dto` не генерирует gist, а опирается на деривера jsonkit. Причины: в opam есть только `typegist.0.0.0`; принято, что весь JSON — jsonkit, а в jsonkit уже есть `[@@deriving json]` и `[@@deriving jsonschema]` на обоих бэкендах, так что `dto` сводится к тонкой надстройке (правила, `[@exclude]`, `[@expose]`), и gist дублировал бы jsonkit. Вернуться к вопросу, если понадобятся generic-производные, которых нет в jsonkit (QuickCheck-генераторы, диффы).
 
+### Как устроен dto (фаза 1)
+
+`dto` — преобразование препроцессинга (`Driver.register_transformation ~preprocess_impl ~preprocess_intf`), оно отрабатывает до дериверов. `[@@deriving dto]` переписывается в `[@@deriving json, jsonschema]` из jsonkit; `~strict` добавляет `[@@disallow_extra_fields]`. Атрибуты полей не переименовываются: ppxlib сопоставляет атрибут по суффиксу имени, поэтому `[@key]` и `[@default]` видят оба деривера jsonkit (`json.key` и `jsonschema.key`). Если у полей есть `[@validate]`, после типа добавляется обёртка, которая перекрывает `of_json` из jsonkit:
+
+```ocaml
+let of_json __forge_json =
+  let __forge_value = of_json __forge_json in
+  Forge_shared.Validation.ok_exn
+    (let open Forge_shared.Validation.Syntax in
+     let+ __forge_name = Forge_shared.Validation.field "fullName" [ Forge_shared.Validation.(max_length 8) ] __forge_value.name
+     and+ __forge_tag = … in
+     { __forge_value with name = __forge_name; tag = __forge_tag })
+```
+
+`and+` накапливает ошибки всех полей, путь — JSON-ключ поля. Для полей примитивных типов в области видимости должен быть `open Jsonkit.Primitives` (требование jsonkit). Пользовательский `shared/` подключает `(pps jsonkit.ppx forge-ppx)` в native и `(pps melange.ppx jsonkit-melange.ppx forge-ppx)` в melange. Эталоны — `test/ppx/dto.t`.
+
 ### Атрибуты полей
 
 | Атрибут | Эффект | Nest-аналог |
 | --- | --- | --- |
-| `[@key "camelName"]` | имя в JSON | `@Expose({ name })` |
-| `[@default e]` | поле необязательно в JSON, дефолт при отсутствии | `@IsOptional` + default |
+| `[@key "camelName"]` | имя в JSON (jsonkit `json.key`/`jsonschema.key`) | `@Expose({ name })` |
+| `[@default e]` | поле необязательно в JSON, дефолт при отсутствии (jsonkit) | `@IsOptional` + default |
 | `[@validate r1; r2]` | правила `'a Forge_shared.Validation.rule`, применяются по порядку, ошибки всех правил собираются | class-validator |
 | `[@validate.custom f]` | `f : t_field -> (t_field, string) result` → `Validation.rule ~name:"custom" f` | `@Validate(Custom)` |
-| `[@exclude]` | не сериализуется в `to_json`; `of_json` требует `[@default]` | `@Exclude` |
-| `[@expose ~groups:["admin"]]` | сериализуется только при `to_json ~groups` | `@Expose({ groups })` |
+| `[@exclude]` | не сериализуется в `to_json`; `of_json` требует `[@default]` — фаза 2 | `@Exclude` |
+| `[@expose ~groups:["admin"]]` | сериализуется только при `to_json ~groups` — фаза 2 | `@Expose({ groups })` |
 | `[@nested]` | не нужен: вложенный DTO проверяется своим `T.of_json` | `@ValidateNested` |
 
 Правила валидации — обычные значения `Forge_shared.Validation.*`; ppx лишь вызывает их и собирает `{ path; rule; message }`. Новые правила добавляются в рантайм, а не в ppx.
@@ -910,7 +931,7 @@ module Email  : S with type repr = string
 | `[@@deriving dto]` | всё выше | — |
 | `[@@deriving dto ~partial_of:T]` | тип = все поля `T.t` как `option`; `validate` применяет правила `T` к присутствующим полям | `PartialType` |
 | `[@@deriving dto ~pick_of:(T, ["name"; "age"])]` / `~omit_of` | подмножество полей `T` | `PickType` / `OmitType` |
-| `[@@deriving dto ~strict]` | неизвестные поля в JSON → ошибка | `forbidNonWhitelisted` |
+| `[@@deriving dto ~strict]` | неизвестные поля в JSON → 422; в схеме `additionalProperties: false` | `forbidNonWhitelisted` |
 
 `~partial_of`/`~pick_of` требуют, чтобы `T` был объявлен в том же файле или `T.t` был виден ppx как запись — реализуется через `[@@deriving dto]` на `T`, который дополнительно эмитит `__dto_fields_T` (список полей со схемами) для переиспользования. Это фаза 2; в фазе 1 — только базовый `dto` и `~strict`.
 
@@ -1326,8 +1347,8 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | Задача | Критерий |
 | --- | --- |
 | ✅ ppx `controller`: атрибуты, классификация, `Paths`/`spec`/`register`, все ошибки | cram на эталон и каждую ошибку; cats-контроллер компилируется и проходит e2e через `Dream.test` |
-| ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | round-trip тесты; 422-envelope совпадает с описанным |
-| `Forge_shared.Refined` (String, Int, Enum, Regex, Email, Make) | схемы содержат ограничения; `codec` работает в path/query |
+| ✅ ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | cram на вывод; e2e cats: 422 с путём поля, `~strict` |
+| ✅ `Forge_shared.Refined` (String, Int, Enum, Email, Make; Regex — открытый вопрос) | схемы содержат ограничения; `of_string` работает в path/query |
 | ppx `config` | `load` собирает все ошибки сразу |
 | `--emit-spec`, `--emit-openapi`; `forge client` (melange + native) | OpenAPI проходит валидацию 3.1; native-клиент проходит e2e по cats |
 | `Forge_client`: `Http`, `Error`, `Promise` | e2e из браузера (melange-тест в node) |

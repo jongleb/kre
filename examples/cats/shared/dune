@@ -3,4 +3,4 @@
  (wrapped false)
  (libraries forge.shared jsonkit)
  (preprocess
-  (pps jsonkit.ppx)))
+  (pps jsonkit.ppx forge-ppx)))
