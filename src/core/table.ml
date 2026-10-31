@@ -12,6 +12,7 @@ type column = {
 }
 
 type t = { name : string; columns : column list }
+type dialect = Mysql | Postgresql
 
 let column ?(role = Plain) ?default ?references name type_ nullability =
   {
@@ -25,56 +26,74 @@ let column ?(role = Plain) ?default ?references name type_ nullability =
 
 let make ~name columns = { name; columns }
 
-let ddl table =
+let ddl dialect table =
   let definition (column : column) =
     String.concat " "
       (List.concat
          [
-           [
-             column.name;
-             (match column.type_ with
-             | Integer -> "BIGINT"
-             | Text (Some size) -> Printf.sprintf "VARCHAR(%d)" size
-             | Text None -> "TEXT"
-             | Boolean -> "BOOLEAN"
-             | Double -> "DOUBLE");
-             (match column.nullability with
-             | Null -> "NULL"
-             | Not_null -> "NOT NULL");
-           ];
+           (match (column.type_, column.role, dialect) with
+           | Integer, Primary_auto, Postgresql -> [ column.name; "SERIAL" ]
+           | type_, _, _ ->
+               [
+                 column.name;
+                 (match (type_, dialect) with
+                 | Integer, _ -> "BIGINT"
+                 | Text (Some size), _ -> Printf.sprintf "VARCHAR(%d)" size
+                 | Text None, _ -> "TEXT"
+                 | Boolean, _ -> "BOOLEAN"
+                 | Double, Mysql -> "DOUBLE"
+                 | Double, Postgresql -> "DOUBLE PRECISION");
+                 (match column.nullability with
+                 | Null -> "NULL"
+                 | Not_null -> "NOT NULL");
+               ]);
            Option.fold ~none:[]
              ~some:(fun default -> [ "DEFAULT"; default ])
              column.default;
-           (match column.role with
-           | Primary_auto -> [ "AUTO_INCREMENT"; "PRIMARY KEY" ]
-           | Primary -> [ "PRIMARY KEY" ]
-           | Unique -> [ "UNIQUE" ]
-           | Index | Plain -> []);
+           (match (column.role, dialect) with
+           | Primary_auto, Mysql -> [ "AUTO_INCREMENT"; "PRIMARY KEY" ]
+           | Primary_auto, Postgresql -> [ "PRIMARY KEY" ]
+           | Primary, _ -> [ "PRIMARY KEY" ]
+           | Unique, _ -> [ "UNIQUE" ]
+           | (Index | Plain), _ -> []);
          ])
   in
   let constraints =
     List.concat_map
       (fun (column : column) ->
-        match (column.role, column.references) with
-        | Index, None -> [ Printf.sprintf "INDEX (%s)" column.name ]
-        | Index, Some table ->
-            [
-              Printf.sprintf "INDEX (%s)" column.name;
-              Printf.sprintf "FOREIGN KEY (%s) REFERENCES %s (id)" column.name
-                table;
-            ]
-        | (Primary_auto | Primary | Unique | Plain), Some table ->
-            [
-              Printf.sprintf "FOREIGN KEY (%s) REFERENCES %s (id)" column.name
-                table;
-            ]
-        | (Primary_auto | Primary | Unique | Plain), None -> [])
+        (match (column.role, dialect) with
+          | Index, Mysql -> [ Printf.sprintf "INDEX (%s)" column.name ]
+          | Index, Postgresql
+          | (Primary_auto | Primary | Unique | Plain), (Mysql | Postgresql) ->
+              [])
+        @ Option.fold ~none:[]
+            ~some:(fun table ->
+              [
+                Printf.sprintf "FOREIGN KEY (%s) REFERENCES %s (id)" column.name
+                  table;
+              ])
+            column.references)
       table.columns
   in
-  Printf.sprintf "CREATE TABLE %s (\n  %s\n);\n" table.name
-    (String.concat ",\n  " (List.map definition table.columns @ constraints))
+  let indexes =
+    List.filter_map
+      (fun (column : column) ->
+        match (column.role, dialect) with
+        | Index, Postgresql ->
+            Some
+              (Printf.sprintf "CREATE INDEX %s_%s ON %s (%s);\n" table.name
+                 column.name table.name column.name)
+        | Index, Mysql
+        | (Primary_auto | Primary | Unique | Plain), (Mysql | Postgresql) ->
+            None)
+      table.columns
+  in
+  String.concat ""
+    (Printf.sprintf "CREATE TABLE %s (\n  %s\n);\n" table.name
+       (String.concat ",\n  " (List.map definition table.columns @ constraints))
+    :: indexes)
 
-let schema tables = String.concat "\n" (List.map ddl tables)
+let schema dialect tables = String.concat "\n" (List.map (ddl dialect) tables)
 
 let crud table =
   let names columns = List.map (fun (column : column) -> column.name) columns in

@@ -1102,6 +1102,8 @@ module Driver : Forge.Db.DRIVER with type conn = Client.t      (* mariadb://user
 
 Сервис с базой — функтор: `module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) … end`. `Forge_db_pgx` — фаза 2.
 
+Postgres (фаза 2): драйвер — `Forge_db_postgresql` на libpq (пакет `postgresql`), не pgx. Причина: sqlgg-traits требуют `execute_response.affected_rows`, а pgx число изменённых строк читает, но наружу не отдаёт; libpq отдаёт (`cmd_tuples`). Запросы libpq идут через `Lwt_preemptive.detach`: сокет libpq — `int`, а превратить его в `Unix.file_descr` без `Obj.magic` нельзя. Ограничения sqlgg для `-dialect postgresql`: нет `RETURNING`, `BIGSERIAL`, `GENERATED … AS IDENTITY`. Поэтому ключ `[@primary] [@auto]` — `SERIAL`, а `insert_id` драйвер заполняет через `SELECT lastval()` на том же соединении, и сервисы пишутся одинаково для обеих БД. `Forge.Table.schema` получает диалект: у Postgres `DOUBLE PRECISION` и отдельный `CREATE INDEX`; CRUD-запросы общие.
+
 ### sqlgg
 
 Связка `table` + sqlgg — флагманская возможность Forge, которой нет ни у Nest, ни у Rails: **схема — это OCaml-тип, и каждый SQL-запрос проверяется против неё компилятором.** Цепочка:
@@ -1543,6 +1545,7 @@ open http://localhost:8080/cats/1
 - ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)
 - ✅ table CRUD: `Forge.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
 - ✅ live loaders: `Forge.Live` (шина в памяти, `publish`/`subscribe`, канал `/__forge/live`), драйвер сообщает SQL (`read`/`wrote`), `Db.transaction` держит изменения до commit, `[@@live]` → `spec.live` + `x-forge-live` + `Cats_client.Live`, `Router.child ~live`, проверка списка при `FORGE_ENV=test` (`docs/live.md`). Метаданных `reads`/`writes` sqlgg не даёт — таблицы берутся из текста SQL в traits
+- ✅ PostgreSQL: `forge-db-postgresql` (libpq, не pgx — см. «Forge.Db»), `Forge.Table.schema` с диалектом, `examples/cats/postgresql` + CI-job с postgres:17
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

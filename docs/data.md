@@ -11,7 +11,8 @@ let () =
   print_string
     (match Sys.argv with
     | [| _; "crud" |] -> Forge.Table.crud Cat.table
-    | _ -> Forge.Table.schema [ Cat.table ])
+    | [| _; "postgresql" |] -> Forge.Table.schema Postgresql [ Cat.table ]
+    | _ -> Forge.Table.schema Mysql [ Cat.table ])
 ```
 
 3. sqlgg генерирует по `schema.sql` и запросам типизированный модуль (dune-правило в `examples/cats/db/dune`).
@@ -94,3 +95,17 @@ let import (module Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
 [@@post] [@@transactional]
 ```
  Миграции — файлы `migrations/NNNN_name.sql` с секциями `-- migrate:up`/`-- migrate:down` и `forge migrate up|down|status|new`.
+
+## PostgreSQL
+
+Драйвер — `forge-db-postgresql` (libpq). Код сервиса тот же; меняются три вещи:
+
+- `Forge.Table.schema Postgresql [ Cat.table ]` печатает DDL для Postgres: `SERIAL` для `[@primary] [@auto]`, `DOUBLE PRECISION`, отдельный `CREATE INDEX`;
+- sqlgg запускается с `-dialect postgresql`, и параметры в SQL становятся `$1, $2…`;
+- трейты и пул — `Forge_db_postgresql.Sql` и `Forge.Db.Make (Forge_db_postgresql.Driver)`.
+
+`insert_id` драйвер берёт из `SELECT lastval()` на том же соединении. `Crud.insert` поэтому возвращает id, как на MariaDB. `affected_rows` берётся из ответа сервера. Миграции, `[@@transactional]` и live loaders работают так же.
+
+Ограничения sqlgg для Postgres: нет `RETURNING`, `BIGSERIAL` и `GENERATED … AS IDENTITY`, поэтому ключ — `SERIAL` (int4). Запросы libpq идут в пуле потоков (`Lwt_preemptive`), по одному на соединение.
+
+Пример и тест — `examples/cats/postgresql`: `FORGE_TEST_PG_URL=postgresql://… dune build @examples/cats/postgresql/pg`.

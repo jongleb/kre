@@ -83,7 +83,7 @@
 | `@Exclude`, `@Expose`, `@Transform` | `@JsonIgnore`, `@JsonProperty` | `[@exclude]` (writeOnly), `[@key]`, `[@transform f]`; группы — проекции `~pick_of` | ✅ |
 | `PartialType`, `PickType`, `OmitType` | — | `[@@deriving dto ~partial_of / ~pick_of / ~omit_of]` + `summary_of_t`, `update_apply` | ✅ |
 | CRUD repository | `JpaRepository` | `Forge.Table.crud` → sqlgg-модуль `all`/`insert`/`find`/`update`/`delete`; `for_insert`/`for_update` из `[@@deriving table]` | ✅ |
-| Postgres | | `Forge_db_pgx` | 🔜 |
+| TypeORM `postgres` | Spring Data + PostgreSQL | `forge-db-postgresql` (libpq): sqlgg `-dialect postgresql`, `Table.schema Postgresql`, `insert_id` через `lastval()` | ✅ |
 
 ## Остальное
 

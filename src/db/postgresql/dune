@@ -1,0 +1,14 @@
+(library
+ (name forge_db_postgresql)
+ (public_name forge-db-postgresql)
+ (libraries
+  forge
+  postgresql
+  sqlgg.traits
+  sqlgg.json_path
+  integers
+  yojson
+  lwt
+  lwt.unix
+  threads.posix
+  unix))

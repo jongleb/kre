@@ -104,3 +104,21 @@
    (>= 20260721))
   lwt
   uri))
+
+(package
+ (name forge-db-postgresql)
+ (synopsis "PostgreSQL driver (libpq) and sqlgg traits for Forge.Db")
+ (depends
+  (ocaml
+   (and
+    (>= 5.5)
+    (< 5.6)))
+  (forge
+   (= :version))
+  (postgresql
+   (>= 5.0))
+  (sqlgg
+   (>= 20260721))
+  integers
+  yojson
+  lwt))

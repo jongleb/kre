@@ -1,0 +1,44 @@
+(rule
+ (targets schema.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:../db/schema.exe} postgresql))))
+
+(rule
+ (targets crud.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:../db/schema.exe} crud))))
+
+(rule
+ (targets cats_pg.ml)
+ (deps schema.sql crud.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run
+    %{bin:sqlgg}
+    -dialect
+    postgresql
+    -gen
+    caml_io
+    -name
+    Make
+    -static-header
+    schema.sql
+    crud.sql))))
+
+(executable
+ (name test_postgresql)
+ (libraries cats_shared forge forge-db-postgresql lwt alcotest)
+ (preprocess
+  (pps lwt_ppx)))
+
+; Needs FORGE_TEST_PG_URL, e.g. postgresql://forge@127.0.0.1:5499/forge_test
+
+(rule
+ (alias pg)
+ (action
+  (run %{exe:test_postgresql.exe})))

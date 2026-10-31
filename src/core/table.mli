@@ -21,6 +21,9 @@ type column = private {
 type t = private { name : string; columns : column list }
 (** A table, described by [[@@deriving table]] from an OCaml record. *)
 
+(** Whose DDL [ddl] and [schema] print; CRUD queries are the same for both. *)
+type dialect = Mysql | Postgresql
+
 val column :
   ?role:role ->
   ?default:string ->
@@ -31,7 +34,7 @@ val column :
   column
 
 val make : name:string -> column list -> t
-val ddl : t -> string
-val schema : t list -> string
+val ddl : dialect -> t -> string
+val schema : dialect -> t list -> string
 val crud : t -> string
 val decode : (module S : Forge_shared.Scalar.S) -> string -> S.t
