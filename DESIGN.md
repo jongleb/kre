@@ -1156,7 +1156,7 @@ val up : (module D : Db.DRIVER) -> D.conn -> t list -> t list Lwt.t        (* в
 val down : (module D : Db.DRIVER) -> D.conn -> t list -> t option Lwt.t    (* последнюю применённую *)
 ```
 
-CLI: `forge migrate up|down|status --url URL --dir migrations` (`--url` или `DATABASE_URL`), `forge migrate new NAME`. MariaDB коммитит DDL неявно, поэтому миграция из нескольких выражений не атомарна: при сбое посередине база остаётся в промежуточном состоянии, версия не записывается. Проверено на MariaDB (`examples/cats/db/test`, алиас `@db`): пустая база → `up` → схема на месте → `down`, плюс те же шаги через CLI.
+В приложении миграции встраиваются в бинарь: `Forge.Migration.of_files [%embed_dir "migrations"]` — ppx `[%embed_dir]` раскрывается в список `(файл, содержимое)` при сборке (dune: `(preprocessor_deps (glob_files migrations/*.sql))`), поэтому сервер не зависит от рабочего каталога. CLI: `forge migrate up|down|status --url URL --dir migrations` (`--url` или `DATABASE_URL`), `forge migrate new NAME`. MariaDB коммитит DDL неявно, поэтому миграция из нескольких выражений не атомарна: при сбое посередине база остаётся в промежуточном состоянии, версия не записывается. Проверено на MariaDB (`examples/cats/db/test`, алиас `@db`): пустая база → `up` → схема на месте → `down`, плюс те же шаги через CLI.
 
 Фаза 3: `forge migrate diff` сравнивает `schema` всех `table`-типов со снапшотом и генерирует SQL-черновик, который разработчик правит руками; у sqlgg уже есть `-diff`/`-migrate`, сначала проверить их. Автоприменение диффа без просмотра — никогда.
 

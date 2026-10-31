@@ -40,4 +40,7 @@
    ((pps lwt_ppx)
     cats_db_service)
    ((pps lwt_ppx forge-ppx)
-    batch_controller))))
+    batch_controller
+    database)))
+ (preprocessor_deps
+  (glob_files migrations/*.sql)))

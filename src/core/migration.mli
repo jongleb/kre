@@ -6,6 +6,7 @@ type state = Applied | Pending
 
 val parse : version:string -> string -> (t, string) result
 val load : string -> (t list, string) result
+val of_files : (string * string) list -> (t list, string) result
 val create : dir:string -> string -> string
 
 val status :

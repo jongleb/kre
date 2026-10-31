@@ -44,8 +44,7 @@ let () =
                  SESSION_SECRET=***\n\
                  ADMIN_EMAIL=me@cats.io\n\
                  DATABASE_URL=\n\
-                 MIGRATIONS=examples/cats/db/migrations\n\
-                 WEB_DIR=_build/default/examples/cats/web"
+                 WEB_DIR=/srv/cats/web"
                 (Format.asprintf "%a" Config.pp
                    (Result.get_ok
                       (Config.load
@@ -54,6 +53,7 @@ let () =
                               [
                                 ("SESSION_SECRET", "s3cret");
                                 ("ADMIN_EMAIL", "me@cats.io");
+                                ("WEB_DIR", "/srv/cats/web");
                               ])
                          ()))));
           Alcotest.test_case "profile layers: env > <profile>.env > default.env"

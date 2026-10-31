@@ -13,5 +13,6 @@ module Make (Settings : Settings.S) = struct
           (Forge.Migration.up
              (module Forge_db_mariadb.Driver)
              conn
-             (Result.get_ok (Forge.Migration.load Settings.config.migrations))))
+             (Result.get_ok
+                (Forge.Migration.of_files [%embed_dir "migrations"]))))
 end

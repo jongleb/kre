@@ -40,21 +40,26 @@ let parse ~version text =
   | _, [] -> Error (version ^ ": the up section has no statements")
   | _, up -> Ok { version; up; down = statements (List.rev down) }
 
-let load dir =
+let of_files files =
   List.fold_right
-    (fun file loaded ->
+    (fun (file, text) loaded ->
       Result.bind loaded (fun loaded ->
           Result.map
             (fun migration -> migration :: loaded)
-            (parse
-               ~version:(Filename.remove_extension file)
-               (In_channel.with_open_text (Filename.concat dir file)
-                  In_channel.input_all))))
-    (List.sort String.compare
-       (List.filter
-          (fun file -> Filename.check_suffix file ".sql")
-          (Array.to_list (Sys.readdir dir))))
+            (parse ~version:(Filename.remove_extension file) text)))
+    (List.sort
+       (fun (left, _) (right, _) -> String.compare left right)
+       (List.filter (fun (file, _) -> Filename.check_suffix file ".sql") files))
     (Ok [])
+
+let load dir =
+  of_files
+    (List.map
+       (fun file ->
+         ( file,
+           In_channel.with_open_text (Filename.concat dir file)
+             In_channel.input_all ))
+       (Array.to_list (Sys.readdir dir)))
 
 let create ~dir name =
   if not (Sys.file_exists dir) then Sys.mkdir dir 0o755;
