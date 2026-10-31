@@ -24,7 +24,13 @@ type argument = { label : arg_label; source : source; loc : location }
 type segment = Literal of string | Param of { name : string; value : value }
 
 (** How the handler's result becomes a response. *)
-type shape = Empty | Text | Raw | Json of value | Found of value
+type shape =
+  | Empty
+  | Text
+  | Raw
+  | Json of value
+  | Found of value
+  | Moved of string  (** [[@@redirect]]: an empty answer with [Location]. *)
 
 (** [Fallible] handlers return [(_, Forge.Error.t) result Lwt.t]. *)
 type outcome = Plain | Fallible
@@ -39,6 +45,8 @@ type handler = {
   arguments : argument list;
   shape : shape;
   outcome : outcome;
+  headers : expression list;  (** [[@@header (name, value)]], repeatable. *)
+  timeout : expression option;  (** [[@@timeout seconds]]. *)
 }
 
 let string_payload (attribute : attribute) =
@@ -397,6 +405,16 @@ let transform structure =
                   name
             | _ -> ());
             let shape, outcome = returns ~name return_type in
+            let shape =
+              Option.fold ~none:shape
+                ~some:(fun (attribute : attribute) ->
+                  match shape with
+                  | Empty -> Moved (string_payload attribute)
+                  | Text | Raw | Json _ | Found _ | Moved _ ->
+                      Location.raise_errorf ~loc:attribute.attr_loc
+                        "[@@@@redirect] needs a handler returning unit Lwt.t")
+                (attribute_of binding "redirect")
+            in
             {
               name;
               verb;
@@ -432,7 +450,11 @@ let transform structure =
                   raw_segments;
               status =
                 Option.fold
-                  ~none:(match shape with Empty -> 204 | _ -> 200)
+                  ~none:
+                    (match shape with
+                    | Empty -> 204
+                    | Moved _ -> 302
+                    | Text | Raw | Json _ | Found _ -> 200)
                   ~some:(fun attribute ->
                     match int_payload attribute with
                     | status when status >= 100 && status <= 599 -> status
@@ -451,10 +473,47 @@ let transform structure =
               arguments;
               shape;
               outcome;
+              headers =
+                List.filter_map
+                  (fun (attribute : attribute) ->
+                    match (attribute.attr_name.txt, attribute.attr_payload) with
+                    | ( "header",
+                        PStr [ { pstr_desc = Pstr_eval (header, _); _ } ] ) ->
+                        Some header
+                    | "header", _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@header] expects a pair: [@@@@header \
+                           (\"Cache-Control\", \"no-store\")]"
+                    | _ -> None)
+                  binding.pvb_attributes;
+              timeout =
+                Option.map
+                  (fun (attribute : attribute) ->
+                    match attribute.attr_payload with
+                    | PStr
+                        [
+                          {
+                            pstr_desc =
+                              Pstr_eval
+                                ( ({
+                                     pexp_desc = Pexp_constant (Pconst_float _);
+                                     _;
+                                   } as seconds),
+                                  _ );
+                            _;
+                          };
+                        ] ->
+                        seconds
+                    | _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@timeout] expects seconds as a float: \
+                           [@@@@timeout 5.0]")
+                  (attribute_of binding "timeout");
             }
           in
           let handler_attributes =
-            [ "status"; "use"; "guards" ] @ List.map fst verbs
+            [ "status"; "use"; "guards"; "header"; "redirect"; "timeout" ]
+            @ List.map fst verbs
           in
           let items, handlers =
             List.fold_left
@@ -462,7 +521,13 @@ let transform structure =
                 match item.pstr_desc with
                 | Pstr_attribute attribute
                   when List.mem attribute.attr_name.txt
-                         [ "controller"; "use"; "guards"; "version" ] ->
+                         [
+                           "controller";
+                           "use";
+                           "guards";
+                           "version";
+                           "error_handler";
+                         ] ->
                     (items, handlers)
                 | Pstr_value (flag, bindings) -> (
                     match
@@ -653,6 +718,8 @@ let transform structure =
                   [%expr Forge.Route.Json [%e pexp_pack ~loc value.module_]]
               | Found value ->
                   [%expr Forge.Route.Found [%e pexp_pack ~loc value.module_]]
+              | Moved location ->
+                  [%expr Forge.Route.Redirect [%e estring ~loc location]]
             in
             let handle =
               pexp_apply ~loc [%expr Forge.Route.handle]
@@ -664,6 +731,12 @@ let transform structure =
                 @ (match handler.guards with
                   | [] -> []
                   | guards -> [ (Labelled "guards", elist ~loc guards) ])
+                @ (match handler.headers with
+                  | [] -> []
+                  | headers -> [ (Labelled "headers", elist ~loc headers) ])
+                @ Option.fold ~none:[]
+                    ~some:(fun timeout -> [ (Labelled "timeout", timeout) ])
+                    handler.timeout
                 @ [
                     (Nolabel, shape);
                     (Nolabel, [%expr fun __forge_request -> [%e body]]);
@@ -780,7 +853,7 @@ let transform structure =
                 returns =
                   [%e
                     match handler.shape with
-                    | Empty -> [%expr Forge.Spec.Unit]
+                    | Empty | Moved _ -> [%expr Forge.Spec.Unit]
                     | Text -> [%expr Forge.Spec.Text]
                     | Raw -> [%expr Forge.Spec.Raw]
                     | Json value | Found value ->
@@ -829,6 +902,15 @@ let transform structure =
                  | [] -> []
                  | middleware ->
                      [ (Labelled "middleware", elist ~loc middleware) ])
+              @ Option.fold ~none:[]
+                  ~some:(fun (attribute : attribute) ->
+                    match attribute.attr_payload with
+                    | PStr [ { pstr_desc = Pstr_eval (handler, _); _ } ] ->
+                        [ (Labelled "error_handler", handler) ]
+                    | _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@@@error_handler] expects a Forge.Error.handler")
+                  (List.nth_opt (floating "error_handler") 0)
               @ [
                   (Labelled "spec", [%expr spec]);
                   (Nolabel, elist ~loc (List.map route handlers));

@@ -1,4 +1,4 @@
-let handler : Forge.App.error_handler =
+let handler : Forge.Error.handler =
  fun request error ->
   match error.code with
   | "not_found" -> Dream.html ~status:`Not_Found "<h1>Nothing here</h1>"

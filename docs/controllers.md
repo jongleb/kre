@@ -32,6 +32,6 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 - `~(user : string [@guard Auth.user])` — значение из запроса (guard), в `spec` и клиент не попадает.
 - `(module Cats : Cats_service.S)` — **зависимость** (modular explicit): `register` принимает модуль и передаёт его хендлеру.
 - Тип результата решает сериализацию: `T.t Lwt.t` → JSON, `T.t option Lwt.t` → JSON или 404, `(T.t, Forge.Error.t) result Lwt.t` → JSON или ошибка, `unit Lwt.t` → 204, `string Lwt.t` → текст.
-- `[@@status 201]` — код успеха (`@HttpCode`).
+- `[@@status 201]` — код успеха (`@HttpCode`); `[@@header ("Cache-Control", "no-store")]` — `@Header`; `[@@redirect "/cats"]` — `@Redirect`; `[@@timeout 5.0]` — 504, если хендлер не успел; `[@@@error_handler h]` — фильтр исключений на весь контроллер.
 
 Пути доступны и коду: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. Сгенерированный код целиком — `test/ppx/controller.t`.

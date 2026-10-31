@@ -11,7 +11,7 @@ Nest: `HttpException` и фильтры. Forge: значение `Forge.Error.t`
 
 <!-- $MDX file=examples/error_pages.ml -->
 ```ocaml
-let handler : Forge.App.error_handler =
+let handler : Forge.Error.handler =
  fun request error ->
   match error.code with
   | "not_found" -> Dream.html ~status:`Not_Found "<h1>Nothing here</h1>"

@@ -549,6 +549,7 @@ module Error : sig
     extensions : (string * Jsonkit.t) list;   (* доп. члены Problem Details верхнего уровня *)
   }
   exception E of t
+  type handler = Dream.request -> t -> Dream.response Lwt.t   (* exception filter *)
   val make : status:status -> code:string -> ?type_:string -> ?extensions:(string * Jsonkit.t) list -> string -> t
   val bad_request : ?extensions:(string * Jsonkit.t) list -> string -> t   (* 400 *)
   val unauthorized : string -> t      (* 401 *)
@@ -601,24 +602,24 @@ module Route : sig
     | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
     | Found : (module Forge_shared.Json.S with type t = 'a) -> 'a option returns   (* None → 404 *)
     | Raw : Dream.response returns
+    | Redirect : string -> unit returns                                              (* Location *)
   val v : ?middleware:Dream.middleware list -> Spec.verb -> handler Routes.route -> t
-  val handle : status:Dream.status -> ?guards:unit Guard.t list -> 'a returns ->
+  val handle : status:Dream.status -> ?guards:unit Guard.t list -> ?headers:(string * string) list -> ?timeout:float -> 'a returns ->
     (Dream.request -> ('a, Error.t) result Lwt.t) -> handler
 end
 
 (* Forge.Controller *)
 module Controller : sig
-  type t = private { spec : Spec.t; middleware : Dream.middleware list; routes : Route.t list }
-  val v : ?middleware:Dream.middleware list -> spec:Spec.t -> Route.t list -> t
+  type t = private { spec : Spec.t; middleware : Dream.middleware list; routes : Route.t list; error_handler : Error.handler option }
+  val v : ?middleware:Dream.middleware list -> ?error_handler:Error.handler -> spec:Spec.t -> Route.t list -> t
 end
 
 (* Forge.App — сборка и запуск *)
 module App : sig
   type tls = Development_certificate | Certificate of { certificate_file : string; key_file : string }
-  type error_handler = Dream.request -> Error.t -> Dream.response Lwt.t
-  val handler : ?middleware:Dream.middleware list -> ?error_handler:error_handler -> Controller.t list -> Dream.handler
+  val handler : ?middleware:Dream.middleware list -> ?error_handler:Error.handler -> Controller.t list -> Dream.handler
   val run : ?interface:string -> ?port:int -> ?tls:tls -> ?middleware:Dream.middleware list ->
-    ?error_handler:error_handler -> ?on_start:(unit -> unit Lwt.t) -> ?on_shutdown:(unit -> unit Lwt.t) ->
+    ?error_handler:Error.handler -> ?on_start:(unit -> unit Lwt.t) -> ?on_shutdown:(unit -> unit Lwt.t) ->
     Controller.t list -> unit
 end
 ```
@@ -764,7 +765,7 @@ let register (module Cats : Cats_service.S) =
 
 `Forge.Route` — модуль рантайма: `handle` оборачивает guards, сериализацию и маппинг ошибок; `query`, `body`, `segment`, `ok`, `Syntax.let*` — всё, что вызывает сгенерированный код. Логики в сгенерированном коде нет.
 
-Отложено до фазы 2 (как отдельные строки): `[@@header]`, `[@@redirect]`, `[@@sse]`, `[@@@inject]`, `[@@@error_handler]`, `[@@timeout]`.
+Фаза 2: `[@@header (k, v)]` (повторяемый, на успешный ответ), `[@@redirect "/url"]` (хендлер с `unit Lwt.t`, статус по умолчанию 302), `[@@timeout 5.0]` (`Lwt.pick` со сном, по истечении — 504 `timeout`), `[@@@error_handler h]` (`Forge.Error.handler` для ошибок маршрутов этого контроллера) — сделаны, пример — `docs/examples/legacy_controller.ml`. `[@@@inject]` не нужен: хелпер принимает модуль параметром, как хендлер. `[@codec e]` не нужен: свой разбор — свой модуль `Scalar.S`. `[@@sse]` — отдельной строкой.
 
 ### Ошибки ppx (все через `Location.raise_errorf`, с локацией на виновный узел)
 
@@ -1533,4 +1534,4 @@ open http://localhost:8080/cats/1
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
 - [ ] `--emit-spec` запускает composition root (`main.ml`), а он сначала грузит конфиг, поэтому сборка требует переменных окружения (в cats dune-правило ставит `SESSION_SECRET=unused`). `spec` статичен; вариант — `forge` сам собирает маленький бинарь, который печатает `Cats_controller.spec`, без запуска `main`.
 - [ ] `ssl 0.8.0`, собранный против OpenSSL 4, падает при инициализации `conduit-lwt-unix` (минимум SSL3 больше не поддерживается), а с ним и native-клиент на cohttp. Локальный switch пересобран против `openssl@3` (`PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig opam reinstall ssl`); на ubuntu в CI OpenSSL 3. Чинить в ssl или уйти с conduit в native-клиенте.
-- [ ] Атрибуты контроллера, отложенные из фазы 1: `[@@header]`, `[@@redirect]`, `[@@sse]`, `[@@@inject]`, `[@@@error_handler]`, `[@@timeout]`, `[@codec e]`.
+- [x] Атрибуты контроллера, отложенные из фазы 1: сделаны в фазе 2, кроме `[@@sse]` (своя строка); `[@@@inject]` и `[@codec e]` не нужны (см. раздел ppx: controller).

@@ -285,3 +285,29 @@ A guard needs an expression.
   Error: [@guard] expects a guard expression of type 'a Forge.Guard.t
   [1]
 
+Redirect needs a unit handler.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : string Lwt.t = Lwt.return "x" [@@get] [@@redirect "/x"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 49-66:
+  2 | let f () : string Lwt.t = Lwt.return "x" [@@get] [@@redirect "/x"]
+                                                       ^^^^^^^^^^^^^^^^^
+  Error: [@@redirect] needs a handler returning unit Lwt.t
+  [1]
+
+Timeout takes seconds as a float.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : unit Lwt.t = Lwt.return_unit [@@get] [@@timeout 5]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 48-61:
+  2 | let f () : unit Lwt.t = Lwt.return_unit [@@get] [@@timeout 5]
+                                                      ^^^^^^^^^^^^^
+  Error: [@@timeout] expects seconds as a float: [@@timeout 5.0]
+  [1]
+

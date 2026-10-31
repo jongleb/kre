@@ -2,8 +2,6 @@ type tls =
   | Development_certificate
   | Certificate of { certificate_file : string; key_file : string }
 
-type error_handler = Dream.request -> Error.t -> Dream.response Lwt.t
-
 let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
     =
   let routes =
@@ -18,7 +16,9 @@ let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
                     (fun request ->
                       Lwt.bind (handle request)
                         (Result.fold ~ok:Lwt.return
-                           ~error:(error_handler request))))
+                           ~error:
+                             (Option.value controller.error_handler
+                                ~default:error_handler request))))
                 route.target ))
           controller.routes)
       controllers

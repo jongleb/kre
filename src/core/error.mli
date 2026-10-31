@@ -13,6 +13,9 @@ type t = private {
 
 exception E of t
 
+type handler = Dream.request -> t -> Dream.response Lwt.t
+(** Turns an error into a response; Nest exception filters. *)
+
 val make :
   status:status ->
   code:string ->

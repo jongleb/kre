@@ -12,11 +12,13 @@ type 'a returns =
   | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
   | Found : (module Forge_shared.Json.S with type t = 'a) -> 'a option returns
   | Raw : Dream.response returns
+  | Redirect : string -> unit returns
 
 let v ?(middleware = []) verb target = { verb; middleware; target }
 
-let handle (type a) ~status ?(guards = []) (returns : a returns)
-    (body : Dream.request -> (a, Error.t) result Lwt.t) request =
+let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
+    (returns : a returns) (body : Dream.request -> (a, Error.t) result Lwt.t)
+    request =
   let respond (value : a) =
     match returns with
     | Unit -> Lwt_result.ok (Dream.empty status)
@@ -33,6 +35,30 @@ let handle (type a) ~status ?(guards = []) (returns : a returns)
             Lwt_result.ok (Response.json ~status (module J) found))
           value
     | Raw -> Lwt.return_ok value
+    | Redirect location ->
+        Lwt_result.ok
+          (Dream.respond ~status ~headers:[ ("Location", location) ] "")
+  in
+  let with_headers response =
+    List.iter
+      (fun (name, value) -> Dream.add_header response name value)
+      headers;
+    response
+  in
+  let limited run =
+    Option.fold ~none:(run ())
+      ~some:(fun seconds ->
+        Lwt.pick
+          [
+            run ();
+            Lwt.map
+              (fun () ->
+                Error
+                  (Error.make ~status:`Gateway_Timeout ~code:"timeout"
+                     (Printf.sprintf "handler took longer than %gs" seconds)))
+              (Lwt_unix.sleep seconds);
+          ])
+      timeout
   in
   Lwt.catch
     (fun () ->
@@ -43,8 +69,8 @@ let handle (type a) ~status ?(guards = []) (returns : a returns)
             Lwt_result.bind checked (fun () -> guard request))
           (Lwt.return_ok ()) guards
       in
-      let* value = body request in
-      respond value)
+      let* value = limited (fun () -> body request) in
+      Lwt_result.map with_headers (respond value))
     (function
       | Error.E error -> Lwt.return_error error
       | exn ->

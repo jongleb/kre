@@ -10,6 +10,8 @@ type t = {
 
 exception E of t
 
+type handler = Dream.request -> t -> Dream.response Lwt.t
+
 let make ~status ~code ?type_ ?(extensions = []) detail =
   {
     status;

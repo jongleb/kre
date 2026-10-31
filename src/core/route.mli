@@ -16,6 +16,8 @@ type 'a returns =
   | Found : (module Forge_shared.Json.S with type t = 'a) -> 'a option returns
       (** [None] answers 404. *)
   | Raw : Dream.response returns
+  | Redirect : string -> unit returns
+      (** [Location] with the route's status. *)
 
 val v :
   ?middleware:Dream.middleware list -> Spec.verb -> handler Routes.route -> t
@@ -23,6 +25,8 @@ val v :
 val handle :
   status:Dream.status ->
   ?guards:unit Guard.t list ->
+  ?headers:(string * string) list ->
+  ?timeout:float ->
   'a returns ->
   (Dream.request -> ('a, Error.t) result Lwt.t) ->
   handler

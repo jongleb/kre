@@ -49,6 +49,36 @@ let () =
                 (call
                    (Forge.App.handler ~error_handler:Error_pages.handler [])
                    `GET "/missing"));
+          Alcotest.test_case "redirect, timeout, header, controller filter"
+            `Quick (fun () ->
+              let legacy = app [ Legacy_controller.register () ] in
+              let header target name =
+                Dream.header (Dream.test legacy (Dream.request ~target "")) name
+              in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [
+                  (302, "");
+                  (504, "");
+                  (200, "fresh");
+                  (404, "<h1>Nothing here</h1>");
+                ]
+                (List.map
+                   (fun target ->
+                     match call legacy `GET target with
+                     | 504, _ -> (504, "")
+                     | response -> response)
+                   [
+                     "/legacy/cats";
+                     "/legacy/slow";
+                     "/legacy/fresh";
+                     "/legacy/gone";
+                   ]);
+              Alcotest.(check (pair (option string) (option string)))
+                "headers"
+                (Some "/cats", Some "no-store")
+                ( header "/legacy/cats" "Location",
+                  header "/legacy/fresh" "Cache-Control" ));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200
