@@ -17,8 +17,8 @@ type 'a returns =
 let v ?(middleware = []) verb target = { verb; middleware; target }
 
 let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
-    (returns : a returns) (body : Dream.request -> (a, Error.t) result Lwt.t)
-    request =
+    ?(interceptors = []) (returns : a returns)
+    (body : Dream.request -> (a, Error.t) result Lwt.t) request =
   let respond (value : a) =
     match returns with
     | Unit -> Lwt_result.ok (Dream.empty status)
@@ -69,7 +69,10 @@ let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
             Lwt_result.bind checked (fun () -> guard request))
           (Lwt.return_ok ()) guards
       in
-      let* value = limited (fun () -> body request) in
+      let* value =
+        (Interceptor.chain interceptors).around request (fun () ->
+            limited (fun () -> body request))
+      in
       Lwt_result.map with_headers (respond value))
     (function
       | Error.E error -> Lwt.return_error error
@@ -78,8 +81,9 @@ let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
               log ~request "unhandled exception: %s" (Printexc.to_string exn));
           Lwt.return_error (Error.internal "internal server error"))
 
-let events ~status ?guards ?headers (module J : Forge_shared.Json.S) body =
-  handle ~status ?guards ?headers Raw (fun request ->
+let events ~status ?guards ?headers ?interceptors
+    (module J : Forge_shared.Json.S) body =
+  handle ~status ?guards ?headers ?interceptors Raw (fun request ->
       Lwt.bind (body request) (function
         | Error error -> Lwt.return_error error
         | Ok events ->

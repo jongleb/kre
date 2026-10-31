@@ -149,6 +149,17 @@ let () =
                   | 422, _ -> (422, "invalid")
                   | other -> other);
                 ]);
+          Alcotest.test_case "interceptors" `Quick (fun () ->
+              let audit = app [ Audit_controller.register () ] in
+              let statuses =
+                List.map
+                  (fun target -> fst (call audit `GET target))
+                  [ "/audit/1"; "/audit/2"; "/audit/slow" ]
+              in
+              Alcotest.(check (pair (list int) int))
+                "statuses and calls"
+                ([ 200; 403; 504 ], 2)
+                (statuses, !Audit_controller.calls));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

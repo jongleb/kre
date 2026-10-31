@@ -56,6 +56,7 @@ type handler = {
   shape : shape;
   outcome : outcome;
   headers : expression list;  (** [[@@header (name, value)]], repeatable. *)
+  interceptors : expression list;  (** [[@@@intercept]] then [[@@intercept]]. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
@@ -460,6 +461,9 @@ let transform structure =
           let controller_middleware =
             List.concat_map list_payload (floating "use")
           in
+          let controller_interceptors =
+            List.concat_map list_payload (floating "intercept")
+          in
           let controller_guards =
             List.concat_map list_payload (floating "guards")
           in
@@ -613,6 +617,10 @@ let transform structure =
               arguments;
               shape;
               outcome;
+              interceptors =
+                controller_interceptors
+                @ Option.fold ~none:[] ~some:list_payload
+                    (attribute_of binding "intercept");
               headers =
                 List.filter_map
                   (fun (attribute : attribute) ->
@@ -747,6 +755,7 @@ let transform structure =
               "transactional";
               "authorize";
               "sse";
+              "intercept";
             ]
             @ List.map fst verbs
           in
@@ -762,6 +771,7 @@ let transform structure =
                            "guards";
                            "version";
                            "error_handler";
+                           "intercept";
                          ] ->
                     (items, handlers)
                 | Pstr_value (flag, bindings) -> (
@@ -1012,6 +1022,10 @@ let transform structure =
                 @ (match handler.headers with
                   | [] -> []
                   | headers -> [ (Labelled "headers", elist ~loc headers) ])
+                @ (match handler.interceptors with
+                  | [] -> []
+                  | interceptors ->
+                      [ (Labelled "interceptors", elist ~loc interceptors) ])
                 @ timeout
                 @ [
                     (Nolabel, form);

@@ -27,6 +27,7 @@ val handle :
   ?guards:unit Guard.t list ->
   ?headers:(string * string) list ->
   ?timeout:float ->
+  ?interceptors:Interceptor.t list ->
   'a returns ->
   (Dream.request -> ('a, Error.t) result Lwt.t) ->
   handler
@@ -35,6 +36,7 @@ val events :
   status:Dream.status ->
   ?guards:unit Guard.t list ->
   ?headers:(string * string) list ->
+  ?interceptors:Interceptor.t list ->
   (module J : Forge_shared.Json.S) ->
   (Dream.request -> (J.t Lwt_stream.t, Error.t) result Lwt.t) -> handler
 
