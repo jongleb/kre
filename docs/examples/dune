@@ -1,0 +1,16 @@
+; Compiled examples quoted by the chapters in ../ (mdx keeps them in sync).
+
+(library
+ (name forge_docs)
+ (wrapped false)
+ (libraries
+  cats_server
+  cats_shared
+  forge
+  forge.shared
+  dream
+  lwt
+  unix
+  jsonkit)
+ (preprocess
+  (pps lwt_ppx jsonkit.ppx forge-ppx)))

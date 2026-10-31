@@ -1,0 +1,11 @@
+# Forge — документация
+
+Оглавление повторяет [docs.nestjs.com](https://docs.nestjs.com/). Каждая глава показывает порт примера Nest; код в главах — это файлы `examples/cats` и `docs/examples`, которые собираются и проверяются тестами (mdx следит, чтобы текст в главе совпадал с файлом).
+
+**Overview:** [First steps](first-steps.md) · [Controllers](controllers.md) · [Providers](providers.md) · [Modules](modules.md) · [Middleware](middleware.md) · [Exception filters](exception-filters.md) · [Pipes](pipes.md) · [Guards](guards.md) · [Interceptors](interceptors.md) · [Custom decorators](custom-decorators.md)
+
+**Fundamentals:** [Custom providers](custom-providers.md) · [Async providers и dynamic modules](dynamic-modules.md) · [Injection scopes](injection-scopes.md) · [Execution context](execution-context.md) · [Lifecycle events](lifecycle-events.md) · [Testing](testing.md) · [Что не нужно и почему](not-needed.md)
+
+**Techniques:** [Configuration](configuration.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md)
+
+**OpenAPI, CLI, клиент:** [OpenAPI и CLI](openapi-cli.md) · [Клиент и роутер](client.md)

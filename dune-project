@@ -2,6 +2,8 @@
 
 (using melange 0.1)
 
+(using mdx 0.4)
+
 (name forge)
 
 (generate_opam_files true)

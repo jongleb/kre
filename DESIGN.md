@@ -1441,7 +1441,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ `Forge.Db` (пул, транзакции) + `Forge_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запросы против сгенерированного `schema.sql` компилируются и выполняются на MariaDB 11.8 (алиас `@db`, отдельная CI-задача) |
 | ✅ `forge migrate up/down/status/new` (+ `Forge.Migration`) | e2e на MariaDB: пустая база → up → down, программно и через CLI |
 | ✅ `forge new`, `forge generate controller/service/dto` | cram (`test/scaffold/new.t`) с установленными пакетами: проект собирается и проходит свой тест; ресурс из `generate controller` собирается и проходит CRUD-тест; существующие файлы не перезаписываются |
-| Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data | каждая глава содержит порт Nest-примера, который компилируется в `docs/` как mdx-тест |
+| ✅ Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data (+ OpenAPI/CLI, клиент) | 24 главы в `docs/`; код в них — файлы `examples/cats` и `docs/examples`, mdx (`$MDX file=`) сверяет текст с файлами, а `docs/examples/test` гоняет примеры глав через `Dream.test` |
 
 **Критерий фазы 1:** `examples/cats` — порт Nest-примера — собирается (`dune build @all`), `dune test` зелёный, `forge client` регенерирует клиент без диффа, страница `/cats/1` в браузере показывает кота из БД.
 
@@ -1494,7 +1494,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 
 - Для каждой трансформации: expect-тест эталонного вывода + по тесту на каждую ошибку.
 - `examples/cats` — всегда зелёный; это интеграционный тест ядра.
-- Главы в `docs/` повторяют оглавление Nest; каждая содержит порт Nest-примера, который компилируется (mdx-тест). Глава без компилируемого примера не считается написанной.
+- Главы в `docs/` повторяют оглавление Nest; каждая содержит порт Nest-примера. Код в главе — не текст, а ссылка `<!-- $MDX file=… -->` на собираемый файл (`examples/` или `docs/examples/`); `dune test` падает, если текст разошёлся с файлом, `dune promote` обновляет главу. Блоки `sh` помечаются `<!-- $MDX skip -->`. Глава без такого блока не считается написанной.
 
 ### Процесс для Claude Code
 
