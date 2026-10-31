@@ -42,7 +42,10 @@ let () =
                  DEBUG=false\n\
                  CORS_ORIGINS=\n\
                  SESSION_SECRET=***\n\
-                 ADMIN_EMAIL=me@cats.io"
+                 ADMIN_EMAIL=me@cats.io\n\
+                 DATABASE_URL=\n\
+                 MIGRATIONS=examples/cats/db/migrations\n\
+                 WEB_DIR=_build/default/examples/cats/web"
                 (Format.asprintf "%a" Config.pp
                    (Result.get_ok
                       (Config.load
