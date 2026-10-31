@@ -24,6 +24,21 @@ shape of a sqlgg callback.
           Forge.Table.column ~default:"0" "created" Forge.Table.Double
             Forge.Table.Not_null]
       let _ = table
+      let for_insert (__forge_record : t) __forge_query =
+        __forge_query ~email:(Email.to_string __forge_record.email)
+          ~age:(Option.map (fun value -> Int64.of_int value) __forge_record.age)
+          ~owner_id:(Option.map (fun value -> Int64.of_int value)
+                       __forge_record.owner_id)
+          ~created:(__forge_record.created)
+      let _ = for_insert
+      let for_update (__forge_record : t) __forge_query =
+        __forge_query ~email:(Email.to_string __forge_record.email)
+          ~age:(Option.map (fun value -> Int64.of_int value) __forge_record.age)
+          ~owner_id:(Option.map (fun value -> Int64.of_int value)
+                       __forge_record.owner_id)
+          ~created:(__forge_record.created)
+          ~id:(Int64.of_int __forge_record.id)
+      let _ = for_update
       let of_row ~id:(id : int64) ~email:(email : string)
         ~age:(age : int64 option) ~owner_id:(owner_id : int64 option)
         ~created:(created : float) =

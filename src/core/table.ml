@@ -76,5 +76,57 @@ let ddl table =
 
 let schema tables = String.concat "\n" (List.map ddl tables)
 
+let crud table =
+  let names columns = List.map (fun (column : column) -> column.name) columns in
+  let key =
+    List.find_opt
+      (fun (column : column) ->
+        match column.role with
+        | Primary_auto | Primary -> true
+        | Unique | Index | Plain -> false)
+      table.columns
+  in
+  let inserted =
+    List.filter
+      (fun (column : column) ->
+        match column.role with
+        | Primary_auto -> false
+        | Primary | Unique | Index | Plain -> true)
+      table.columns
+  in
+  let all = String.concat ", " (names table.columns) in
+  String.concat "\n"
+    ([
+       "-- @all";
+       Printf.sprintf "SELECT %s FROM %s;" all table.name;
+       "-- @insert";
+       Printf.sprintf "INSERT INTO %s (%s) VALUES (%s);" table.name
+         (String.concat ", " (names inserted))
+         (String.concat ", "
+            (List.map (fun name -> "@" ^ name) (names inserted)));
+     ]
+    @ Option.fold ~none:[]
+        ~some:(fun (key : column) ->
+          let others =
+            List.filter
+              (fun (column : column) -> not (String.equal column.name key.name))
+              table.columns
+          in
+          [
+            "-- @find";
+            Printf.sprintf "SELECT %s FROM %s WHERE %s = @%s;" all table.name
+              key.name key.name;
+            "-- @update";
+            Printf.sprintf "UPDATE %s SET %s WHERE %s = @%s;" table.name
+              (String.concat ", "
+                 (List.map (fun name -> name ^ " = @" ^ name) (names others)))
+              key.name key.name;
+            "-- @delete";
+            Printf.sprintf "DELETE FROM %s WHERE %s = @%s;" table.name key.name
+              key.name;
+          ])
+        key
+    @ [ "" ])
+
 let decode (module S : Forge_shared.Scalar.S) raw =
   Forge_shared.Validation.ok_exn (S.of_string raw)

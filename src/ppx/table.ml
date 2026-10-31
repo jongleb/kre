@@ -194,30 +194,128 @@ let structure ~ctxt (_, declarations) table_name =
             | `Not_null -> row_type ) )
       in
       let columns = List.map column labels in
+      let encode (label : label_declaration) value =
+        let loc = label.pld_loc in
+        let nullable, base =
+          match label.pld_type.ptyp_desc with
+          | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]) ->
+              (`Null, element)
+          | _ -> (`Not_null, label.pld_type)
+        in
+        let one value =
+          match base.ptyp_desc with
+          | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
+              [%expr Int64.of_int [%e value]]
+          | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []) -> (
+              let text =
+                [%expr
+                  [%e pexp_ident ~loc { txt = Ldot (path, "to_string"); loc }]
+                    [%e value]]
+              in
+              match
+                List.find_map
+                  (fun (attribute : attribute) ->
+                    match (attribute.attr_name.txt, attribute.attr_payload) with
+                    | ( "column",
+                        PStr
+                          [
+                            {
+                              pstr_desc =
+                                Pstr_eval
+                                  ( {
+                                      pexp_desc =
+                                        Pexp_ident { txt = Lident kind; _ };
+                                      _;
+                                    },
+                                    _ );
+                              _;
+                            };
+                          ] ) ->
+                        Some kind
+                    | _ -> None)
+                  label.pld_attributes
+              with
+              | Some ("int" | "int64") -> [%expr Int64.of_string [%e text]]
+              | Some "bool" -> [%expr bool_of_string [%e text]]
+              | Some "float" -> [%expr float_of_string [%e text]]
+              | Some _ | None -> text)
+          | _ -> value
+        in
+        match nullable with
+        | `Null ->
+            [%expr Option.map (fun value -> [%e one [%expr value]]) [%e value]]
+        | `Not_null -> one value
+      in
+      let has (label : label_declaration) name =
+        List.exists
+          (fun (attribute : attribute) ->
+            String.equal attribute.attr_name.txt name)
+          label.pld_attributes
+      in
+      let spread fields =
+        [%expr
+          fun (__forge_record :
+                [%t ptyp_constr ~loc { txt = Lident type_name; loc } []])
+              __forge_query ->
+            [%e
+              pexp_apply ~loc [%expr __forge_query]
+                (List.map
+                   (fun (label : label_declaration) ->
+                     ( Labelled label.pld_name.txt,
+                       encode label
+                         (pexp_field ~loc [%expr __forge_record]
+                            { txt = Lident label.pld_name.txt; loc }) ))
+                   fields)]]
+      in
       [
         [%stri
           let [%p pvar ~loc (value_name "table")] : Forge.Table.t =
             Forge.Table.make ~name:[%e estring ~loc table_name]
               [%e elist ~loc (List.map fst columns)]];
         [%stri
-          let [%p pvar ~loc (value_name "of_row")] =
+          let [%p pvar ~loc (value_name "for_insert")] =
             [%e
-              List.fold_right
-                (fun ((label : label_declaration), (_, (arg_label, _, row_type)))
-                     body ->
-                  pexp_fun ~loc arg_label None
-                    (ppat_constraint ~loc
-                       (pvar ~loc label.pld_name.txt)
-                       row_type)
-                    body)
-                (List.combine labels columns)
-                (pexp_constraint ~loc
-                   (pexp_record ~loc
-                      (List.map2
-                         (fun (label : label_declaration) (_, (_, converted, _))
-                            ->
-                           ({ txt = Lident label.pld_name.txt; loc }, converted))
-                         labels columns)
-                      None)
-                   (ptyp_constr ~loc { txt = Lident type_name; loc } []))]];
+              spread
+                (List.filter
+                   (fun label -> not (has label "primary" && has label "auto"))
+                   labels)]];
       ]
+      @ Option.fold ~none:[]
+          ~some:(fun key ->
+            [
+              [%stri
+                let [%p pvar ~loc (value_name "for_update")] =
+                  [%e
+                    spread
+                      (List.filter
+                         (fun (label : label_declaration) ->
+                           not
+                             (String.equal label.pld_name.txt key.pld_name.txt))
+                         labels
+                      @ [ key ])]];
+            ])
+          (List.find_opt (fun label -> has label "primary") labels)
+      @ [
+          [%stri
+            let [%p pvar ~loc (value_name "of_row")] =
+              [%e
+                List.fold_right
+                  (fun ( (label : label_declaration),
+                         (_, (arg_label, _, row_type)) ) body ->
+                    pexp_fun ~loc arg_label None
+                      (ppat_constraint ~loc
+                         (pvar ~loc label.pld_name.txt)
+                         row_type)
+                      body)
+                  (List.combine labels columns)
+                  (pexp_constraint ~loc
+                     (pexp_record ~loc
+                        (List.map2
+                           (fun (label : label_declaration)
+                                (_, (_, converted, _)) ->
+                             ( { txt = Lident label.pld_name.txt; loc },
+                               converted ))
+                           labels columns)
+                        None)
+                     (ptyp_constr ~loc { txt = Lident type_name; loc } []))]];
+        ]

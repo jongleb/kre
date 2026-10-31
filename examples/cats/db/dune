@@ -6,6 +6,31 @@
    (run %{exe:schema.exe}))))
 
 (rule
+ (targets crud.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:schema.exe} crud))))
+
+(rule
+ (targets cats_crud.ml)
+ (deps schema.sql crud.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run
+    sqlgg
+    -dialect
+    mysql
+    -gen
+    caml_io
+    -name
+    Make
+    -static-header
+    schema.sql
+    crud.sql))))
+
+(rule
  (targets cats_sql.ml)
  (deps schema.sql queries/cats.sql)
  (action
@@ -31,7 +56,7 @@
 (library
  (name cats_db)
  (wrapped false)
- (modules cats_sql cats_db_service batch_controller database)
+ (modules cats_sql cats_crud cats_db_service batch_controller database)
  (flags
   (:standard -w -32-27))
  (libraries cats_server cats_shared forge forge-db-mariadb sqlgg.traits lwt)

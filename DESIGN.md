@@ -1120,7 +1120,7 @@ val find_adults_by_breed : Db.conn -> breed:string -> min_age:int -> User.t list
 
 ### &#91;@@deriving table\]
 
-Реализовано в фазе 1 (DDL и `of_row`; CRUD — фаза 2):
+Реализовано: DDL и `of_row` (фаза 1); CRUD (фаза 2) — `Forge.Table.crud` печатает SQL, sqlgg генерирует модуль, деривер даёт `for_insert`/`for_update`. Один общий `spread` невозможен: метки не переставляются у параметра без аннотации типа, а у sqlgg `update` ставит ключ последним, `insert` его не принимает.
 
 ```ocaml
 type t = {
@@ -1528,6 +1528,7 @@ open http://localhost:8080/cats/1
 - ✅ interceptors: `Forge.Interceptor.t` (полиморфный `around` над типизированным результатом), `[@@intercept]`/`[@@@intercept]`, готовые `logging`, `timeout`, `map_error`, `tap`, `chain`
 - ✅ декораторы параметров Nest/Spring: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Forge.Extract`), заголовки и cookies в spec/OpenAPI, заголовки в клиенте
 - ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)
+- ✅ table CRUD: `Forge.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

@@ -83,6 +83,40 @@ let () =
                 ( committed,
                   rolled_back,
                   List.length (Lwt_main.run (Cats.find_all ())) ));
+          Alcotest.test_case "crud: for_insert, for_update, delete" `Quick
+            (fun () ->
+              let module Crud = Cats_crud.Make (Forge_db_mariadb.Sql) in
+              let tom = Option.get (Lwt_main.run (Cats.find Cat.Id.first)) in
+              let name conn id =
+                Lwt.map
+                  (Option.fold ~none:"gone" ~some:(fun (cat : Cat.t) ->
+                       Cat.Name.to_repr cat.name))
+                  (Crud.Single.find conn ~id Cat.of_row)
+              in
+              Alcotest.(check (list string))
+                "inserted, renamed, gone"
+                [ "tom"; "thomas"; "gone" ]
+                (Lwt_main.run
+                   (Db.with_conn (fun conn ->
+                        let%lwt inserted =
+                          Cat.for_insert tom (Crud.insert conn)
+                        in
+                        let id = Option.get inserted.insert_id in
+                        let%lwt first = name conn id in
+                        let%lwt _ =
+                          Cat.for_update
+                            {
+                              tom with
+                              id =
+                                Result.get_ok (Cat.Id.of_repr (Int64.to_int id));
+                              name = Result.get_ok (Cat.Name.of_repr "thomas");
+                            }
+                            (Crud.update conn)
+                        in
+                        let%lwt renamed = name conn id in
+                        let%lwt _ = Crud.delete conn ~id in
+                        let%lwt gone = name conn id in
+                        Lwt.return [ first; renamed; gone ]))));
           Alcotest.test_case "transaction rolls back on Error" `Quick (fun () ->
               let attempt =
                 Lwt_main.run

@@ -3,6 +3,7 @@
 module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) =
 struct
   module Sql = Cats_sql.Make (Forge_db_mariadb.Sql)
+  module Crud = Cats_crud.Make (Forge_db_mariadb.Sql)
 
   let reset () =
     Db.with_conn (fun conn ->
@@ -30,10 +31,9 @@ struct
             Forge.Error.fail
               (Forge.Error.internal "insert returned no valid id"))
 
-  let find_all () =
-    Db.with_conn (fun conn -> Sql.List.all conn ~limit:1000L Cat.of_row)
+  let find_all () = Db.with_conn (fun conn -> Crud.List.all conn Cat.of_row)
 
   let find id =
     Db.with_conn (fun conn ->
-        Sql.Single.by_id conn ~id:(Int64.of_int (Cat.Id.to_repr id)) Cat.of_row)
+        Crud.Single.find conn ~id:(Int64.of_int (Cat.Id.to_repr id)) Cat.of_row)
 end

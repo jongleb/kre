@@ -33,4 +33,5 @@ val column :
 val make : name:string -> column list -> t
 val ddl : t -> string
 val schema : t list -> string
+val crud : t -> string
 val decode : (module S : Forge_shared.Scalar.S) -> string -> S.t

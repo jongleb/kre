@@ -7,7 +7,11 @@ Nest: TypeORM, Prisma, Mongoose — пять глав. Forge: одна цепо�
 
 <!-- $MDX file=../examples/cats/db/schema.ml -->
 ```ocaml
-let () = print_string (Forge.Table.schema [ Cat.table ])
+let () =
+  print_string
+    (match Sys.argv with
+    | [| _; "crud" |] -> Forge.Table.crud Cat.table
+    | _ -> Forge.Table.schema [ Cat.table ])
 ```
 
 3. sqlgg генерирует по `schema.sql` и запросам типизированный модуль (dune-правило в `examples/cats/db/dune`).
@@ -20,6 +24,7 @@ let () = print_string (Forge.Table.schema [ Cat.table ])
 module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) =
 struct
   module Sql = Cats_sql.Make (Forge_db_mariadb.Sql)
+  module Crud = Cats_crud.Make (Forge_db_mariadb.Sql)
 
   let reset () =
     Db.with_conn (fun conn ->
@@ -47,14 +52,24 @@ struct
             Forge.Error.fail
               (Forge.Error.internal "insert returned no valid id"))
 
-  let find_all () =
-    Db.with_conn (fun conn -> Sql.List.all conn ~limit:1000L Cat.of_row)
+  let find_all () = Db.with_conn (fun conn -> Crud.List.all conn Cat.of_row)
 
   let find id =
     Db.with_conn (fun conn ->
-        Sql.Single.by_id conn ~id:(Int64.of_int (Cat.Id.to_repr id)) Cat.of_row)
+        Crud.Single.find conn ~id:(Int64.of_int (Cat.Id.to_repr id)) Cat.of_row)
 end
 ```
+
+CRUD без ORM (аналог `JpaRepository`): `schema.exe crud` печатает по `Cat.table` запросы `all`, `insert`, а при первичном ключе ещё `find`, `update`, `delete`. sqlgg превращает их в модуль `Cats_crud`, и каждый запрос по-прежнему проверяется против схемы. Деривер даёт `Cat.for_insert` и `Cat.for_update`: они раскладывают запись в именованные аргументы этих запросов в нужном порядке и с нужными типами столбцов:
+
+<!-- $MDX skip -->
+```ocaml
+let%lwt inserted = Cat.for_insert tom (Crud.insert conn) in
+let%lwt _ = Cat.for_update { tom with name } (Crud.update conn) in
+let%lwt _ = Crud.delete conn ~id in
+```
+
+Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
 
 Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. В контроллере — `[@@transactional]` и параметр `[@from Db.tx]`:
 
