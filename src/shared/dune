@@ -1,0 +1,4 @@
+(library
+ (name forge_shared)
+ (public_name forge.shared)
+ (libraries jsonkit))

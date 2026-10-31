@@ -1,0 +1,11 @@
+; Same sources as ../, built for Melange against jsonkit-melange. Both
+; libraries are named forge_shared so user code sees one Forge_shared module.
+
+(library
+ (name forge_shared)
+ (public_name forge-client.shared)
+ (modes melange)
+ (libraries jsonkit-melange))
+
+(copy_files#
+ (files ../*.{ml,mli}))

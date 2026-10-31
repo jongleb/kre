@@ -1,0 +1,446 @@
+open Forge_shared
+
+module Name = Refined.String (struct
+  let name = "name"
+  let min = 1
+  let max = 4
+end)
+
+module Age = Refined.Int (struct
+  let name = "age"
+  let min = 0
+  let max = 40
+end)
+
+module Breed = Refined.Enum (struct
+  let name = "breed"
+  let values = [ "siamese"; "persian" ]
+end)
+
+module Cat = struct
+  type t = { id : int; name : string }
+
+  let of_json json =
+    match Jsonkit.classify json with
+    | `Assoc fields ->
+        {
+          id = Scalar.Int.of_json (List.assoc "id" fields);
+          name = Scalar.String.of_json (List.assoc "name" fields);
+        }
+    | _ -> raise (Validation.Invalid (Validation.fail ~rule:"type" "object"))
+
+  let to_json { id; name } = `Assoc [ ("id", `Int id); ("name", `String name) ]
+
+  let t_jsonschema =
+    `Assoc
+      [
+        ("type", `String "object");
+        ( "properties",
+          `Assoc
+            [
+              ("id", Scalar.Int.t_jsonschema);
+              ("name", Scalar.String.t_jsonschema);
+            ] );
+      ]
+end
+
+let json = Alcotest.testable Yojson.Basic.pp Yojson.Basic.equal
+
+let rules errors =
+  List.map (fun (e : Validation.error) -> e.rule) (Validation.to_list errors)
+
+let rules_of = function Ok _ -> [] | Error errors -> rules errors
+
+let validation =
+  [
+    Alcotest.test_case "check keeps passing value" `Quick (fun () ->
+        Alcotest.(check (result string reject))
+          "ok" (Ok "ab")
+          (Result.map_error ignore
+             (Validation.check [ Validation.min_length 1 ] "ab")));
+    Alcotest.test_case "check collects every failure" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "rules" [ "min_length"; "one_of" ]
+          (rules_of
+             (Validation.check
+                [
+                  Validation.min_length 5;
+                  Validation.max_length 10;
+                  Validation.one_of [ "x" ];
+                ]
+                "abc")));
+    Alcotest.test_case "email" `Quick (fun () ->
+        Alcotest.(check (list (list string)))
+          "rules"
+          [ []; [ "email" ]; [ "email" ]; [ "email" ] ]
+          (List.map
+             (fun s -> rules_of (Validation.check [ Validation.email ] s))
+             [ "a@b.co"; "ab.co"; "a@b"; "a b@c.de" ]));
+    Alcotest.test_case "to_json" `Quick (fun () ->
+        Alcotest.check json "errors"
+          (`List
+             [
+               `Assoc
+                 [
+                   ("path", `List []);
+                   ("rule", `String "range");
+                   ("message", `String "bad");
+                 ];
+             ])
+          (Validation.to_json (Validation.fail ~rule:"range" "bad")));
+  ]
+
+let scalar =
+  [
+    Alcotest.test_case "of_string" `Quick (fun () ->
+        Alcotest.(check (list (list string)))
+          "rules"
+          [ []; [ "type" ]; []; [ "type" ] ]
+          [
+            rules_of (Scalar.Int.of_string "42");
+            rules_of (Scalar.Int.of_string "x");
+            rules_of (Scalar.Bool.of_string "true");
+            rules_of (Scalar.Bool.of_string "1");
+          ]);
+    Alcotest.test_case "float prints shortest round-trip" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "printed" [ "0.1"; "3"; "1e+100" ]
+          (List.map Scalar.Float.to_string [ 0.1; 3.; 1e100 ]));
+    Alcotest.test_case "int64 travels as a JSON string" `Quick (fun () ->
+        Alcotest.check json "json" (`String "9007199254740993")
+          (Scalar.Int64.to_json 9007199254740993L));
+  ]
+
+let json_tests =
+  [
+    Alcotest.test_case "parse ok" `Quick (fun () ->
+        Alcotest.(check (list int))
+          "ids" [ 1; 2 ]
+          (List.map
+             (fun (c : Cat.t) -> c.id)
+             (Result.get_ok
+                (Json.parse
+                   (module Json.List (Cat))
+                   (`List
+                      [
+                        `Assoc [ ("id", `Int 1); ("name", `String "a") ];
+                        `Assoc [ ("id", `Int 2); ("name", `String "b") ];
+                      ])))));
+    Alcotest.test_case "parse turns a type mismatch into an error" `Quick
+      (fun () ->
+        Alcotest.(check (list string))
+          "rules" [ "type" ]
+          (rules_of (Json.parse (module Scalar.Int) (`String "x"))));
+  ]
+
+let refined =
+  [
+    Alcotest.test_case "of_repr applies the rules" `Quick (fun () ->
+        Alcotest.(check (list (list string)))
+          "rules"
+          [ []; [ "min_length" ]; [ "max_length" ] ]
+          (List.map (fun s -> rules_of (Name.of_repr s)) [ "tom"; ""; "tommy" ]));
+    Alcotest.test_case "of_json raises with the rule" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "rules" [ "range" ]
+          (rules_of (Json.parse (module Age) (`Int 41))));
+    Alcotest.test_case "of_string checks too" `Quick (fun () ->
+        Alcotest.(check (list (list string)))
+          "rules"
+          [ []; [ "one_of" ]; [ "type" ] ]
+          [
+            rules_of (Breed.of_string "persian");
+            rules_of (Breed.of_string "sphynx");
+            rules_of (Age.of_string "x");
+          ]);
+    Alcotest.test_case "schema carries the constraints" `Quick (fun () ->
+        Alcotest.check json "schema"
+          (`Assoc
+             [
+               ("title", `String "name");
+               ("type", `String "string");
+               ("minLength", `Int 1);
+               ("maxLength", `Int 4);
+             ])
+          Name.t_jsonschema);
+    Alcotest.test_case "email" `Quick (fun () ->
+        Alcotest.(check (list (list string)))
+          "rules" [ []; [ "email" ] ]
+          [
+            rules_of (Refined.Email.of_repr "me@x.io");
+            rules_of (Refined.Email.of_repr "me");
+          ]);
+  ]
+
+let body response = Lwt_main.run (Dream.body response)
+let status response = Dream.status_to_int (Dream.status response)
+let get target = Dream.request ~method_:`GET ~target ""
+
+let error =
+  [
+    Alcotest.test_case "to_json is Problem Details" `Quick (fun () ->
+        Alcotest.check json "problem"
+          (`Assoc
+             [
+               ("type", `String "urn:forge:error:validation");
+               ("title", `String "Unprocessable Entity");
+               ("status", `Int 422);
+               ("detail", `String "validation failed");
+               ("instance", `String "/cats");
+               ( "errors",
+                 `List
+                   [
+                     `Assoc
+                       [
+                         ("path", `List []);
+                         ("rule", `String "range");
+                         ("message", `String "must be between 0 and 40");
+                       ];
+                   ] );
+             ])
+          (Forge.Error.to_json ~instance:"/cats"
+             (Forge.Error.unprocessable
+                (Validation.fail ~rule:"range" "must be between 0 and 40"))));
+    Alcotest.test_case "to_response" `Quick (fun () ->
+        let response =
+          Dream.test
+            (fun request ->
+              Forge.Error.to_response request (Forge.Error.conflict "taken"))
+            (get "/x")
+        in
+        Alcotest.(check (pair int (option string)))
+          "status and type"
+          (409, Some "application/problem+json")
+          (status response, Dream.header response "Content-Type"));
+  ]
+
+let user : string Dream.field = Dream.new_field ()
+
+let guard =
+  [
+    Alcotest.test_case "field and header" `Quick (fun () ->
+        let request = Dream.request ~headers:[ ("X-Key", "k") ] "" in
+        Dream.set_field request user "tom";
+        let guarded =
+          Lwt_main.run
+            (Forge.Guard.both
+               (Forge.Guard.field user
+                  ~missing:(Forge.Error.unauthorized "login"))
+               (Forge.Guard.header "X-Key")
+               request)
+        in
+        Alcotest.(check (result (pair string string) reject))
+          "both"
+          (Ok ("tom", "k"))
+          (Result.map_error ignore guarded));
+    Alcotest.test_case "missing field" `Quick (fun () ->
+        let guarded =
+          Lwt_main.run
+            (Forge.Guard.field user
+               ~missing:(Forge.Error.unauthorized "login")
+               (get "/"))
+        in
+        Alcotest.(check (option string))
+          "code" (Some "unauthorized")
+          (Option.map
+             (fun (e : Forge.Error.t) -> e.code)
+             (Result.fold ~ok:(fun _ -> None) ~error:Option.some guarded)));
+  ]
+
+let cats = [ { Cat.id = 1; name = "tom" }; { Cat.id = 2; name = "felix" } ]
+
+let admin : unit Forge.Guard.t =
+ fun request ->
+  Lwt.return
+    (Option.fold
+       ~none:(Error (Forge.Error.forbidden "admin only"))
+       ~some:(fun _ -> Ok ())
+       (Dream.header request "X-Admin"))
+
+let tag : Dream.middleware =
+ fun next request ->
+  Lwt.map
+    (fun response ->
+      Dream.add_header response "X-Controller" "cats";
+      response)
+    (next request)
+
+let controller =
+  Forge.Controller.v ~middleware:[ tag ]
+    ~spec:{ Forge.Spec.prefix = "/cats"; version = None; routes = [] }
+    [
+      Forge.Route.v `GET
+        Routes.(
+          (s "cats" /? nil)
+          @--> Forge.Route.handle ~status:`OK
+                 (Forge.Route.Json (module Json.List (Cat)))
+                 (fun _ -> Lwt.return_ok cats));
+      Forge.Route.v `GET
+        Routes.(
+          (s "cats" / int /? nil) @--> fun id ->
+          Forge.Route.handle ~status:`OK
+            (Forge.Route.Found (module Cat))
+            (fun _ ->
+              Lwt.return_ok (List.find_opt (fun (c : Cat.t) -> c.id = id) cats)));
+      Forge.Route.v `POST
+        Routes.(
+          (s "cats" /? nil)
+          @--> Forge.Route.handle ~status:`Created ~guards:[ admin ]
+                 Forge.Route.Text (fun _ -> Lwt.return_ok "created"));
+      Forge.Route.v `DELETE
+        Routes.(
+          (s "cats" / int /? nil) @--> fun _ ->
+          Forge.Route.handle ~status:`No_Content Forge.Route.Unit (fun _ ->
+              failwith "boom"));
+      Forge.Route.v `PUT
+        Routes.(
+          (s "cats" / int /? nil) @--> fun _ ->
+          Forge.Route.handle ~status:`OK Forge.Route.Unit (fun _ ->
+              Forge.Error.fail (Forge.Error.conflict "locked")));
+    ]
+
+let app = Dream.test (Forge.App.handler [ controller ])
+
+let app_tests =
+  [
+    Alcotest.test_case "empty app answers 404 Problem Details" `Quick (fun () ->
+        let response = Dream.test (Forge.App.handler []) (get "/anything") in
+        Alcotest.(check (pair int json))
+          "404"
+          ( 404,
+            `Assoc
+              [
+                ("type", `String "urn:forge:error:not_found");
+                ("title", `String "Not Found");
+                ("status", `Int 404);
+                ("detail", `String "no route for GET /anything");
+                ("instance", `String "/anything");
+              ] )
+          (status response, Yojson.Basic.from_string (body response)));
+    Alcotest.test_case "json list" `Quick (fun () ->
+        let response = app (get "/cats") in
+        Alcotest.(check (triple int string (option string)))
+          "list"
+          (200, {|[{"id":1,"name":"tom"},{"id":2,"name":"felix"}]|}, Some "cats")
+          (status response, body response, Dream.header response "X-Controller"));
+    Alcotest.test_case "typed path param and found" `Quick (fun () ->
+        Alcotest.(check (list int))
+          "statuses" [ 200; 404; 404 ]
+          (List.map
+             (fun target -> status (app (get target)))
+             [ "/cats/2"; "/cats/3"; "/cats/x" ]));
+    Alcotest.test_case "query string is ignored by matching" `Quick (fun () ->
+        Alcotest.(check int) "status" 200 (status (app (get "/cats?limit=1"))));
+    Alcotest.test_case "trailing slash redirects" `Quick (fun () ->
+        let response = app (get "/cats/?limit=1") in
+        Alcotest.(check (pair int (option string)))
+          "301"
+          (301, Some "/cats?limit=1")
+          (status response, Dream.header response "Location"));
+    Alcotest.test_case "guard rejects, then admits" `Quick (fun () ->
+        let post headers =
+          app (Dream.request ~method_:`POST ~target:"/cats" ~headers "")
+        in
+        Alcotest.(check (list int))
+          "statuses" [ 403; 201 ]
+          [ status (post []); status (post [ ("X-Admin", "1") ]) ]);
+    Alcotest.test_case "exceptions become 500, Error.fail keeps its status"
+      `Quick (fun () ->
+        Alcotest.(check (list int))
+          "statuses" [ 500; 409 ]
+          [
+            status (app (Dream.request ~method_:`DELETE ~target:"/cats/1" ""));
+            status (app (Dream.request ~method_:`PUT ~target:"/cats/1" ""));
+          ]);
+    Alcotest.test_case "custom error handler" `Quick (fun () ->
+        let response =
+          Dream.test
+            (Forge.App.handler
+               ~error_handler:(fun _ _ ->
+                 Dream.respond ~status:`Not_Found "nope")
+               [])
+            (get "/x")
+        in
+        Alcotest.(check string) "body" "nope" (body response));
+  ]
+
+let spec =
+  [
+    Alcotest.test_case "to_json" `Quick (fun () ->
+        Alcotest.check json "spec"
+          (`Assoc
+             [
+               ("prefix", `String "/cats");
+               ("version", `Null);
+               ( "routes",
+                 `List
+                   [
+                     `Assoc
+                       [
+                         ("verb", `String "GET");
+                         ("path", `String "/cats/:id");
+                         ("name", `String "find_one");
+                         ( "params",
+                           `List
+                             [
+                               `Assoc
+                                 [
+                                   ("name", `String "id");
+                                   ("in", `String "path");
+                                   ("presence", `String "required");
+                                   ("scalar", `String "int");
+                                   ("schema", Scalar.Int.t_jsonschema);
+                                 ];
+                             ] );
+                         ("body", `Null);
+                         ( "returns",
+                           `Assoc
+                             [
+                               ("name", `String "Cat");
+                               ("schema", Cat.t_jsonschema);
+                             ] );
+                         ("status", `Int 200);
+                         ("guards", `List []);
+                       ];
+                   ] );
+             ])
+          (Forge.Spec.to_json
+             {
+               prefix = "/cats";
+               version = None;
+               routes =
+                 [
+                   {
+                     verb = `GET;
+                     path = "/cats/:id";
+                     name = "find_one";
+                     params =
+                       [
+                         {
+                           name = "id";
+                           location = Path;
+                           scalar = Scalar.Int.name;
+                           schema = Scalar.Int.t_jsonschema;
+                         };
+                       ];
+                     body = None;
+                     returns = Json { name = "Cat"; schema = Cat.t_jsonschema };
+                     status = `OK;
+                     guards = [];
+                   };
+                 ];
+             }));
+  ]
+
+let () =
+  Alcotest.run "forge"
+    [
+      ("Validation", validation);
+      ("Scalar", scalar);
+      ("Json", json_tests);
+      ("Refined", refined);
+      ("Error", error);
+      ("Guard", guard);
+      ("Spec", spec);
+      ("App", app_tests);
+    ]

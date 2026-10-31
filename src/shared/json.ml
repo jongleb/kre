@@ -1,0 +1,32 @@
+module type S = sig
+  type t
+
+  val of_json : Jsonkit.t -> t
+  val to_json : t -> Jsonkit.t
+  val t_jsonschema : Jsonkit.Jsonschema.t
+end
+
+let parse (module J : S) json =
+  match J.of_json json with
+  | value -> Ok value
+  | exception Validation.Invalid errors -> Error errors
+  | exception Jsonkit.Of_json_error error ->
+      Error
+        (Validation.fail ~rule:"type" (Jsonkit.of_json_error_to_string error))
+
+module List (J : S) = struct
+  type t = J.t list
+
+  let of_json json =
+    match Jsonkit.classify json with
+    | `List items -> Stdlib.List.map J.of_json items
+    | _ ->
+        raise
+          (Validation.Invalid (Validation.fail ~rule:"type" "must be an array"))
+
+  let to_json items =
+    Jsonkit.declassify (`List (Stdlib.List.map J.to_json items))
+
+  let t_jsonschema =
+    `Assoc [ ("type", `String "array"); ("items", J.t_jsonschema) ]
+end
