@@ -1,6 +1,6 @@
 let app =
-  Dream.test
-    (Forge.App.handler [ Cats_controller.register (module Cats_service) ])
+  let module Fresh = Cats_service.Make () in
+  Dream.test (Forge.App.handler [ Cats_controller.register (module Fresh) ])
 
 let call ?(headers = []) ?(body = "") method_ target =
   let response = app (Dream.request ~method_ ~target ~headers body) in

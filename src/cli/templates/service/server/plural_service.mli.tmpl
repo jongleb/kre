@@ -6,4 +6,7 @@ module type S = sig
   val remove : int -> unit Lwt.t
 end
 
+(** A provider with its own state, e.g. one per test. *)
+module Make () : S
+
 include S

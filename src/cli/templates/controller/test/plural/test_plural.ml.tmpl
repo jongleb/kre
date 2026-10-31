@@ -1,8 +1,7 @@
 let () =
   let app =
-    Dream.test
-      (Forge.App.handler
-         [ {{Plural}}_controller.register (module {{Plural}}_service) ])
+    let module Fresh = {{Plural}}_service.Make () in
+    Dream.test (Forge.App.handler [ {{Plural}}_controller.register (module Fresh) ])
   in
   let call ?(body = "") method_ target =
     let response = app (Dream.request ~method_ ~target body) in
