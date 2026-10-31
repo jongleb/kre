@@ -20,4 +20,22 @@ type t = {
 let respond profile = Forge.Response.json ~status:`OK (module Profile) profile
 ```
 
-`[@exclude]` и группы `[@expose]` — фаза 2.
+`[@exclude]` (`@Exclude`, `@JsonIgnore`) — поле принимается на вход, но не уходит в ответ, в схеме `writeOnly`. `[@transform f]` (`@Transform`) — функция над полем при выводе. Mapped types (`PickType`, `OmitType`, `PartialType`) — абстрактный тип того же файла, раскрытый ppx, плюс типизированные функции: `summary_of_t : t -> summary`, `update_apply : update -> t -> t`.
+
+<!-- $MDX file=examples/account.ml -->
+```ocaml
+open Jsonkit.Primitives
+
+type t = {
+  id : int;
+  email : string;
+  password : string; [@exclude]
+  display_name : string; [@key "displayName"] [@transform String.trim]
+}
+[@@deriving dto]
+
+type summary [@@deriving dto ~pick_of:(t, [ "id"; "display_name" ])]
+type update [@@deriving dto ~partial_of:t]
+```
+
+Группы `@Expose({ groups })` — отдельные типы-проекции (`~pick_of`) вместо флага в рантайме.

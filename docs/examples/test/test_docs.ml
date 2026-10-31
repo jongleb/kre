@@ -199,6 +199,38 @@ let () =
                   | 404, _ -> (404, "")
                   | other -> other);
                 ]);
+          Alcotest.test_case "serialization: exclude, transform, mapped types"
+            `Quick (fun () ->
+              let ann =
+                Account.of_json
+                  (Yojson.Basic.from_string
+                     {|{"id":1,"email":"ann@x.io","password":"s3cret","displayName":"  Ann "}|})
+              in
+              let patched =
+                Account.update_apply
+                  (Account.update_of_json
+                     (Yojson.Basic.from_string {|{"email":"new@x.io"}|}))
+                  ann
+              in
+              Alcotest.(check (list string))
+                "json"
+                [
+                  {|{"id":1,"email":"ann@x.io","displayName":"Ann"}|};
+                  {|{"id":1,"displayName":"Ann"}|};
+                  "new@x.io / s3cret";
+                  "true";
+                ]
+                [
+                  Yojson.Basic.to_string (Account.to_json ann);
+                  Yojson.Basic.to_string
+                    (Account.summary_to_json (Account.summary_of_t ann));
+                  patched.email ^ " / " ^ patched.password;
+                  Yojson.Basic.to_string
+                    Yojson.Basic.Util.(
+                      member "writeOnly"
+                        (member "password"
+                           (member "properties" Account.t_jsonschema)));
+                ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

@@ -1,3 +1,3 @@
 (test
  (name test_docs)
- (libraries forge_docs cats_server forge dream alcotest lwt lwt.unix))
+ (libraries forge_docs cats_server forge dream alcotest lwt lwt.unix yojson))

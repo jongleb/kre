@@ -80,8 +80,8 @@
 | TypeORM entity | `@Entity` | `[@@deriving table]` → DDL, `of_row` | ✅ |
 | repositories | Spring Data | sqlgg: SQL проверяется против схемы при сборке | ✅ |
 | migrations | Flyway | `forge migrate up/down/status/new` | ✅ |
-| `@Exclude`, `@Expose`, `@Transform` | `@JsonIgnore`, `@JsonProperty` | `[@key]` ✅; `[@exclude]`, `[@transform]` | 🔜 |
-| `PartialType`, `PickType`, `OmitType` | — | `[@@deriving dto ~partial_of / ~pick_of / ~omit_of]` | 🔜 |
+| `@Exclude`, `@Expose`, `@Transform` | `@JsonIgnore`, `@JsonProperty` | `[@exclude]` (writeOnly), `[@key]`, `[@transform f]`; группы — проекции `~pick_of` | ✅ |
+| `PartialType`, `PickType`, `OmitType` | — | `[@@deriving dto ~partial_of / ~pick_of / ~omit_of]` + `summary_of_t`, `update_apply` | ✅ |
 | CRUD repository | `JpaRepository` | `table` CRUD | 🔜 |
 | Postgres | | `Forge_db_pgx` | 🔜 |
 

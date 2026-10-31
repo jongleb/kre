@@ -58,7 +58,7 @@ Options other than ~strict are for phase 2.
   File "input.ml", line 1, characters 49-50:
   1 | type t = { a : int } [@@deriving dto ~partial_of:B]
                                                        ^
-  Error: [@@deriving dto] takes only ~strict; ~partial_of, ~pick_of and ~omit_of come in phase 2
+  Error: expected a record type of this file, e.g. ~partial_of:t
   [1]
 
 A rule needs an expression.

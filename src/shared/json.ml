@@ -14,6 +14,38 @@ let parse (module J : S) json =
       Error
         (Validation.fail ~rule:"type" (Jsonkit.of_json_error_to_string error))
 
+let omit keys json =
+  match Jsonkit.classify json with
+  | `Assoc fields ->
+      Jsonkit.declassify
+        (`Assoc
+           (Stdlib.List.filter
+              (fun (key, _) -> not (Stdlib.List.mem key keys))
+              fields))
+  | _ -> json
+
+let write_only keys (schema : Jsonkit.Jsonschema.t) : Jsonkit.Jsonschema.t =
+  match schema with
+  | `Assoc members ->
+      `Assoc
+        (Stdlib.List.map
+           (function
+             | "properties", `Assoc properties ->
+                 ( "properties",
+                   `Assoc
+                     (Stdlib.List.map
+                        (function
+                          | key, `Assoc property when Stdlib.List.mem key keys
+                            ->
+                              ( key,
+                                `Assoc (property @ [ ("writeOnly", `Bool true) ])
+                              )
+                          | other -> other)
+                        properties) )
+             | other -> other)
+           members)
+  | other -> other
+
 module List (J : S) = struct
   type t = J.t list
 
