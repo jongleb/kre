@@ -4,7 +4,11 @@ let () =
   Ppxlib.Driver.register_transformation "forge.controller"
     ~impl:Controller.transform;
   Ppxlib.Driver.register_transformation "forge.path"
-    ~rules:[ Ppxlib.Context_free.Rule.extension Page.path ];
+    ~rules:
+      [
+        Ppxlib.Context_free.Rule.extension Page.path;
+        Ppxlib.Context_free.Rule.extension Wire.extension;
+      ];
   ignore
     (Ppxlib.Deriving.add "config"
        ~str_type_decl:

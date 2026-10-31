@@ -1,6 +1,14 @@
 (executable
  (name main)
- (libraries cats_server cats_shared cats_db forge forge-db-mariadb dream lwt))
+ (modules main web)
+ (libraries cats_server cats_shared cats_db forge forge-db-mariadb dream lwt)
+ (preprocess
+  (pps forge-ppx))
+ (preprocessor_deps
+  (glob_files ../server/*.ml)
+  (glob_files ../server/*.mli)
+  (glob_files ../db/*.ml)
+  (glob_files ../db/*.mli)))
 
 (rule
  (targets openapi.json)
@@ -8,4 +16,7 @@
   (setenv
    SESSION_SECRET
    unused
-   (run %{exe:main.exe} --emit-openapi %{targets}))))
+   (setenv
+    DATABASE_URL
+    unused
+    (run %{exe:main.exe} --emit-openapi %{targets})))))

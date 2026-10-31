@@ -15,6 +15,8 @@ let () = print_string (Forge.Table.schema [ Cat.table ])
 
 <!-- $MDX file=../examples/cats/db/cats_db_service.ml -->
 ```ocaml
+[@@@primary]
+
 module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) =
 struct
   module Sql = Cats_sql.Make (Forge_db_mariadb.Sql)

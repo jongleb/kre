@@ -8,7 +8,7 @@ Forge — фуллстек-фреймворк на OCaml, который вос�
 
 Принципы, которые решают спорные вопросы при разработке:
 
-1. **Не воспроизводить то, что в OCaml уже есть.** Nest-овские `@Module`, DI-контейнер, `forwardRef`, Discovery, Module reference — это компенсация отсутствия модульной системы в TS. У нас модуль = singleton-провайдер, `.mli` = exports, `main.ml` = composition root, зависимости = module-dependent functions (modular explicits, OCaml 5.5). Разрешение зависимостей — на этапе компиляции, а не старта.
+1. **Не воспроизводить то, что в OCaml уже есть; DI — при сборке, не в рантайме.** Проводку зависимостей делает ppx `[%wire]` (аналог `@ComponentScan` + `@Autowired`) по модулям и функторам: ошибки DI — ошибки компиляции. Рантайм-контейнера, токенов и рефлексии нет; ООП не используется — только модули, функторы и функции. Nest-овские `@Module`, DI-контейнер, `forwardRef`, Discovery, Module reference — это компенсация отсутствия модульной системы в TS. У нас модуль = singleton-провайдер, `.mli` = exports, `main.ml` = composition root, зависимости = module-dependent functions (modular explicits, OCaml 5.5). Разрешение зависимостей — на этапе компиляции, а не старта.
 2. **ppx только там, где нужен рефлекшн.** Маршруты из сигнатур хендлеров, кодеки и валидация DTO, конфиг из env, типизированные пути на фронте. Всё остальное — обычные функции и модули.
 3. **Dream не оборачиваем.** `Dream.request`, `Dream.middleware`, `Dream.response`, сессии, CSRF, websockets, static — используются напрямую. Forge добавляет слой выше, не прячет слой ниже.
 4. **Контроллер — источник правды.** Из него (через `spec`) генерируются типизированный Melange-клиент и OpenAPI. Контракт нигде не дублируется руками.
@@ -816,6 +816,29 @@ let register (module Cats : Cats_service.S) =
 | Execution context | позиционный `(req : Dream.request)` | — |
 | Lifecycle (`onModuleInit`, `onApplicationShutdown`) | `Forge.App.run ~on_start ~on_shutdown` | `Lwt_switch` внутри |
 
+### Проводка: `[%wire]` (фаза 2)
+
+```ocaml
+(* bin/main.ml *)
+let () =
+  let app = [%wire "../server"; "../db"] in
+  Forge.App.run ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
+```
+
+ppx читает `.ml`/`.mli` перечисленных каталогов во время сборки (`preprocessor_deps` в dune — пересборка при изменении) и сам находит компоненты:
+
+| Что в файле | Роль | Nest / Spring |
+| --- | --- | --- |
+| `module Make () = …` | провайдер; новый экземпляр | `@Injectable`, `@Scope(PROTOTYPE)` при ручном вызове |
+| `module Make (Db : Forge.Db.S) (Clock : Clock.S) = …` | провайдер с зависимостями; параметры — constructor injection | `@Autowired` в конструкторе |
+| `module type S` без `Make` | синглтон: модуль сам и есть экземпляр | `@Service` |
+| `[@@@controller]` | потребитель: модульные параметры хендлеров → `register` | `@Controller` |
+| остальное | не трогается | — |
+
+Интерфейс провайдера — аннотация результата `Make` в `.ml` или `.mli` (`: Cats_service.S`, `: sig include Forge.Db.S … end`), иначе собственный `module type S`; явно — `[@@@injectable Iface.S]`. Если интерфейс дают несколько провайдеров: `[@@@primary]` (`@Primary`), иначе имя параметра функтора, совпадающее с именем провайдера (`(Fake_clock : Clock.S)` — как Spring берёт бин по имени параметра), иначе ошибка сборки. Ошибки сборки с местом: нет провайдера, неоднозначность, цикл (`Clock -> Report -> Clock`). Типы зависимостей проверяет компилятор на сгенерированных применениях функторов.
+
+Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Forge.Wiring.t = { controllers; on_start; on_shutdown }`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
+
 ### Guards — пример
 
 ```ocaml
@@ -1484,6 +1507,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
+- ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

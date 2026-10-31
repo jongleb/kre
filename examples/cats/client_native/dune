@@ -4,7 +4,10 @@
   (setenv
    SESSION_SECRET
    unused
-   (run %{exe:../bin/main.exe} --emit-spec %{targets}))))
+   (setenv
+    DATABASE_URL
+    unused
+    (run %{exe:../bin/main.exe} --emit-spec %{targets})))))
 
 (rule
  (targets cats_client.ml)

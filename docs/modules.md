@@ -14,3 +14,41 @@ end
 ```
 
 Применение — в composition root: `module Cats = Cats_db_service.Make (Db)`, затем `Cats_controller.register (module Cats)`. Порядок применения функторов — порядок инициализации, циклы невыразимы.
+
+Собирать это руками не нужно. `[%wire]` в `main.ml` — это `@Module` и `@ComponentScan` сразу: ppx при сборке читает каталоги, находит провайдеров (модули с `Make` или `module type S`), сортирует их по зависимостям, применяет функторы и регистрирует контроллеры. Нет провайдера, два кандидата без `[@@@primary]`, цикл — ошибка компиляции с местом в коде.
+
+<!-- $MDX file=../examples/cats/bin/main.ml -->
+```ocaml
+let () =
+  let app =
+    [%wire
+      "../server";
+      "../db"]
+  in
+  Forge.App.run ~port:Settings.config.port
+    ~middleware:[ Dream.logger; Web.use ~dir:Settings.config.web ]
+    ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
+```
+
+Провайдер базы с хуком `on_start` (миграции при старте):
+
+<!-- $MDX file=../examples/cats/db/database.ml -->
+```ocaml
+module Make (Settings : Settings.S) = struct
+  include
+    Forge.Db.Make
+      (Forge_db_mariadb.Driver)
+      (struct
+        let url = Settings.database_url
+        let size = 4
+      end)
+
+  let on_start () =
+    with_conn (fun conn ->
+        Lwt.map ignore
+          (Forge.Migration.up
+             (module Forge_db_mariadb.Driver)
+             conn
+             (Result.get_ok (Forge.Migration.load Settings.config.migrations))))
+end
+```
