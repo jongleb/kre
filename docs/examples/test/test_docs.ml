@@ -111,6 +111,18 @@ let () =
               Alcotest.(check (list int))
                 "statuses" [ 204; 401 ]
                 [ reset [ ("Authorization", "Bearer " ^ token) ]; reset [] ]);
+          Alcotest.test_case "server-sent events" `Quick (fun () ->
+              let response =
+                Dream.test
+                  (app [ Ticks_controller.register () ])
+                  (Dream.request ~target:"/ticks?upto=3" "")
+              in
+              Alcotest.(check (pair (option string) string))
+                "stream"
+                ( Some "text/event-stream",
+                  "data: {\"n\":0}\n\ndata: {\"n\":1}\n\ndata: {\"n\":2}\n\n" )
+                ( Dream.header response "Content-Type",
+                  Lwt_main.run (Dream.body response) ));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

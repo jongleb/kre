@@ -1,5 +1,5 @@
 let client (spec : Forge.Spec.t) =
-  let route (route : Forge.Spec.route) =
+  let request (route : Forge.Spec.route) =
     let segments =
       List.filter
         (fun segment -> segment <> "")
@@ -99,10 +99,18 @@ let client (spec : Forge.Spec.t) =
           | Unit -> "Forge_client.Wire.Unit"
           | Text -> "Forge_client.Wire.Text"
           | Raw -> "Forge_client.Wire.Raw"
-          | Json value ->
+          | Json value | Events value ->
               Printf.sprintf "(Forge_client.Wire.Json (module %s))"
                 value.module_);
       ]
+  in
+  let route (route : Forge.Spec.route) =
+    match route.returns with
+    | Events _ ->
+        Printf.sprintf
+          "(* %s: an event stream; subscribe with EventSource on %S. *)\n"
+          route.name route.path
+    | Unit | Text | Raw | Json _ -> request route
   in
   String.concat "\n"
     (Printf.sprintf

@@ -31,6 +31,13 @@ val handle :
   (Dream.request -> ('a, Error.t) result Lwt.t) ->
   handler
 
+val events :
+  status:Dream.status ->
+  ?guards:unit Guard.t list ->
+  ?headers:(string * string) list ->
+  (module J : Forge_shared.Json.S) ->
+  (Dream.request -> (J.t Lwt_stream.t, Error.t) result Lwt.t) -> handler
+
 val segment :
   (module S : Forge_shared.Scalar.S) ->
   string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path

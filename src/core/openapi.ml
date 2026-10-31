@@ -70,6 +70,10 @@ let document ~title ~version specs =
                    | Json value ->
                        [
                          ("content", content "application/json" (schema value));
+                       ]
+                   | Events value ->
+                       [
+                         ("content", content "text/event-stream" (schema value));
                        ])) );
                ( "default",
                  `Assoc
@@ -139,7 +143,7 @@ let document ~title ~version specs =
              @ List.map (fun (param : Spec.param) -> param.value) route.params
              @
              match route.returns with
-             | Json value -> [ value ]
+             | Json value | Events value -> [ value ]
              | Unit | Text | Raw -> []))
          routes)
   in

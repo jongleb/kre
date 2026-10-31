@@ -3,7 +3,7 @@ type presence = Required | Optional | Repeated
 type location = Path | Query of presence
 type value = { type_ : string; module_ : string; schema : Jsonkit.Jsonschema.t }
 type param = { name : string; location : location; value : value }
-type returns = Unit | Text | Json of value | Raw
+type returns = Unit | Text | Json of value | Events of value | Raw
 
 type route = {
   verb : verb;
@@ -56,7 +56,8 @@ let to_json spec =
           | Unit -> `String "unit"
           | Text -> `String "text"
           | Raw -> `String "raw"
-          | Json value -> value_to_json value );
+          | Json value -> value_to_json value
+          | Events value -> `Assoc [ ("events", value_to_json value) ] );
         ("status", `Int (Dream.status_to_int route.status));
         ("guards", `List (List.map (fun guard -> `String guard) route.guards));
       ]
@@ -112,6 +113,7 @@ let of_json json =
         | `String "unit" -> Unit
         | `String "text" -> Text
         | `String "raw" -> Raw
+        | `Assoc [ ("events", events) ] -> Events (value events)
         | `Assoc _ as returns -> Json (value returns)
         | _ -> fail "returns");
       status = Dream.int_to_status (to_int (member "status" json));

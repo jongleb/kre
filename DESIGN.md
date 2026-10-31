@@ -587,7 +587,7 @@ module Spec : sig
   type location = Path | Query of presence     (* path-параметр не бывает необязательным *)
   type dto = { name : string; schema : Jsonkit.Jsonschema.t }
   type param = { name : string; location : location; scalar : string; schema : Jsonkit.Jsonschema.t }
-  type returns = Unit | Text | Json of dto | Raw
+  type returns = Unit | Text | Json of value | Events of value | Raw
   type route = {
     verb : verb; path : string; name : string; params : param list;
     body : dto option; returns : returns; status : Dream.status; guards : string list;
@@ -610,6 +610,8 @@ module Route : sig
   val v : ?middleware:Dream.middleware list -> Spec.verb -> handler Routes.route -> t
   val handle : status:Dream.status -> ?guards:unit Guard.t list -> ?headers:(string * string) list -> ?timeout:float -> 'a returns ->
     (Dream.request -> ('a, Error.t) result Lwt.t) -> handler
+  val events : status:Dream.status -> ?guards:unit Guard.t list -> ?headers:(string * string) list ->
+    (module J : Forge_shared.Json.S) -> (Dream.request -> (J.t Lwt_stream.t, Error.t) result Lwt.t) -> handler   (* [@@sse] *)
 end
 
 (* Forge.Controller *)
@@ -734,7 +736,7 @@ end
 | `T.t list Lwt.t`, `T.t option Lwt.t` | JSON-массив / JSON или 404 | `Json` с обёрткой в схеме |
 | `(τ, E) result Lwt.t` | как τ; `Error e` → `error_handler` | как τ |
 | `Dream.response Lwt.t` | как есть | `Raw` |
-| `τ Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, элементы через `T.to_json` | `Json` + `sse = true` |
+| `T.t Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, по событию `data: <json>` на элемент (`Forge.Route.events`) | `Events` |
 
 Не-`Lwt` возврат — ошибка «handler must return … Lwt.t». Аннотация, не подпадающая под таблицу, — ошибка с перечислением форм.
 
@@ -1481,6 +1483,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
+- ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

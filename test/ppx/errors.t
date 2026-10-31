@@ -350,3 +350,26 @@ Timeout takes seconds as a float.
   Error: [@@authorize] uses ~owner, which f does not take
   [1]
 
+A stream needs [@@sse], and [@@sse] needs a stream.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : T.t Lwt_stream.t Lwt.t = Lwt.return (Lwt_stream.of_list []) [@@get]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 11-33:
+  2 | let f () : T.t Lwt_stream.t Lwt.t = Lwt.return (Lwt_stream.of_list []) [@@get]
+                 ^^^^^^^^^^^^^^^^^^^^^^
+  Error: handler f returns a stream; add [@@sse] to send it as server-sent events
+  [1]
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : T.t Lwt.t = assert false [@@get] [@@sse]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 44-51:
+  2 | let f () : T.t Lwt.t = assert false [@@get] [@@sse]
+                                                  ^^^^^^^
+  Error: [@@sse] needs a handler returning T.t Lwt_stream.t Lwt.t
+  [1]
+

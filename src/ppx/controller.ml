@@ -31,6 +31,7 @@ type shape =
   | Json of value
   | Found of value
   | Moved of string  (** [[@@redirect]]: an empty answer with [Location]. *)
+  | Stream of value  (** [[@@sse]]: server-sent events. *)
 
 (** [Fallible] handlers return [(_, Forge.Error.t) result Lwt.t]. *)
 type outcome = Plain | Fallible
@@ -288,6 +289,9 @@ let transform structure =
               Raw
           | Ptyp_constr ({ txt = Lident "option"; _ }, [ found ]) ->
               Found (json ~loc found)
+          | Ptyp_constr ({ txt = Ldot (Lident "Lwt_stream", "t"); _ }, [ event ])
+            ->
+              Stream (json ~loc event)
           | _ -> Json (json ~loc payload)
         in
         (shape, outcome)
@@ -415,11 +419,33 @@ let transform structure =
                 ~some:(fun (attribute : attribute) ->
                   match shape with
                   | Empty -> Moved (string_payload attribute)
-                  | Text | Raw | Json _ | Found _ | Moved _ ->
+                  | Text | Raw | Json _ | Found _ | Moved _ | Stream _ ->
                       Location.raise_errorf ~loc:attribute.attr_loc
                         "[@@@@redirect] needs a handler returning unit Lwt.t")
                 (attribute_of binding "redirect")
             in
+            (match
+               ( shape,
+                 attribute_of binding "sse",
+                 attribute_of binding "timeout" )
+             with
+            | Stream _, Some _, None
+            | (Empty | Text | Raw | Json _ | Found _ | Moved _), None, _ ->
+                ()
+            | Stream _, None, _ ->
+                Location.raise_errorf ~loc:return_type.ptyp_loc
+                  "handler %s returns a stream; add [@@@@sse] to send it as \
+                   server-sent events"
+                  name
+            | Stream _, Some _, Some attribute ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@@@timeout] does not apply to [@@@@sse]: an event stream \
+                   stays open"
+            | ( (Empty | Text | Raw | Json _ | Found _ | Moved _),
+                Some attribute,
+                _ ) ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@@@sse] needs a handler returning T.t Lwt_stream.t Lwt.t");
             {
               name;
               verb;
@@ -459,7 +485,7 @@ let transform structure =
                     (match shape with
                     | Empty -> 204
                     | Moved _ -> 302
-                    | Text | Raw | Json _ | Found _ -> 200)
+                    | Text | Raw | Json _ | Found _ | Stream _ -> 200)
                   ~some:(fun attribute ->
                     match int_payload attribute with
                     | status when status >= 100 && status <= 599 -> status
@@ -607,6 +633,7 @@ let transform structure =
               "timeout";
               "transactional";
               "authorize";
+              "sse";
             ]
             @ List.map fst verbs
           in
@@ -812,20 +839,31 @@ let transform structure =
                                ~ands:[] ~body:rest))
                         steps result]]
             in
-            let shape =
+            let callee, form, timeout =
               match handler.shape with
-              | Empty -> [%expr Forge.Route.Unit]
-              | Text -> [%expr Forge.Route.Text]
-              | Raw -> [%expr Forge.Route.Raw]
-              | Json value ->
-                  [%expr Forge.Route.Json [%e pexp_pack ~loc value.module_]]
-              | Found value ->
-                  [%expr Forge.Route.Found [%e pexp_pack ~loc value.module_]]
-              | Moved location ->
-                  [%expr Forge.Route.Redirect [%e estring ~loc location]]
+              | Stream value ->
+                  ([%expr Forge.Route.events], pexp_pack ~loc value.module_, [])
+              | (Empty | Text | Raw | Json _ | Found _ | Moved _) as shape ->
+                  ( [%expr Forge.Route.handle],
+                    (match shape with
+                    | Empty -> [%expr Forge.Route.Unit]
+                    | Text -> [%expr Forge.Route.Text]
+                    | Raw -> [%expr Forge.Route.Raw]
+                    | Json value ->
+                        [%expr
+                          Forge.Route.Json [%e pexp_pack ~loc value.module_]]
+                    | Found value ->
+                        [%expr
+                          Forge.Route.Found [%e pexp_pack ~loc value.module_]]
+                    | Moved location ->
+                        [%expr Forge.Route.Redirect [%e estring ~loc location]]
+                    | Stream value -> pexp_pack ~loc value.module_),
+                    Option.fold ~none:[]
+                      ~some:(fun timeout -> [ (Labelled "timeout", timeout) ])
+                      handler.timeout )
             in
             let handle =
-              pexp_apply ~loc [%expr Forge.Route.handle]
+              pexp_apply ~loc callee
                 ([
                    ( Labelled "status",
                      [%expr Dream.int_to_status [%e eint ~loc handler.status]]
@@ -837,11 +875,9 @@ let transform structure =
                 @ (match handler.headers with
                   | [] -> []
                   | headers -> [ (Labelled "headers", elist ~loc headers) ])
-                @ Option.fold ~none:[]
-                    ~some:(fun timeout -> [ (Labelled "timeout", timeout) ])
-                    handler.timeout
+                @ timeout
                 @ [
-                    (Nolabel, shape);
+                    (Nolabel, form);
                     ( Nolabel,
                       [%expr
                         fun __forge_request ->
@@ -971,7 +1007,9 @@ let transform structure =
                     | Text -> [%expr Forge.Spec.Text]
                     | Raw -> [%expr Forge.Spec.Raw]
                     | Json value | Found value ->
-                        [%expr Forge.Spec.Json [%e spec_value value]]];
+                        [%expr Forge.Spec.Json [%e spec_value value]]
+                    | Stream value ->
+                        [%expr Forge.Spec.Events [%e spec_value value]]];
                 status = Dream.int_to_status [%e eint ~loc handler.status];
                 guards =
                   [%e

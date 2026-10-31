@@ -17,7 +17,7 @@ type value = {
 (** A value crossing the wire, described for code generators. *)
 
 type param = { name : string; location : location; value : value }
-type returns = Unit | Text | Json of value | Raw
+type returns = Unit | Text | Json of value | Events of value | Raw
 
 type route = {
   verb : verb;

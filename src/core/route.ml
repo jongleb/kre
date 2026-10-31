@@ -78,6 +78,29 @@ let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
               log ~request "unhandled exception: %s" (Printexc.to_string exn));
           Lwt.return_error (Error.internal "internal server error"))
 
+let events ~status ?guards ?headers (module J : Forge_shared.Json.S) body =
+  handle ~status ?guards ?headers Raw (fun request ->
+      Lwt.bind (body request) (function
+        | Error error -> Lwt.return_error error
+        | Ok events ->
+            Lwt.map Result.ok
+              (Dream.stream ~status
+                 ~headers:
+                   [
+                     ("Content-Type", "text/event-stream");
+                     ("Cache-Control", "no-cache");
+                   ]
+                 (fun stream ->
+                   Lwt_stream.iter_s
+                     (fun event ->
+                       Lwt.bind
+                         (Dream.write stream
+                            ("data: "
+                            ^ Jsonkit.to_string (J.to_json event)
+                            ^ "\n\n"))
+                         (fun () -> Dream.flush stream))
+                     events))))
+
 let segment (module S : Forge_shared.Scalar.S) label path =
   Routes.pattern S.to_string
     (fun s -> Result.to_option (S.of_string s))
