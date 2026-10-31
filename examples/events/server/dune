@@ -1,0 +1,6 @@
+(library
+ (name events_server)
+ (wrapped false)
+ (libraries forge forge.shared dream lwt jsonkit)
+ (preprocess
+  (pps lwt_ppx jsonkit.ppx forge-ppx)))

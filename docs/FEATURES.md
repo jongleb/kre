@@ -93,7 +93,7 @@
 | — | — | типизированный клиент `forge client` (Melange + native) | ✅ |
 | — | — | типизированный роутер страниц, `[%path]`, `params`, `search` | ✅ |
 | `nest new`, `nest g resource` | Spring Initializr | `forge new`, `forge generate` | ✅ |
-| `@OnEvent`, EventEmitter | `@EventListener` | типизированная шина событий | 🔜 |
+| `@OnEvent`, EventEmitter | `@EventListener` | `Forge.Events` (топик с типом события), `[@@on_event]`, подписка через `[%wire]` | ✅ |
 | `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]`, `[@@interval]` | 🔜 |
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable` | `[@@cache]` | 🔜 |
 | Terminus | Actuator | `Forge.Actuator` | 🔜 |

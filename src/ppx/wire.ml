@@ -18,6 +18,8 @@ type provider = {
   construction : construction;
   hooks : string list;
       (** [on_start] and/or [on_shutdown] defined by the provider. *)
+  listeners : (string * expression) list;
+      (** Functions marked [[@@on_event topic]]. *)
   rank : rank;
   loc : location;
 }
@@ -257,6 +259,39 @@ let scan path =
               provides;
               construction;
               hooks = hooks (items body);
+              listeners =
+                List.concat_map
+                  (fun (item : structure_item) ->
+                    match item.pstr_desc with
+                    | Pstr_value (_, bindings) ->
+                        List.filter_map
+                          (fun (binding : value_binding) ->
+                            match
+                              ( binding.pvb_pat.ppat_desc,
+                                List.find_map
+                                  (fun (attribute : attribute) ->
+                                    match
+                                      ( attribute.attr_name.txt,
+                                        attribute.attr_payload )
+                                    with
+                                    | ( "on_event",
+                                        PStr
+                                          [
+                                            {
+                                              pstr_desc = Pstr_eval (topic, _);
+                                              _;
+                                            };
+                                          ] ) ->
+                                        Some topic
+                                    | _ -> None)
+                                  binding.pvb_attributes )
+                            with
+                            | Ppat_var { txt; _ }, Some topic ->
+                                Some (txt, topic)
+                            | _ -> None)
+                          bindings
+                    | _ -> [])
+                  (items body);
               rank =
                 Option.fold ~none:Secondary
                   ~some:(fun _ -> Primary)
@@ -376,6 +411,26 @@ let expand ~loc ~input directories =
              (List.find_opt (String.equal name) provider.hooks))
          order)
   in
+  let subscriptions =
+    List.concat_map
+      (fun provider ->
+        List.map
+          (fun (listener, topic) ->
+            let bus =
+              resolve ~needed:"Forge.Events.S" ~site:provider.loc
+                ~by:provider.name ()
+            in
+            [%expr
+              [%e
+                pexp_ident ~loc
+                  { txt = Ldot (Lident bus.name, "subscribe"); loc }]
+                [%e topic]
+                [%e
+                  pexp_ident ~loc
+                    { txt = Ldot (Lident provider.name, listener); loc }]])
+          provider.listeners)
+      order
+  in
   let wiring =
     [%expr
       Forge.Wiring.make
@@ -403,6 +458,11 @@ let expand ~loc ~input directories =
                            needs))
                  controllers)]
         ~on_start:[%e hooks "on_start"] ~on_shutdown:[%e hooks "on_shutdown"]]
+  in
+  let wiring =
+    List.fold_right
+      (fun subscription rest -> pexp_sequence ~loc subscription rest)
+      subscriptions wiring
   in
   List.fold_right
     (fun provider body ->

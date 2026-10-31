@@ -78,3 +78,15 @@ A cycle is a build error.
   File "./app/clock.ml", line 1, characters 0-47:
   Error: dependency cycle: Clock -> Report -> Clock
   [1]
+
+An [@@on_event] listener needs a bus provider.
+
+  $ cat > app/clock.ml <<'ML'
+  > module type S = sig val now : unit -> float end
+  > let now () = 0.
+  > let tick () = Lwt.return_unit [@@on_event Topics.tick]
+  > ML
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/clock.ml", line 1, characters 0-47:
+  Error: Clock needs Forge.Events.S, but no provider gives it: add a module with Make or module type S that implements it
+  [1]

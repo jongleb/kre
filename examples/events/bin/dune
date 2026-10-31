@@ -1,0 +1,7 @@
+(executable
+ (name main)
+ (libraries events_server forge dream)
+ (preprocess
+  (pps forge-ppx))
+ (preprocessor_deps
+  (source_tree ..)))
