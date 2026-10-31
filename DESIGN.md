@@ -1102,7 +1102,23 @@ type t = {
 
 ### Миграции
 
-Фаза 1: `migrations/NNNN_name.sql` + таблица `forge_migrations`; `forge migrate up|down|status`. Фаза 3: `forge migrate diff` сравнивает `schema` всех `table`-типов со снапшотом `migrations/schema.json` и генерирует SQL-черновик, который разработчик правит руками. Автоприменение диффа без просмотра — никогда.
+Фаза 1 (реализовано): `migrations/NNNN_name.sql` с секциями `-- migrate:up` и `-- migrate:down`; выражение заканчивается `;` в конце строки, строки-комментарии `--` пропускаются. Применённые версии — в таблице `forge_migrations (version, applied_at)`, она создаётся при первом обращении.
+
+```ocaml
+(* Forge.Migration — поверх того же Forge.Db.DRIVER (в нём есть execute и strings) *)
+type t = private { version : string; up : string list; down : string list }
+type state = Applied | Pending
+val parse : version:string -> string -> (t, string) result
+val load : string -> (t list, string) result             (* каталог, по имени файла *)
+val create : dir:string -> string -> string              (* следующий NNNN_name.sql *)
+val status : (module D : Db.DRIVER) -> D.conn -> t list -> (t * state) list Lwt.t
+val up : (module D : Db.DRIVER) -> D.conn -> t list -> t list Lwt.t        (* все ожидающие, по порядку *)
+val down : (module D : Db.DRIVER) -> D.conn -> t list -> t option Lwt.t    (* последнюю применённую *)
+```
+
+CLI: `forge migrate up|down|status --url URL --dir migrations` (`--url` или `DATABASE_URL`), `forge migrate new NAME`. MariaDB коммитит DDL неявно, поэтому миграция из нескольких выражений не атомарна: при сбое посередине база остаётся в промежуточном состоянии, версия не записывается. Проверено на MariaDB (`examples/cats/db/test`, алиас `@db`): пустая база → `up` → схема на месте → `down`, плюс те же шаги через CLI.
+
+Фаза 3: `forge migrate diff` сравнивает `schema` всех `table`-типов со снапшотом и генерирует SQL-черновик, который разработчик правит руками; у sqlgg уже есть `-diff`/`-migrate`, сначала проверить их. Автоприменение диффа без просмотра — никогда.
 
 ## Генерация клиента и OpenAPI из spec
 
@@ -1423,7 +1439,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ `Forge_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: сгенерированный клиент, собранный Melange, в node 22 против живого сервера (`NODE=` задаёт бинарь) |
 | ✅ `Forge_client.Router` + `[%path]`, `search`, `params` | node: `href`, матчинг, `search` с дефолтом и ошибкой, SSR `link` и `View`; cram: `link` с неверными params не компилируется |
 | ✅ `Forge.Db` (пул, транзакции) + `Forge_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запросы против сгенерированного `schema.sql` компилируются и выполняются на MariaDB 11.8 (алиас `@db`, отдельная CI-задача) |
-| `forge migrate up/down/status/new` | e2e применяет миграции на пустую БД |
+| ✅ `forge migrate up/down/status/new` (+ `Forge.Migration`) | e2e на MariaDB: пустая база → up → down, программно и через CLI |
 | `forge new`, `forge generate controller/service/dto` | сгенерированный проект собирается и проходит свой e2e |
 | Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data | каждая глава содержит порт Nest-примера, который компилируется в `docs/` как mdx-тест |
 

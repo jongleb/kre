@@ -2,4 +2,4 @@
  (name main)
  (public_name forge)
  (package forge-cli)
- (libraries forge cmdliner yojson dream))
+ (libraries forge forge-db-mariadb cmdliner yojson dream lwt))

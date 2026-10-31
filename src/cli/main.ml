@@ -85,9 +85,82 @@ let routes =
             (read file))
       $ spec)
 
+let migrate =
+  let dir =
+    Arg.(
+      value & opt string "migrations"
+      & info [ "dir" ] ~docv:"DIR" ~doc:"Directory of NNNN_name.sql files.")
+  in
+  let url =
+    Arg.(
+      required
+      & opt (some string) None
+      & info [ "url" ] ~docv:"URL"
+          ~env:(Cmd.Env.info "DATABASE_URL")
+          ~doc:"mariadb://user:pass@host:port/db")
+  in
+  let connected run url dir =
+    Result.bind (Forge.Migration.load dir) (fun migrations ->
+        match
+          Lwt_main.run
+            (Lwt.bind (Forge_db_mariadb.Driver.connect url) (fun conn ->
+                 Lwt.finalize
+                   (fun () -> run conn migrations)
+                   (fun () -> Forge_db_mariadb.Driver.close conn)))
+        with
+        | lines -> Ok (List.iter print_endline lines)
+        | exception Failure message -> Error message)
+  in
+  let command name doc run =
+    Cmd.v (Cmd.info name ~doc) Term.(const (connected run) $ url $ dir)
+  in
+  Cmd.group
+    (Cmd.info "migrate" ~doc:"Apply, roll back and inspect SQL migrations.")
+    [
+      command "up" "Apply every pending migration." (fun conn migrations ->
+          Lwt.map
+            (function
+              | [] -> [ "nothing to apply" ]
+              | applied ->
+                  List.map
+                    (fun (migration : Forge.Migration.t) ->
+                      "applied " ^ migration.version)
+                    applied)
+            (Forge.Migration.up
+               (module Forge_db_mariadb.Driver)
+               conn migrations));
+      command "down" "Roll back the last applied migration."
+        (fun conn migrations ->
+          Lwt.map
+            (Option.fold ~none:[ "nothing to roll back" ]
+               ~some:(fun (migration : Forge.Migration.t) ->
+                 [ "rolled back " ^ migration.version ]))
+            (Forge.Migration.down
+               (module Forge_db_mariadb.Driver)
+               conn migrations));
+      command "status" "List migrations and whether they are applied."
+        (fun conn migrations ->
+          Lwt.map
+            (List.map (fun ((migration : Forge.Migration.t), state) ->
+                 (match state with
+                   | Forge.Migration.Applied -> "applied  "
+                   | Forge.Migration.Pending -> "pending  ")
+                 ^ migration.version))
+            (Forge.Migration.status
+               (module Forge_db_mariadb.Driver)
+               conn migrations));
+      Cmd.v
+        (Cmd.info "new" ~doc:"Create the next numbered migration file.")
+        Term.(
+          const (fun dir name ->
+              Ok (print_endline (Forge.Migration.create ~dir name)))
+          $ dir
+          $ Arg.(required & pos 0 (some string) None & info [] ~docv:"NAME"));
+    ]
+
 let () =
   exit
     (Cmd.eval_result
        (Cmd.group
           (Cmd.info "forge" ~doc:"NestJS-style tooling for Forge")
-          [ client; openapi; routes ]))
+          [ client; openapi; routes; migrate ]))

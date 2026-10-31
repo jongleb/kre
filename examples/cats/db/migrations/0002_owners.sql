@@ -1,0 +1,10 @@
+-- migrate:up
+CREATE TABLE owners (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE
+);
+ALTER TABLE cats ADD COLUMN owner_id BIGINT NULL;
+
+-- migrate:down
+ALTER TABLE cats DROP COLUMN owner_id;
+DROP TABLE owners;

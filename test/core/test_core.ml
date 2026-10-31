@@ -465,9 +465,45 @@ let spec =
              }));
   ]
 
+let migration =
+  [
+    Alcotest.test_case "statements end at ; and skip comments" `Quick (fun () ->
+        Alcotest.(check (result (pair (list string) (list string)) string))
+          "sections"
+          (Ok
+             ( [ "CREATE TABLE a (\nid BIGINT\n)"; "INSERT INTO a VALUES (1)" ],
+               [ "DROP TABLE a" ] ))
+          (Result.map
+             (fun (m : Forge.Migration.t) -> (m.up, m.down))
+             (Forge.Migration.parse ~version:"0001_a"
+                "-- header\n\
+                 -- migrate:up\n\
+                 CREATE TABLE a (\n\
+                \  id BIGINT\n\
+                 );\n\
+                 -- a comment\n\
+                 INSERT INTO a VALUES (1);\n\
+                 -- migrate:down\n\
+                 DROP TABLE a;\n")));
+    Alcotest.test_case "a file needs an up section" `Quick (fun () ->
+        Alcotest.(check (list (result reject string)))
+          "errors"
+          [
+            Error "0001_a: no -- migrate:up section";
+            Error "0001_a: the up section has no statements";
+          ]
+          (List.map
+             (fun text ->
+               Result.map ignore (Forge.Migration.parse ~version:"0001_a" text))
+             [
+               "DROP TABLE a;"; "-- migrate:up\n-- migrate:down\nDROP TABLE a;";
+             ]));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Migration", migration);
       ("Validation", validation);
       ("Scalar", scalar);
       ("Json", json_tests);

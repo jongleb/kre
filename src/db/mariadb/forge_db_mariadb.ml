@@ -82,4 +82,35 @@ module Driver = struct
   let start conn = Lwt.bind (Client.start_txn conn) (check "start transaction")
   let commit conn = Lwt.bind (Client.commit conn) (check "commit")
   let rollback conn = Lwt.bind (Client.rollback conn) (check "rollback")
+
+  let run conn sql consume =
+    let open Lwt.Syntax in
+    let* statement = Lwt.bind (Client.prepare conn sql) (check sql) in
+    let* result = Lwt.bind (Client.Stmt.execute statement [||]) (check sql) in
+    let* value = consume result in
+    let+ () = Lwt.bind (Client.Stmt.close statement) (check "close") in
+    value
+
+  let execute conn sql = run conn sql (fun _ -> Lwt.return_unit)
+
+  let strings conn sql =
+    run conn sql (fun result ->
+        let rec rows collected =
+          Lwt.bind
+            (Lwt.bind
+               (Client.Res.fetch (module Client.Row.Array) result)
+               (check sql))
+            (function
+              | None -> Lwt.return (List.rev collected)
+              | Some (row : Client.Field.t array) ->
+                  rows
+                    ((match Client.Field.value row.(0) with
+                     | `String text -> text
+                     | `Bytes bytes -> Bytes.to_string bytes
+                     | `Int n -> string_of_int n
+                     | `Int64 n -> Int64.to_string n
+                     | `UInt64 _ | `Float _ | `Time _ | `Null -> "")
+                    :: collected))
+        in
+        rows [])
 end

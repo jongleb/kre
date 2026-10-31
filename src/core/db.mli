@@ -7,6 +7,8 @@ module type DRIVER = sig
   val start : conn -> unit Lwt.t
   val commit : conn -> unit Lwt.t
   val rollback : conn -> unit Lwt.t
+  val execute : conn -> string -> unit Lwt.t
+  val strings : conn -> string -> string list Lwt.t
 end
 
 (** A pooled database; services take it as a functor argument. *)

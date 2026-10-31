@@ -82,7 +82,9 @@
   (forge
    (= :version))
   yojson
-  dream))
+  dream
+  (forge-db-mariadb
+   (= :version))))
 
 (package
  (name forge-db-mariadb)
