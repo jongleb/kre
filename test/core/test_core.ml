@@ -671,9 +671,35 @@ let cron =
              [ "61 * * * *"; "* * *"; "0 5-2 * * *" ]));
   ]
 
+let cache =
+  [
+    Alcotest.test_case "memoize: ttl and evict" `Quick (fun () ->
+        let now = ref 0. in
+        let calls = ref 0 in
+        let square =
+          Forge.Cache.memoize ~ttl:10.
+            ~clock:(fun () -> !now)
+            (fun n ->
+              incr calls;
+              Lwt.return (n * n))
+        in
+        let ask n = Lwt_main.run (square.find n) in
+        let first = ask 3 in
+        let cached = ask 3 in
+        now := 11.;
+        let expired = ask 3 in
+        square.evict 3;
+        let evicted = ask 3 in
+        Alcotest.(check (pair (list int) int))
+          "values and calls"
+          ([ 9; 9; 9; 9 ], 3)
+          ([ first; cached; expired; evicted ], !calls));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);
       ("Security", security);

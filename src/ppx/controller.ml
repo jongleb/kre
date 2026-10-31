@@ -640,7 +640,36 @@ let transform structure =
                   (attribute_of binding "status");
               middleware =
                 Option.fold ~none:[] ~some:list_payload
-                  (attribute_of binding "use");
+                  (attribute_of binding "use")
+                @ Option.fold ~none:[]
+                    ~some:(fun (attribute : attribute) ->
+                      match (verb, attribute.attr_payload) with
+                      | ( Get,
+                          PStr
+                            [
+                              {
+                                pstr_desc =
+                                  Pstr_eval
+                                    ( ({
+                                         pexp_desc =
+                                           Pexp_constant (Pconst_float _);
+                                         _;
+                                       } as ttl),
+                                      _ );
+                                _;
+                              };
+                            ] ) ->
+                          [ [%expr Forge.Cache.response ~ttl:[%e ttl] ()] ]
+                      | Get, _ ->
+                          Location.raise_errorf ~loc:attribute.attr_loc
+                            "[@@@@cache] takes seconds as a float: [@@@@cache \
+                             60.0]"
+                      | (Post | Put | Patch | Delete | Head | Options | All), _
+                        ->
+                          Location.raise_errorf ~loc:attribute.attr_loc
+                            "[@@@@cache] caches GET responses; %s is not a GET"
+                            name)
+                    (attribute_of binding "cache");
               guards =
                 controller_guards
                 @ Option.fold ~none:[] ~some:list_payload
@@ -787,6 +816,7 @@ let transform structure =
               "authorize";
               "sse";
               "intercept";
+              "cache";
             ]
             @ List.map fst verbs
           in

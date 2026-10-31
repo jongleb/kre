@@ -231,6 +231,21 @@ let () =
                         (member "password"
                            (member "properties" Account.t_jsonschema)));
                 ]);
+          Alcotest.test_case "response cache" `Quick (fun () ->
+              let stats = app [ Stats_controller.register () ] in
+              let fetch () =
+                let response =
+                  Dream.test stats (Dream.request ~target:"/stats" "")
+                in
+                ( Lwt_main.run (Dream.body response),
+                  Option.value (Dream.header response "X-Cache") ~default:"-" )
+              in
+              let first = fetch () in
+              let second = fetch () in
+              Alcotest.(check (list (pair string string)))
+                "responses"
+                [ ("computed 1 times", "miss"); ("computed 1 times", "hit") ]
+                [ first; second ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

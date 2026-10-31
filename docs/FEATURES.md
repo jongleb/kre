@@ -95,7 +95,7 @@
 | `nest new`, `nest g resource` | Spring Initializr | `forge new`, `forge generate` | ✅ |
 | `@OnEvent`, EventEmitter | `@EventListener` | `Forge.Events` (топик с типом события), `[@@on_event]`, подписка через `[%wire]` | ✅ |
 | `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]` (проверка при сборке), `[@@interval]`, `[@@after]` | ✅ |
-| `CacheInterceptor`, `@CacheKey` | `@Cacheable` | `[@@cache]` | 🔜 |
+| `CacheInterceptor`, `@CacheKey` | `@Cacheable`, `@CacheEvict` | `[@@cache ttl]` на GET; `Forge.Cache.memoize` → `{ find; evict; clear }` | ✅ |
 | Terminus | Actuator | `Forge.Actuator` | 🔜 |
 | `@WebSocketGateway`, `@SubscribeMessage` | `@MessageMapping` | `[@@@gateway]`, `[@@subscribe]` | 🔜 |
 | — | — | live loaders (IHP Auto Refresh) | 🔜 |

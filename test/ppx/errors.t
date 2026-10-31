@@ -373,3 +373,16 @@ A stream needs [@@sse], and [@@sse] needs a stream.
   Error: [@@sse] needs a handler returning T.t Lwt_stream.t Lwt.t
   [1]
 
+[@@cache] is for GET handlers.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@cache 60.0]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 49-63:
+  2 | let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@cache 60.0]
+                                                       ^^^^^^^^^^^^^^
+  Error: [@@cache] caches GET responses; f is not a GET
+  [1]
+
