@@ -20,6 +20,9 @@ type provider = {
       (** [on_start] and/or [on_shutdown] defined by the provider. *)
   listeners : (string * expression) list;
       (** Functions marked [[@@on_event topic]]. *)
+  jobs : (string * expression) list;
+      (** Functions marked [[@@cron]], [[@@interval]] or [[@@after]], with their
+          timing. *)
   rank : rank;
   loc : location;
 }
@@ -259,6 +262,91 @@ let scan path =
               provides;
               construction;
               hooks = hooks (items body);
+              jobs =
+                List.concat_map
+                  (fun (item : structure_item) ->
+                    match item.pstr_desc with
+                    | Pstr_value (_, bindings) ->
+                        List.filter_map
+                          (fun (binding : value_binding) ->
+                            match binding.pvb_pat.ppat_desc with
+                            | Ppat_var { txt; _ } ->
+                                Option.map
+                                  (fun timing -> (txt, timing))
+                                  (List.find_map
+                                     (fun (attribute : attribute) ->
+                                       let loc = attribute.attr_loc in
+                                       let payload () =
+                                         match attribute.attr_payload with
+                                         | PStr
+                                             [
+                                               {
+                                                 pstr_desc =
+                                                   Pstr_eval (expression, _);
+                                                 _;
+                                               };
+                                             ] ->
+                                             expression
+                                         | _ ->
+                                             Location.raise_errorf ~loc
+                                               "[@@%s] needs a value"
+                                               attribute.attr_name.txt
+                                       in
+                                       let seconds () =
+                                         match (payload ()).pexp_desc with
+                                         | Pexp_constant (Pconst_float _) ->
+                                             payload ()
+                                         | _ ->
+                                             Location.raise_errorf ~loc
+                                               "[@@%s] takes seconds as a \
+                                                float, e.g. [@@%s 30.0]"
+                                               attribute.attr_name.txt
+                                               attribute.attr_name.txt
+                                       in
+                                       match attribute.attr_name.txt with
+                                       | "cron" -> (
+                                           match (payload ()).pexp_desc with
+                                           | Pexp_constant
+                                               (Pconst_string (expression, _, _))
+                                             -> (
+                                               match
+                                                 Forge_shared.Cron.of_string
+                                                   expression
+                                               with
+                                               | Ok _ ->
+                                                   Some
+                                                     [%expr
+                                                       Forge.Schedule.Cron
+                                                         (Forge_shared.Cron
+                                                          .of_string_exn
+                                                            [%e
+                                                              estring ~loc
+                                                                expression])]
+                                               | Error message ->
+                                                   Location.raise_errorf ~loc
+                                                     "[@@cron %S]: %s"
+                                                     expression message)
+                                           | _ ->
+                                               Location.raise_errorf ~loc
+                                                 "[@@cron] takes a cron \
+                                                  string, e.g. [@@cron \"0 3 * \
+                                                  * *\"]")
+                                       | "interval" ->
+                                           Some
+                                             [%expr
+                                               Forge.Schedule.Every
+                                                 [%e seconds ()]]
+                                       | "after" ->
+                                           Some
+                                             [%expr
+                                               Forge.Schedule.After
+                                                 [%e seconds ()]]
+                                       | _ -> None)
+                                     binding.pvb_attributes)
+                            | _ -> None)
+                          bindings
+                    | _ -> [])
+                  (items body);
               listeners =
                 List.concat_map
                   (fun (item : structure_item) ->
@@ -457,7 +545,24 @@ let expand ~loc ~input directories =
                                        ~by:controller.module_name ())) ))
                            needs))
                  controllers)]
-        ~on_start:[%e hooks "on_start"] ~on_shutdown:[%e hooks "on_shutdown"]]
+        ~on_start:[%e hooks "on_start"] ~on_shutdown:[%e hooks "on_shutdown"]
+        ~jobs:
+          [%e
+            elist ~loc
+              (List.concat_map
+                 (fun provider ->
+                   List.map
+                     (fun (job, timing) ->
+                       [%expr
+                         Forge.Schedule.job
+                           ~name:[%e estring ~loc (provider.name ^ "." ^ job)]
+                           [%e timing]
+                           [%e
+                             pexp_ident ~loc
+                               { txt = Ldot (Lident provider.name, job); loc }]])
+                     provider.jobs)
+                 order)]
+        ()]
   in
   let wiring =
     List.fold_right

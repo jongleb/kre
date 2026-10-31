@@ -35,7 +35,7 @@ alone.
       let module Report = ((Report.Make)(Repo))(Clock) in
         Forge.Wiring.make
           ~controllers:[Reports_controller.register (module Report)]
-          ~on_start:[Report.on_start] ~on_shutdown:[]
+          ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ()
 
 A dependency nobody provides is a build error.
 
@@ -89,4 +89,15 @@ An [@@on_event] listener needs a bus provider.
   $ ../ppx/pp.exe -impl main.ml
   File "./app/clock.ml", line 1, characters 0-47:
   Error: Clock needs Forge.Events.S, but no provider gives it: add a module with Make or module type S that implements it
+  [1]
+A cron expression is checked at build time.
+
+  $ cat > app/clock.ml <<'ML'
+  > module type S = sig val now : unit -> float end
+  > let now () = 0.
+  > let sweep () = Lwt.return_unit [@@cron "61 * * * *"]
+  > ML
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/clock.ml", line 3, characters 31-52:
+  Error: [@cron "61 * * * *"]: minute 61 is outside 0-59
   [1]

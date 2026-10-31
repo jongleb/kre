@@ -94,7 +94,7 @@
 | — | — | типизированный роутер страниц, `[%path]`, `params`, `search` | ✅ |
 | `nest new`, `nest g resource` | Spring Initializr | `forge new`, `forge generate` | ✅ |
 | `@OnEvent`, EventEmitter | `@EventListener` | `Forge.Events` (топик с типом события), `[@@on_event]`, подписка через `[%wire]` | ✅ |
-| `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]`, `[@@interval]` | 🔜 |
+| `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]` (проверка при сборке), `[@@interval]`, `[@@after]` | ✅ |
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable` | `[@@cache]` | 🔜 |
 | Terminus | Actuator | `Forge.Actuator` | 🔜 |
 | `@WebSocketGateway`, `@SubscribeMessage` | `@MessageMapping` | `[@@@gateway]`, `[@@subscribe]` | 🔜 |

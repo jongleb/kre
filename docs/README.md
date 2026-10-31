@@ -10,6 +10,6 @@
 
 **Security:** [Authentication и Authorization](authentication.md) · [Helmet, CORS, rate limiting](security.md)
 
-**Techniques:** [Configuration](configuration.md) · [Events](events.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md)
+**Techniques:** [Configuration](configuration.md) · [Events](events.md) · [Task scheduling](task-scheduling.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md)
 
 **OpenAPI, CLI, клиент:** [OpenAPI и CLI](openapi-cli.md) · [Клиент и роутер](client.md)

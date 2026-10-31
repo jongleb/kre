@@ -1,6 +1,8 @@
 module type S = sig
   val sent : unit -> string list
   val welcome : Signup.t -> unit Lwt.t
+  val digests : unit -> int
+  val digest : unit -> unit Lwt.t
 end
 
 module Make () = struct
@@ -11,4 +13,12 @@ module Make () = struct
     outbox := ("welcome " ^ signup.email) :: !outbox;
     Lwt.return_unit
   [@@on_event Topics.user_signed_up]
+
+  let sent_digests = ref 0
+  let digests () = !sent_digests
+
+  let digest () =
+    incr sent_digests;
+    Lwt.return_unit
+  [@@interval 0.02]
 end

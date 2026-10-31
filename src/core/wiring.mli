@@ -9,4 +9,6 @@ val make :
   controllers:Controller.t list ->
   on_start:(unit -> unit Lwt.t) list ->
   on_shutdown:(unit -> unit Lwt.t) list ->
+  ?jobs:Schedule.job list ->
+  unit ->
   t

@@ -636,9 +636,45 @@ let jwt =
           ]);
   ]
 
+let cron =
+  let next expression after =
+    Option.map int_of_float
+      (Forge_shared.Cron.next
+         (Result.get_ok (Forge_shared.Cron.of_string expression))
+         ~after)
+  in
+  [
+    Alcotest.test_case "next fire time in UTC" `Quick (fun () ->
+        Alcotest.(check (list (option int)))
+          "times"
+          [ Some 1704079800; Some 1704672000; Some 1704067500; None ]
+          [
+            next "30 3 * * *" 1704067200.;
+            next "0 0 * * 1" 1704067200.;
+            next "*/5 * * * *" 1704067200.;
+            next "0 0 31 2 *" 1704067200.;
+          ]);
+    Alcotest.test_case "parse errors" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "errors"
+          [
+            "minute 61 is outside 0-59";
+            "a cron expression has five fields: minute hour day month weekday";
+            "hour range 5-2 is backwards";
+          ]
+          (List.map
+             (fun expression ->
+               Result.fold
+                 ~ok:(fun _ -> "ok")
+                 ~error:Fun.id
+                 (Forge_shared.Cron.of_string expression))
+             [ "61 * * * *"; "* * *"; "0 5-2 * * *" ]));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Cron", cron);
       ("Jwt", jwt);
       ("Security", security);
       ("Migration", migration);

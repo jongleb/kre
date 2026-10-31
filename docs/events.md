@@ -18,6 +18,8 @@ let user_signed_up : Signup.t Forge.Events.topic =
 module type S = sig
   val sent : unit -> string list
   val welcome : Signup.t -> unit Lwt.t
+  val digests : unit -> int
+  val digest : unit -> unit Lwt.t
 end
 
 module Make () = struct
@@ -28,6 +30,14 @@ module Make () = struct
     outbox := ("welcome " ^ signup.email) :: !outbox;
     Lwt.return_unit
   [@@on_event Topics.user_signed_up]
+
+  let sent_digests = ref 0
+  let digests () = !sent_digests
+
+  let digest () =
+    incr sent_digests;
+    Lwt.return_unit
+  [@@interval 0.02]
 end
 ```
 
@@ -42,6 +52,10 @@ let create (module Bus : Forge.Events.S) ~(body : Signup.t) () : unit Lwt.t =
 let outbox (module Mailer : Mailer.S) () : string list Lwt.t =
   Lwt.return (Mailer.sent ())
 [@@get "outbox"]
+
+let digests (module Mailer : Mailer.S) () : int Lwt.t =
+  Lwt.return (Mailer.digests ())
+[@@get "digests"]
 ```
 
 Разнотипные подписки хранятся без `Obj.magic`: топик несёт `Type.Id.t`, и шина выбирает слушателей по доказательству равенства типов.
