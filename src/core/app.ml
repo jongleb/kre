@@ -5,7 +5,7 @@ type tls =
 let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
     =
   let route controller (route : Route.t) =
-    ( route.verb,
+    ( (route.verb, route.matching),
       Routes.map
         (fun (handle : Route.handler) ->
           Dream.pipeline (controller.Controller.middleware @ route.middleware)
@@ -24,12 +24,25 @@ let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
           List.map (route controller) controller.routes)
         controllers
     in
-    fun verb ->
-      Routes.one_of
-        (List.filter_map
-           (fun (route_verb, target) ->
-             if route_verb = verb then Some target else None)
-           routes)
+    let tries =
+      List.concat_map
+        (fun verb ->
+          List.map
+            (fun matching ->
+              ( (verb, matching),
+                Routes.one_of
+                  (List.filter_map
+                     (fun (key, target) ->
+                       if key = (verb, matching) then Some target else None)
+                     routes) ))
+            [ Route.Exact; Route.Rest ])
+        [ `GET; `POST; `PUT; `PATCH; `DELETE; `HEAD; `OPTIONS ]
+    in
+    let trie key = List.assoc key tries in
+    fun verb target ->
+      match Routes.match' (trie (verb, Route.Exact)) ~target with
+      | Routes.NoMatch -> Routes.match' (trie (verb, Route.Rest)) ~target
+      | matched -> matched
   in
   let hosts =
     List.sort_uniq compare
@@ -62,7 +75,7 @@ let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
           (fun (pattern, routers) ->
             match
               ( Option.map (fun pattern -> Host.parameters ~pattern host) pattern,
-                Routes.match' (routers verb) ~target:path )
+                routers verb path )
             with
             | ( (None | Some (Some _)),
                 ((Routes.FullMatch _ | Routes.MatchWithTrailingSlash _) as

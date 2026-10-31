@@ -1,7 +1,9 @@
 type handler = Dream.request -> (Dream.response, Error.t) result Lwt.t
+type matching = Exact | Rest
 
 type t = {
   verb : Spec.verb;
+  matching : matching;
   middleware : Dream.middleware list;
   target : handler Routes.route;
 }
@@ -14,7 +16,16 @@ type 'a returns =
   | Raw : Dream.response returns
   | Redirect : string -> unit returns
 
-let v ?(middleware = []) verb target = { verb; middleware; target }
+let v ?(middleware = []) verb target =
+  {
+    verb;
+    middleware;
+    target;
+    matching =
+      (if String.ends_with ~suffix:":wildcard" (Routes.string_of_route target)
+       then Rest
+       else Exact);
+  }
 
 let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
     ?(interceptors = []) (returns : a returns)

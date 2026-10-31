@@ -1,0 +1,6 @@
+(executable
+ (name main)
+ (libraries forge_docs cats_server cats_shared forge dream))
+
+(cram
+ (deps main.exe %{bin:forge}))

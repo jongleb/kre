@@ -169,6 +169,7 @@ let () =
                   (200, "");
                   (204, "");
                   (200, "PATCH");
+                  (200, "GET");
                   (200, "HEAD");
                 ]
                 [
@@ -176,6 +177,7 @@ let () =
                   call files `HEAD "/files/docs/guide.pdf";
                   call files `OPTIONS "/files/probe";
                   call files `PATCH "/files/echo";
+                  call files `GET "/files/echo";
                   (match call files `HEAD "/files/echo" with
                   | 200, _ -> (200, "HEAD")
                   | other -> other);

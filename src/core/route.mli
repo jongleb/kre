@@ -1,8 +1,12 @@
 type handler = Dream.request -> (Dream.response, Error.t) result Lwt.t
 (** Answers a matched request or fails with an error the app renders. *)
 
+(** Whether a route ends with a wildcard, which must not shadow exact ones. *)
+type matching = Exact | Rest
+
 type t = private {
   verb : Spec.verb;
+  matching : matching;
   middleware : Dream.middleware list;
       (** Handler-level, inside the controller's. *)
   target : handler Routes.route;
