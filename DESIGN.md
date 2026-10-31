@@ -991,7 +991,29 @@ val load_exn : ?env:(string -> string option) -> unit -> t   (* печатает
 val pp       : Format.formatter -> t -> unit                 (* [@secret] печатается как *** *)
 ```
 
-Поддерживаемые типы полей: `int`, `int64`, `float`, `bool` (`true/1/yes`), `string`, `τ option` (отсутствие = `None`, `[@default]` запрещён), `string list` с `[@sep]`, `T.t` через `T.of_string`. Имя переменной без `[@env]` — имя поля в UPPER\_SNAKE. Вложенные записи с `[@prefix "DB_"]` — фаза 2. Файлы `.env` — не ppx, а `Forge.Config.dotenv : string -> unit` в рантайме, вызывается до `load`.
+Поддерживаемые типы полей: `int`, `int64`, `float`, `bool` (`true/1/yes`, `false/0/no` — `Forge.Config.Flag`), `string`, `T.t` с `T : Forge_shared.Scalar.S` (например, `Refined.Email.t`), `τ option` (отсутствие = `None`, `[@default]` запрещён), `τ list` с `[@sep ","]` (один символ). Имя переменной без `[@env]` — имя поля в верхнем регистре. Вложенные записи с `[@prefix "DB_"]` — фаза 2.
+
+Реализация (фаза 1) — интерпретатор: на каждое поле генерируется описание `'a Forge.Config.field`, `load` читает все поля через `Forge.Config.read` и `and+` (ошибки накапливаются), `pp` печатает `NAME=value` по строке через `Forge.Config.show`, `[@secret]` — `Forge.Config.secret field`, печатается как `***`. Эталон — `test/ppx/config.t`.
+
+```ocaml
+(* Forge.Config — рантайм [@@deriving config] *)
+type env = string -> string option
+type ('a, 'b) presence = Required : ('a, 'a) presence | Optional : ('a, 'a option) presence | Default : 'a -> ('a, 'a) presence
+type 'a field
+val field : string -> (module S : Forge_shared.Scalar.S) -> (S.t, 'b) presence -> 'b field
+val list : string -> separator:char -> (module S : Forge_shared.Scalar.S) -> (S.t list, 'b) presence -> 'b field
+val secret : 'a field -> 'a field
+val read : env -> 'a field -> ('a, string list) result
+val show : 'a field -> 'a -> string * string
+val pp : Format.formatter -> (string * string) list -> unit
+val exit_on_error : ('a, string list) result -> 'a
+val dotenv : ?env:env -> string list -> env          (* слои .env под реальным окружением *)
+val profile : ?dir:string -> ?env:env -> unit -> env  (* config/default.env, затем config/$FORGE_ENV.env *)
+module Syntax : sig val ( let+ ) : … val ( and+ ) : … end
+module Flag : Forge_shared.Scalar.S with type t = bool
+```
+
+`.env`-файлы не меняют окружение процесса (`putenv` не используется): `dotenv`/`profile` возвращают функцию поиска, которая передаётся в `load ~env`. Порядок: реальное окружение → последний файл → … → первый файл; отсутствующий файл пропускается; строки `KEY=VALUE`, `export KEY=VALUE`, кавычки и `#`-комментарии.
 
 ## Данные: Db, sqlgg, \[@@deriving table\], миграции
 
@@ -1229,7 +1251,7 @@ Nest задаёт структуру; из Spring берём пять вещей
 | `@PreAuthorize("… #id == principal.id")` | `[@@authorize f]` — типизированная функция над извлечёнными параметрами | 2 |
 | `@Transactional` | `[@@transactional]` + `[@from Db.tx]` | 2 |
 | Actuator | `Forge.Actuator.routes` | 2 |
-| Profiles | `FORGE_ENV` + слои `config/*.env` | 1 |
+| Profiles | `FORGE_ENV` + слои `config/*.env` — сделано | 1 |
 
 ### Problem Details — заменяет envelope ошибки
 
@@ -1282,7 +1304,7 @@ let transfer (module Db : Db.S) ~(conn : Db.conn [@from Db.tx]) ~(body : Transfe
 
 ### Profiles
 
-`Forge.Config.dotenv` читает `config/default.env`, затем `config/${FORGE_ENV}.env`, затем реальное окружение; позже — приоритетнее. Условные провайдеры в `main.ml` — обычный `match config.env with`; атрибут `[@profile]` не нужен.
+`Forge.Config.profile ()` читает `config/default.env`, затем `config/${FORGE_ENV}.env` (по умолчанию `dev`), затем реальное окружение; позже — приоритетнее. Использование: `Config.load_exn ~env:(Forge.Config.profile ()) ()`. Условные провайдеры в `main.ml` — обычный `match config.env with`; атрибут `[@profile]` не нужен.
 
 ## Заимствования из IHP
 
@@ -1349,7 +1371,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ ppx `controller`: атрибуты, классификация, `Paths`/`spec`/`register`, все ошибки | cram на эталон и каждую ошибку; cats-контроллер компилируется и проходит e2e через `Dream.test` |
 | ✅ ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | cram на вывод; e2e cats: 422 с путём поля, `~strict` |
 | ✅ `Forge_shared.Refined` (String, Int, Enum, Email, Make; Regex — открытый вопрос) | схемы содержат ограничения; `of_string` работает в path/query |
-| ppx `config` | `load` собирает все ошибки сразу |
+| ✅ ppx `config` (+ `Forge.Config`, profiles) | `load` собирает все ошибки сразу; cram на вывод и ошибки |
 | `--emit-spec`, `--emit-openapi`; `forge client` (melange + native) | OpenAPI проходит валидацию 3.1; native-клиент проходит e2e по cats |
 | `Forge_client`: `Http`, `Error`, `Promise` | e2e из браузера (melange-тест в node) |
 | `Forge_client.Router` + `[%path]`, `search`, `params` | тесты матчинга и round-trip; `Link` с неверными params не компилируется (expect-тест на ошибку типов) |
