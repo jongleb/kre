@@ -10,7 +10,10 @@ type construction =
           need. *)
 
 (** Which of several providers of one interface the wiring picks. *)
-type rank = Primary | Secondary
+type rank =
+  | Primary
+  | Secondary
+  | Fallback  (** Used only when nothing else provides the interface. *)
 
 type provider = {
   name : string;
@@ -242,7 +245,14 @@ let scan path =
                 | Some _ -> found
                 | None -> name ^ "." ^ found)
               (List.find_map Fun.id [ constraint_ make; declared; own ])
-        | None, None -> own
+        | None, None ->
+            Option.bind own (fun own ->
+                List.find_map
+                  (fun (item : structure_item) ->
+                    match item.pstr_desc with
+                    | Pstr_value _ -> Some own
+                    | _ -> None)
+                  structure)
       in
       match provides with
       | None -> Plain
@@ -434,9 +444,10 @@ let scan path =
                     | _ -> [])
                   (items body);
               rank =
-                Option.fold ~none:Secondary
-                  ~some:(fun _ -> Primary)
-                  (floating "primary");
+                (match (floating "primary", floating "fallback") with
+                | Some _, _ -> Primary
+                | None, Some _ -> Fallback
+                | None, None -> Secondary);
               loc = site;
             })
 
@@ -473,10 +484,27 @@ let expand ~loc ~input directories =
     |> snd
   in
   let providers =
-    List.filter_map
-      (function
-        | Provider provider -> Some provider | Controller _ | Plain -> None)
-      components
+    let all =
+      List.filter_map
+        (function
+          | Provider provider -> Some provider | Controller _ | Plain -> None)
+        components
+    in
+    List.filter
+      (fun provider ->
+        match provider.rank with
+        | Primary | Secondary -> true
+        | Fallback ->
+            not
+              (List.exists
+                 (fun other ->
+                   String.equal other.provides provider.provides
+                   &&
+                   match other.rank with
+                   | Primary | Secondary -> true
+                   | Fallback -> false)
+                 all))
+      all
   in
   let controllers =
     List.filter_map
@@ -500,7 +528,9 @@ let expand ~loc ~input directories =
         match
           ( List.filter
               (fun provider ->
-                match provider.rank with Primary -> true | Secondary -> false)
+                match provider.rank with
+                | Primary -> true
+                | Secondary | Fallback -> false)
               candidates,
             Option.bind parameter (fun parameter ->
                 List.find_opt

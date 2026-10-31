@@ -101,3 +101,22 @@ A cron expression is checked at build time.
   File "./app/clock.ml", line 3, characters 31-52:
   Error: [@cron "61 * * * *"]: minute 61 is outside 0-59
   [1]
+A [@@@fallback] provider stands in only when nothing else gives the
+interface (Spring @ConditionalOnMissingBean, Nest @Optional).
+
+  $ cat > app/clock.ml <<'ML'
+  > module type S = sig val now : unit -> float end
+  > ML
+  $ cat > app/frozen_clock.ml <<'ML'
+  > [@@@fallback]
+  > module Make () : Clock.S = struct let now () = 0. end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep -i clock
+    let module Frozen_clock = (Frozen_clock.Make)() in
+        let module Report = ((Report.Make)(Repo))(Frozen_clock) in
+  $ cat > app/system_clock.ml <<'ML'
+  > module Make () : Clock.S = struct let now () = Unix.gettimeofday () end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep -i clock
+      let module System_clock = (System_clock.Make)() in
+        let module Report = ((Report.Make)(Repo))(System_clock) in

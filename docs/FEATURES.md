@@ -18,7 +18,7 @@
 | `forRoot(config)` | `@Configuration` + `@Bean` | функтор с модулем-конфигом | ✅ | `Forge.Db.Make (Driver) (Config)` |
 | `ConfigModule` | `@ConfigurationProperties`, `@Value` | `[@@deriving config]` | ✅ | `examples/cats/server/config.ml` |
 | — | `@Profile` | `Forge.Config.profile ()` (`config/$FORGE_ENV.env`) | ✅ | `docs/configuration.md` |
-| `@Optional` provider | `@Autowired(required=false)` | | 🔜 | |
+| `@Optional` provider | `@ConditionalOnMissingBean`, `required=false` | `[@@@fallback]` — запасной провайдер, если другого нет | ✅ | |
 | — | `@Lazy`, `@Conditional` | | ⏳ | |
 | circular deps, `forwardRef`, `ModuleRef`, discovery | `ApplicationContext` | ошибка компиляции / не нужно | — | `docs/not-needed.md` |
 
