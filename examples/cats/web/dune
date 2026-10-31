@@ -1,0 +1,14 @@
+(melange.emit
+ (target js)
+ (modules app)
+ (libraries cats_client_js forge-client reason-react)
+ (module_systems
+  (es6 mjs))
+ (preprocess
+  (pps melange.ppx reason-react-ppx)))
+
+(rule
+ (targets page.html)
+ (deps index.html)
+ (action
+  (copy index.html page.html)))

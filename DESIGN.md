@@ -1445,6 +1445,13 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 
 **Критерий фазы 1:** `examples/cats` — порт Nest-примера — собирается (`dune build @all`), `dune test` зелёный, `forge client` регенерирует клиент без диффа, страница `/cats/1` в браузере показывает кота из БД.
 
+**Статус (фаза 1 закрыта, кроме ручной проверки в браузере).** `dune build @all` и `dune test` зелёные (`NODE=` для Melange-тестов), `@db` зелёный на MariaDB 11.8; клиент генерируется dune-правилом из `spec.json`, поэтому расхождения с контроллером не бывает. Веб-часть: `examples/cats/web` собирает страницу в ES-модули (React из esm.sh через import map, без бандлера), `bin/web.ml` отдаёт `/static/**` и `page.html` на GET с `Accept: text/html`, остальное — API. С `DATABASE_URL` сервер берёт `Cats_db_service`, применяет миграции на старте; `curl` подтверждает HTML на `/cats/1` для браузера и JSON с котом из базы для `fetch`. Открыть страницу в браузере руками ещё не проверено:
+
+```
+SESSION_SECRET=dev DATABASE_URL=mariadb://user:pass@127.0.0.1/cats dune exec examples/cats/bin/main.exe
+open http://localhost:8080/cats/1
+```
+
 ### Фаза 2 — реальное приложение (4–6 недель)
 
 `[@@sse]` и `[@@@gateway]`/`[@@subscribe]` для websockets с типами из shared; `[@@cron]`; `Events` (типизированная шина); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth-стратегии (session, JWT) + `Auth.role`; helmet/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Forge_db_pgx`. Критерий: главы Security, HTTP, WebSockets, Events, Task scheduling, Caching закрыты.

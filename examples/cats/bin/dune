@@ -1,6 +1,6 @@
 (executable
  (name main)
- (libraries cats_server cats_shared forge dream))
+ (libraries cats_server cats_shared cats_db forge forge-db-mariadb dream lwt))
 
 (rule
  (targets openapi.json)
