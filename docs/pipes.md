@@ -4,7 +4,7 @@ Nest: `ParseIntPipe`, `ValidationPipe`, свои pipes. Forge: разбор сл
 
 <!-- $MDX file=../examples/cats/shared/cat.ml -->
 ```ocaml
-open Jsonkit.Primitives
+module Id = Forge_shared.Id.Make ()
 
 module Name = Forge_shared.Refined.String (struct
   let name = "name"
@@ -24,7 +24,7 @@ module Breed = Forge_shared.Refined.Enum (struct
 end)
 
 type t = {
-  id : int; [@primary] [@auto]
+  id : Id.t; [@primary] [@auto] [@column int]
   name : Name.t; [@column string] [@size 64]
   age : Age.t; [@column int]
   breed : Breed.t; [@column string] [@size 32] [@index]

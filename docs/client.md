@@ -15,7 +15,7 @@ module Cats = struct
       ~loader:(fun () search -> Cats_client.find_all ~limit:search.limit ())
       ~component:Pages.index
 
-  type params = { id : int } [@@deriving params ~path:"/cats/:id"]
+  type params = { id : Cat.Id.t } [@@deriving params ~path:"/cats/:id"]
 
   let show =
     Forge_client.Router.child root ~path:params_path

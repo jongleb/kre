@@ -95,7 +95,9 @@ let () =
           Alcotest.test_case "paths print urls" `Quick (fun () ->
               Alcotest.(check string)
                 "url" "/cats/42"
-                (Routes.sprintf (Cats_controller.Paths.find_one ()) 42));
+                (Routes.sprintf
+                   (Cats_controller.Paths.find_one ())
+                   (Result.get_ok (Cat.Id.of_repr 42))));
           Alcotest.test_case "spec" `Quick (fun () ->
               Alcotest.(check (list (pair string string)))
                 "routes"

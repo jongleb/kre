@@ -33,7 +33,9 @@ let tests =
           (List.length (ok none), List.length (ok all));
         Lwt.return_unit);
     Alcotest_lwt.test_case "404 arrives as Problem Details" `Quick (fun _ () ->
-        let%lwt missing = Cats_client.find_one ~id:404 in
+        let%lwt missing =
+          Cats_client.find_one ~id:(Result.get_ok (Cat.Id.of_repr 404))
+        in
         Alcotest.(check (pair int string))
           "problem"
           (404, "urn:forge:error:not_found")

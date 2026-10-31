@@ -1,31 +1,34 @@
 module type S = sig
   val add : Create_{{singular}}_dto.t -> {{Singular}}.t Lwt.t
   val find_all : unit -> {{Singular}}.t list Lwt.t
-  val find : int -> {{Singular}}.t option Lwt.t
-  val remove : int -> unit Lwt.t
+  val find : {{Singular}}.Id.t -> {{Singular}}.t option Lwt.t
+  val remove : {{Singular}}.Id.t -> unit Lwt.t
 end
 
 module Make () = struct
-  let {{plural}} : (int, {{Singular}}.t) Hashtbl.t = Hashtbl.create 16
-  let last_id = ref 0
+  let {{plural}} : {{Singular}}.t list ref = ref []
+  let last_id = ref None
 
   let add ({ name } : Create_{{singular}}_dto.t) =
-    incr last_id;
-    let {{singular}} = { {{Singular}}.id = !last_id; name } in
-    Hashtbl.replace {{plural}} {{singular}}.id {{singular}};
+    let id = Option.fold ~none:{{Singular}}.Id.first ~some:{{Singular}}.Id.succ !last_id in
+    last_id := Some id;
+    let {{singular}} = { {{Singular}}.id; name } in
+    {{plural}} := !{{plural}} @ [ {{singular}} ];
     Lwt.return {{singular}}
 
-  let find_all () =
-    Lwt.return
-      (List.sort
-         (fun (left : {{Singular}}.t) (right : {{Singular}}.t) ->
-           Int.compare left.id right.id)
-         (List.of_seq (Hashtbl.to_seq_values {{plural}})))
+  let find_all () = Lwt.return !{{plural}}
 
-  let find id = Lwt.return (Hashtbl.find_opt {{plural}} id)
+  let find id =
+    Lwt.return
+      (List.find_opt
+         (fun ({{singular}} : {{Singular}}.t) -> {{Singular}}.Id.equal {{singular}}.id id)
+         !{{plural}})
 
   let remove id =
-    Hashtbl.remove {{plural}} id;
+    {{plural}} :=
+      List.filter
+        (fun ({{singular}} : {{Singular}}.t) -> not ({{Singular}}.Id.equal {{singular}}.id id))
+        !{{plural}};
     Lwt.return_unit
 end
 

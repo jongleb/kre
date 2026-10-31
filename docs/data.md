@@ -35,25 +35,24 @@ struct
             ~age:(Int64.of_int (Cat.Age.to_repr dto.age))
             ~breed:(Cat.Breed.to_repr dto.breed)
         in
-        Option.fold
-          ~none:
-            (Forge.Error.fail (Forge.Error.internal "insert returned no id"))
-          ~some:(fun id ->
+        match
+          Option.map
+            (fun id -> Cat.Id.of_repr (Int64.to_int id))
+            inserted.insert_id
+        with
+        | Some (Ok id) ->
             Lwt.return
-              {
-                Cat.id = Int64.to_int id;
-                name = dto.name;
-                age = dto.age;
-                breed = dto.breed;
-              })
-          inserted.insert_id)
+              { Cat.id; name = dto.name; age = dto.age; breed = dto.breed }
+        | Some (Error _) | None ->
+            Forge.Error.fail
+              (Forge.Error.internal "insert returned no valid id"))
 
   let find_all () =
     Db.with_conn (fun conn -> Sql.List.all conn ~limit:1000L Cat.of_row)
 
   let find id =
     Db.with_conn (fun conn ->
-        Sql.Single.by_id conn ~id:(Int64.of_int id) Cat.of_row)
+        Sql.Single.by_id conn ~id:(Int64.of_int (Cat.Id.to_repr id)) Cat.of_row)
 end
 ```
 

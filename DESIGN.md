@@ -920,6 +920,16 @@ module Email  : S with type repr = string
 
 Кросс-полевые инварианты (пароль = подтверждение, `from < to`) — либо opaque-запись со своим `of_repr`, либо `[@@dto.check f]` на типе, `f : t -> (t, Validation.t) result`, который `of_json` вызывает последним.
 
+### Идентификаторы: `Forge_shared.Id` (фаза 2)
+
+```ocaml
+module Id = Forge_shared.Id.Make ()          (* в cat.ml: свой тип на каждую сущность *)
+type t = { id : Id.t; [@primary] [@auto] [@column int] … } [@@deriving table ~name:"cats", dto]
+let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) : … [@@get ":id"]
+```
+
+`Id.Make ()` — генеративный функтор: id кота не подставить вместо id владельца. `Id.S` — это `Refined.S` над `int` (`of_repr` пропускает только `≥ 1`) плюс `first`, `succ`, `equal`: значение дают разбор (JSON, путь, query, строка из базы) или `succ`, сервису в памяти не нужна проверка, которая может упасть. Так как `Id.S` — `Scalar.S` и `Json.S`, id работает в пути (`/cats/0` → 404 до хендлера), в теле, в `spec`, в `table` и в клиентском роутере. Шаблон `forge generate controller` создаёт ресурс с `Id`.
+
 ### typegist — решение фазы 0: (б), не используется
 
 [typegist](https://github.com/dbuenzli/typegist) представляет OCaml-типы как значения, поверх которых пишутся generic-кодеки. Решение — (б): `dto` не генерирует gist, а опирается на деривера jsonkit. Причины: в opam есть только `typegist.0.0.0`; принято, что весь JSON — jsonkit, а в jsonkit уже есть `[@@deriving json]` и `[@@deriving jsonschema]` на обоих бэкендах, так что `dto` сводится к тонкой надстройке (правила, `[@exclude]`, `[@expose]`), и gist дублировал бы jsonkit. Вернуться к вопросу, если понадобятся generic-производные, которых нет в jsonkit (QuickCheck-генераторы, диффы).
@@ -1507,6 +1517,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
+- ✅ `Forge_shared.Id.Make ()`: типизированные идентификаторы сущностей (`Cat.Id.t`)
 - ✅ interceptors: `Forge.Interceptor.t` (полиморфный `around` над типизированным результатом), `[@@intercept]`/`[@@@intercept]`, готовые `logging`, `timeout`, `map_error`, `tap`, `chain`
 - ✅ декораторы параметров Nest/Spring: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Forge.Extract`), заголовки и cookies в spec/OpenAPI, заголовки в клиенте
 - ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)

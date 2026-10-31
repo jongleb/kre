@@ -2,7 +2,7 @@
 module type S = sig
   val add : Create_cat_dto.t -> Cat.t Lwt.t
   val find_all : unit -> Cat.t list Lwt.t
-  val find : int -> Cat.t option Lwt.t
+  val find : Cat.Id.t -> Cat.t option Lwt.t
 end
 
 module Make () : S

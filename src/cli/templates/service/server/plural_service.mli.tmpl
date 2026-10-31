@@ -2,8 +2,8 @@
 module type S = sig
   val add : Create_{{singular}}_dto.t -> {{Singular}}.t Lwt.t
   val find_all : unit -> {{Singular}}.t list Lwt.t
-  val find : int -> {{Singular}}.t option Lwt.t
-  val remove : int -> unit Lwt.t
+  val find : {{Singular}}.Id.t -> {{Singular}}.t option Lwt.t
+  val remove : {{Singular}}.Id.t -> unit Lwt.t
 end
 
 (** A provider with its own state, e.g. one per test. *)

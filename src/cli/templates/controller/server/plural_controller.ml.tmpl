@@ -4,7 +4,7 @@ let find_all (module {{Plural}} : {{Plural}}_service.S) () : {{Singular}}.t list
   {{Plural}}.find_all ()
 [@@get]
 
-let find_one (module {{Plural}} : {{Plural}}_service.S) ~(id : int) :
+let find_one (module {{Plural}} : {{Plural}}_service.S) ~(id : {{Singular}}.Id.t) :
     {{Singular}}.t option Lwt.t =
   {{Plural}}.find id
 [@@get ":id"]
@@ -14,6 +14,6 @@ let create (module {{Plural}} : {{Plural}}_service.S) ~(body : Create_{{singular
   {{Plural}}.add body
 [@@post] [@@status 201]
 
-let remove (module {{Plural}} : {{Plural}}_service.S) ~(id : int) () : unit Lwt.t =
+let remove (module {{Plural}} : {{Plural}}_service.S) ~(id : {{Singular}}.Id.t) () : unit Lwt.t =
   {{Plural}}.remove id
 [@@delete ":id"]

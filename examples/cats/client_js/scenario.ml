@@ -35,5 +35,7 @@ let () =
      let* all = Cats_client.find_all ~limit:5 () in
      Js.log
        (show (Result.map (fun cats -> string_of_int (List.length cats)) all));
-     let+ missing = Cats_client.find_one ~id:404 in
+     let+ missing =
+       Cats_client.find_one ~id:(Result.get_ok (Cat.Id.of_repr 404))
+     in
      Js.log (show (Result.map (fun _ -> "") missing)))

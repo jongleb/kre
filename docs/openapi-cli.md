@@ -24,7 +24,7 @@ let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () :
   Lwt.return (List.filteri (fun i _ -> i < limit) all)
 [@@get]
 
-let find_one (module Cats : Cats_service.S) ~(id : int) :
+let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
     (Cat.t, Forge.Error.t) result Lwt.t =
   let%lwt cat = Cats.find id in
   Lwt.return (Option.to_result cat ~none:(Forge.Error.not_found "cat"))

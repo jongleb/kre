@@ -1,4 +1,4 @@
-open Jsonkit.Primitives
+module Id = Forge_shared.Id.Make ()
 
 module Name = Forge_shared.Refined.String (struct
   let name = "name"
@@ -6,4 +6,4 @@ module Name = Forge_shared.Refined.String (struct
   let max = 64
 end)
 
-type t = { id : int; name : Name.t } [@@deriving dto]
+type t = { id : Id.t; name : Name.t } [@@deriving dto]
