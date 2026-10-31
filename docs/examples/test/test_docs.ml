@@ -95,6 +95,22 @@ let () =
                      ([ ("X-User", "ann") ], "/notes/2");
                      ([], "/notes/1");
                    ]));
+          Alcotest.test_case "jwt login, then a role" `Quick (fun () ->
+              let session = app [ Session_controller.register () ] in
+              let token =
+                snd
+                  ( Dream.test session
+                      (Dream.request ~method_:`POST ~target:"/session/login"
+                         {|{"user":"root","password":"secret"}|})
+                  |> fun response ->
+                    (response, Lwt_main.run (Dream.body response)) )
+              in
+              let reset headers =
+                fst (call ~headers session `POST "/session/reset")
+              in
+              Alcotest.(check (list int))
+                "statuses" [ 204; 401 ]
+                [ reset [ ("Authorization", "Bearer " ^ token) ]; reset [] ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

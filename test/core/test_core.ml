@@ -585,9 +585,59 @@ let security =
           [ first; second; third; fourth ]);
   ]
 
+let jwt =
+  let token = Forge.Jwt.sign ~secret:"s" ~now:1000. ~expires_in:60. "ann" in
+  let outcome = function
+    | Ok (claims : Forge.Jwt.claims) -> "ok " ^ claims.subject
+    | Error (`Jwt Forge.Jwt.Malformed) -> "malformed"
+    | Error (`Jwt Forge.Jwt.Bad_signature) -> "bad signature"
+    | Error (`Jwt Forge.Jwt.Expired) -> "expired"
+  in
+  [
+    Alcotest.test_case "verify" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "outcomes"
+          [ "ok ann"; "bad signature"; "expired"; "malformed"; "bad signature" ]
+          (List.map outcome
+             [
+               Forge.Jwt.verify ~secret:"s" ~now:1010. token;
+               Forge.Jwt.verify ~secret:"other" ~now:1010. token;
+               Forge.Jwt.verify ~secret:"s" ~now:1061. token;
+               Forge.Jwt.verify ~secret:"s" ~now:1010. "nope";
+               Forge.Jwt.verify ~secret:"s" ~now:1010. (token ^ "x");
+             ]));
+    Alcotest.test_case "bearer guard and a role check" `Quick (fun () ->
+        let fresh = Forge.Jwt.sign ~secret:"s" ~expires_in:60. "ann" in
+        let admin =
+          Forge.Guard.check
+            (fun (claims : Forge.Jwt.claims) ->
+              match claims.subject with
+              | "root" -> Ok `Admin
+              | _ -> Error (Forge.Error.forbidden "admins only"))
+            (Forge.Jwt.bearer ~secret:"s")
+        in
+        let code guard headers =
+          Result.fold
+            ~ok:(fun _ -> "ok")
+            ~error:(fun (error : Forge.Error.t) -> error.code)
+            (Lwt_main.run (guard (Dream.request ~headers "")))
+        in
+        Alcotest.(check (list string))
+          "codes"
+          [ "ok"; "unauthorized"; "forbidden" ]
+          [
+            code
+              (Forge.Jwt.bearer ~secret:"s")
+              [ ("Authorization", "Bearer " ^ fresh) ];
+            code (Forge.Jwt.bearer ~secret:"s") [];
+            code admin [ ("Authorization", "Bearer " ^ fresh) ];
+          ]);
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Jwt", jwt);
       ("Security", security);
       ("Migration", migration);
       ("Validation", validation);

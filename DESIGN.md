@@ -574,6 +574,10 @@ module Guard : sig
   val field : 'a Dream.field -> missing:Error.t -> 'a t
   val header : string -> string t
   val both : 'a t -> 'b t -> ('a * 'b) t
+  val session : string -> string t                     (* поле сессии, иначе 401 *)
+  val map : ('a -> 'b) -> 'a t -> 'b t
+  val check : ('a -> ('b, Error.t) result) -> 'a t -> 'b t   (* роль → доказательство *)
+  val optional : 'a t -> 'a option t
 end
 
 (* Forge.Spec — рантайм-описание контроллера; источник для forge client / forge openapi *)
@@ -1477,6 +1481,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
+- ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема
 

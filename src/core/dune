@@ -1,4 +1,14 @@
 (library
  (name forge)
  (public_name forge)
- (libraries forge.shared dream routes lwt lwt.unix jsonkit yojson))
+ (libraries
+  forge.shared
+  dream
+  routes
+  lwt
+  lwt.unix
+  jsonkit
+  yojson
+  digestif
+  eqaf
+  unix))
