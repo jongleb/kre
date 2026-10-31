@@ -5,7 +5,8 @@ module Cats = struct
   [@@deriving search]
 
   let index =
-    Forge_client.Router.child root ~path:[%path "/cats"] ~search:search_codec
+    Forge_client.Router.child ~live:Cats_client.Live.find_all root
+      ~path:[%path "/cats"] ~search:search_codec
       ~loader:(fun () search -> Cats_client.find_all ~limit:search.limit ())
       ~component:Pages.index
 

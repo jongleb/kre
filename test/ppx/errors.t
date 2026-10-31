@@ -386,3 +386,27 @@ A stream needs [@@sse], and [@@sse] needs a stream.
   Error: [@@cache] caches GET responses; f is not a GET
   [1]
 
+
+[@@live] is for GET handlers and lists tables as strings.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@live [ "cats" ]]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 49-68:
+  2 | let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@live [ "cats" ]]
+                                                       ^^^^^^^^^^^^^^^^^^^
+  Error: [@@live] reloads pages that GET data; f is not a GET
+  [1]
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : unit Lwt.t = Lwt.return_unit [@@get] [@@live [ cats ]]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 58-62:
+  2 | let f () : unit Lwt.t = Lwt.return_unit [@@get] [@@live [ cats ]]
+                                                                ^^^^
+  Error: [@@live] lists table names as strings: [@@live [ "cats" ]]
+  [1]

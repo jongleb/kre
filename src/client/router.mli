@@ -15,6 +15,7 @@ val nest : parent -> layout:(children:React.element -> React.element) -> parent
 val no_data : 'p -> 's -> unit Js.Promise.t
 
 val child :
+  ?live:string list ->
   parent ->
   path:'p Path.t ->
   search:'s Search.t ->

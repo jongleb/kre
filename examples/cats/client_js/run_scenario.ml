@@ -7,7 +7,10 @@ let () =
       (let server =
          Dream.serve ~interface:"127.0.0.1" ~port ~stop
            (Forge.App.handler
-              [ Cats_controller.register (module Cats_service) ])
+              [
+                Forge.Live.controller;
+                Cats_controller.register (module Cats_service);
+              ])
        in
        let%lwt () = Lwt_unix.sleep 0.2 in
        let%lwt output =
@@ -15,6 +18,8 @@ let () =
            ( "",
              [|
                Option.value (Sys.getenv_opt "NODE") ~default:"node";
+               "--experimental-eventsource";
+               "--no-warnings";
                "js/examples/cats/client_js/scenario.js";
                string_of_int port;
              |] )
@@ -55,7 +60,8 @@ let () =
                 "ok tom\n\
                  problem 422 urn:forge:error:validation note:max_length\n\
                  ok 1\n\
-                 problem 404 urn:forge:error:not_found \n"
+                 problem 404 urn:forge:error:not_found \n\
+                 live cats\n"
                 output);
         ] );
     ]

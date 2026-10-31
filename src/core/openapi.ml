@@ -96,6 +96,13 @@ let document ~title ~version specs =
       @ Option.fold ~none:[]
           ~some:(fun description -> [ ("description", `String description) ])
           route.description
+      @ (match route.live with
+        | [] -> []
+        | tables ->
+            [
+              ( "x-forge-live",
+                `List (List.map (fun table -> `String table) tables) );
+            ])
       @ Option.fold ~none:[]
           ~some:(fun body ->
             [

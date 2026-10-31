@@ -65,6 +65,7 @@ type handler = {
       (** [[@@error_handler h]] on the handler. *)
   summary : string option;  (** [[@@summary]]. *)
   description : string option;  (** [[@@description]]. *)
+  live : string list;  (** [[@@live ["cats"]]]: tables that reload the page. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
@@ -607,6 +608,27 @@ let transform structure =
                 _ ) ->
                 Location.raise_errorf ~loc:attribute.attr_loc
                   "[@@@@sse] needs a handler returning T.t Lwt_stream.t Lwt.t");
+            let live =
+              Option.fold ~none:[]
+                ~some:(fun (attribute : attribute) ->
+                  match verb with
+                  | Get ->
+                      List.map
+                        (fun (table : expression) ->
+                          match table.pexp_desc with
+                          | Pexp_constant (Pconst_string (table, _, _)) -> table
+                          | _ ->
+                              Location.raise_errorf ~loc:table.pexp_loc
+                                "[@@@@live] lists table names as strings: \
+                                 [@@@@live [ \"cats\" ]]")
+                        (list_payload attribute)
+                  | Post | Put | Patch | Delete | Head | Options | All ->
+                      Location.raise_errorf ~loc:attribute.attr_loc
+                        "[@@@@live] reloads pages that GET data; %s is not a \
+                         GET"
+                        name)
+                (attribute_of binding "live")
+            in
             {
               name;
               verb;
@@ -658,8 +680,8 @@ let transform structure =
                           status)
                   (attribute_of binding "status");
               middleware =
-                Option.fold ~none:[] ~some:list_payload
-                  (attribute_of binding "use")
+                (Option.fold ~none:[] ~some:list_payload
+                   (attribute_of binding "use")
                 @ Option.fold ~none:[]
                     ~some:(fun (attribute : attribute) ->
                       match (verb, attribute.attr_payload) with
@@ -688,7 +710,21 @@ let transform structure =
                           Location.raise_errorf ~loc:attribute.attr_loc
                             "[@@@@cache] caches GET responses; %s is not a GET"
                             name)
-                    (attribute_of binding "cache");
+                    (attribute_of binding "cache")
+                @
+                match live with
+                | [] -> []
+                | tables ->
+                    [
+                      [%expr
+                        Forge.Live.audit
+                          [%e
+                            elist ~loc
+                              (List.map
+                                 (fun table -> estring ~loc table)
+                                 tables)]];
+                    ]);
+              live;
               guards =
                 controller_guards
                 @ Option.fold ~none:[] ~some:list_payload
@@ -854,6 +890,7 @@ let transform structure =
               "error_handler";
               "summary";
               "description";
+              "live";
             ]
             @ List.map fst verbs
           in
@@ -1312,6 +1349,10 @@ let transform structure =
                       ~some:(fun description ->
                         [%expr Some [%e estring ~loc description]])
                       handler.description];
+                live =
+                  [%e
+                    elist ~loc
+                      (List.map (fun table -> estring ~loc table) handler.live)];
                 guards =
                   [%e
                     elist ~loc

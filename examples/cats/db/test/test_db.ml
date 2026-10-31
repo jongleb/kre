@@ -111,6 +111,27 @@ let () =
                         let%lwt _ = Crud.delete conn ~id in
                         let%lwt gone = name conn id in
                         Lwt.return [ first; renamed; gone ]))));
+          Alcotest.test_case "live: committed writes reach subscribers" `Quick
+            (fun () ->
+              let module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) in
+              let changes, stop = Forge.Live.subscribe [ "cats" ] in
+              let insert result =
+                ignore
+                  (Lwt_main.run
+                     (Db.transaction (fun conn ->
+                          let%lwt _ =
+                            Sql.insert conn ~name:"ghost" ~age:1L
+                              ~breed:"persian"
+                          in
+                          Lwt.return result)))
+              in
+              insert (Error ());
+              let rolled_back = Lwt_stream.get_available changes in
+              insert (Ok ());
+              stop ();
+              Alcotest.(check (pair (list string) (list string)))
+                "only the commit" ([], [ "cats" ])
+                (rolled_back, Lwt_stream.get_available changes));
           Alcotest.test_case "transaction rolls back on Error" `Quick (fun () ->
               let attempt =
                 Lwt_main.run
@@ -122,7 +143,7 @@ let () =
                        Lwt.return_error "abort"))
               in
               Alcotest.(check (pair (result reject string) int))
-                "rolled back" (Error "abort", 2)
+                "rolled back" (Error "abort", 3)
                 ( Result.map ignore attempt,
                   List.length (Lwt_main.run (Cats.find_all ())) ));
         ] );

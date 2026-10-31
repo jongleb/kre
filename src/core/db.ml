@@ -39,6 +39,7 @@ struct
   let with_conn f = Lwt_pool.use pool f
 
   let transaction f =
+    Live.deferred @@ fun () ->
     with_conn (fun conn ->
         let open Lwt.Syntax in
         let* () = Driver.start conn in

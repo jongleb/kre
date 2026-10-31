@@ -5,7 +5,7 @@ let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () :
     Cat.t list Lwt.t =
   let%lwt all = Cats.find_all () in
   Lwt.return (List.filteri (fun i _ -> i < limit) all)
-[@@get] [@@summary "List cats"]
+[@@get] [@@summary "List cats"] [@@live [ "cats" ]]
 
 let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
     (Cat.t, Forge.Error.t) result Lwt.t =

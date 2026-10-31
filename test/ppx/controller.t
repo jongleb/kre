@@ -126,6 +126,7 @@ A controller with every kind of parameter.
            status = (Dream.int_to_status 200);
            summary = None;
            description = None;
+           live = [];
            guards = ["Auth.signed_in"]
          };
         {
@@ -167,6 +168,7 @@ A controller with every kind of parameter.
           status = (Dream.int_to_status 200);
           summary = None;
           description = None;
+          live = [];
           guards = ["Auth.signed_in"]
         };
         {
@@ -191,6 +193,7 @@ A controller with every kind of parameter.
           status = (Dream.int_to_status 201);
           summary = None;
           description = None;
+          live = [];
           guards = ["Auth.signed_in"; "Auth.admin"]
         };
         {
@@ -215,6 +218,7 @@ A controller with every kind of parameter.
           status = (Dream.int_to_status 204);
           summary = None;
           description = None;
+          live = [];
           guards = ["Auth.signed_in"]
         }]
     }

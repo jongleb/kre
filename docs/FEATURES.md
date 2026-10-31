@@ -98,7 +98,7 @@
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable`, `@CacheEvict` | `[@@cache ttl]` на GET; `Forge.Cache.memoize` → `{ find; evict; clear }` | ✅ |
 | Terminus | Actuator | `Forge.Actuator`: health (`[@@health]` через `[%wire]`), info, env (секреты скрыты), routes, openapi, Prometheus metrics | ✅ |
 | `@WebSocketGateway`, `@SubscribeMessage`, `@MessageBody`, `@ConnectedSocket` | `@MessageMapping` | `[@@@gateway "chat"]`, `[@@subscribe "say"]`, `~(body : T.t)`, `(socket : Forge.Gateway.socket)`, `broadcast` | ✅ |
-| — | — | live loaders (IHP Auto Refresh) | 🔜 |
+| — | — | live loaders (IHP Auto Refresh): `[@@live ["cats"]]`, публикация из драйвера после commit, `/__forge/live`, `Router.child ~live`, проверка списка при `FORGE_ENV=test` | ✅ |
 | queues, microservices, GraphQL | `@Async`, Spring Cloud | | ⏳ |
 
 Всё приложение на одном экране — `examples/showcase`: сервер со всеми контроллерами-примерами, его таблица маршрутов — `examples/showcase/routes.t`.

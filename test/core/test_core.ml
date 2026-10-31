@@ -427,6 +427,7 @@ let spec =
                          ("guards", `List []);
                          ("summary", `Null);
                          ("description", `Null);
+                         ("live", `List []);
                        ];
                    ] );
              ])
@@ -466,6 +467,7 @@ let spec =
                      guards = [];
                      summary = None;
                      description = None;
+                     live = [];
                    };
                  ];
              }));
@@ -700,9 +702,67 @@ let cache =
           ([ first; cached; expired; evicted ], !calls));
   ]
 
+let live =
+  [
+    Alcotest.test_case "writes reach subscribers of that table" `Quick
+      (fun () ->
+        let changes, stop = Forge.Live.subscribe [ "cats" ] in
+        List.iter Forge.Live.wrote
+          [
+            "INSERT INTO cats (name) VALUES (?)";
+            "UPDATE `shop`.`cats` SET name = ?";
+            "DELETE FROM dogs WHERE id = ?";
+            "SELECT * FROM cats";
+            "CREATE TABLE cats (id INT)";
+          ];
+        stop ();
+        Alcotest.(check (list string))
+          "changes" [ "cats"; "cats" ]
+          (Lwt_stream.get_available changes));
+    Alcotest.test_case "a transaction publishes on Ok, after it ends" `Quick
+      (fun () ->
+        let changes, stop = Forge.Live.subscribe [ "cats" ] in
+        let during = ref [] in
+        let run result =
+          ignore
+            (Lwt_main.run
+               (Forge.Live.deferred (fun () ->
+                    Forge.Live.wrote "INSERT INTO cats VALUES (1)";
+                    during := !during @ Lwt_stream.get_available changes;
+                    Lwt.return result)))
+        in
+        run (Error ());
+        run (Ok ());
+        stop ();
+        Alcotest.(check (pair (list string) (list string)))
+          "held, then published once" ([], [ "cats" ])
+          (!during, Lwt_stream.get_available changes));
+    Alcotest.test_case "[@@live] must list every table the route reads" `Quick
+      (fun () ->
+        Unix.putenv "FORGE_ENV" "test";
+        let answer tables =
+          Dream.status
+            (Dream.test
+               (Forge.Live.audit tables (fun _ ->
+                    Forge.Live.read
+                      "SELECT c.name FROM (SELECT * FROM cats) c JOIN `users` \
+                       u ON u.id = c.owner";
+                    Dream.html "ok"))
+               (Dream.request "/"))
+        in
+        let statuses =
+          List.map
+            (fun tables -> Dream.status_to_int (answer tables))
+            [ [ "cats" ]; [ "cats"; "users" ] ]
+        in
+        Unix.putenv "FORGE_ENV" "dev";
+        Alcotest.(check (list int)) "statuses" [ 500; 200 ] statuses);
+  ]
+
 let () =
   Alcotest.run "forge"
     [
+      ("Live", live);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

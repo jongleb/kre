@@ -6,6 +6,7 @@ type ('p, 's, 'd) route = {
   search : 's Search.t;
   loader : 'p -> 's -> 'd Js.Promise.t;
   component : data:'d -> params:'p -> search:'s -> React.element;
+  live : string list;
 }
 
 type any = Any : ('p, 's, 'd) route -> any
@@ -15,8 +16,8 @@ let root ?layout () = { layouts = Option.to_list layout }
 let nest parent ~layout = { layouts = parent.layouts @ [ layout ] }
 let no_data _ _ = Js.Promise.resolve ()
 
-let child parent ~path ~search ~loader ~component =
-  { parent; path; search; loader; component }
+let child ?(live = []) parent ~path ~search ~loader ~component =
+  { parent; path; search; loader; component; live }
 
 let make routes = routes
 
@@ -67,7 +68,7 @@ module View = struct
     in
     let key = String.concat "/" url.path ^ "?" ^ url.search in
     let page, set_page = React.useState (fun () -> None) in
-    let load =
+    let matched =
       List.find_map
         (fun (Any route) ->
           Option.bind (Path.match_ route.path url.path) (fun params ->
@@ -75,32 +76,36 @@ module View = struct
                 ~error:(fun _ -> None)
                 ~ok:(fun search ->
                   Some
-                    (fun () ->
-                      Js.Promise.then_
-                        (fun data ->
-                          Js.Promise.resolve
-                            (List.fold_right
-                               (fun layout children -> layout ~children)
-                               route.parent.layouts
-                               (route.component ~data ~params ~search)))
-                        (route.loader params search)))
+                    ( route.live,
+                      fun () ->
+                        Js.Promise.then_
+                          (fun data ->
+                            Js.Promise.resolve
+                              (List.fold_right
+                                 (fun layout children -> layout ~children)
+                                 route.parent.layouts
+                                 (route.component ~data ~params ~search)))
+                          (route.loader params search) ))
                 (Search.parse route.search url.search)))
         router
     in
     React.useEffect1
       (fun () ->
-        Option.iter
-          (fun load ->
-            ignore
-              (Js.Promise.then_
-                 (fun element ->
-                   set_page (fun _ -> Some { key; element });
-                   Js.Promise.resolve ())
-                 (load ())))
-          load;
-        None)
+        Option.bind matched (fun (live, load) ->
+            let refresh () =
+              ignore
+                (Js.Promise.then_
+                   (fun element ->
+                     set_page (fun _ -> Some { key; element });
+                     Js.Promise.resolve ())
+                   (load ()))
+            in
+            refresh ();
+            match live with
+            | [] -> None
+            | tables -> Some (Live.watch tables (fun _ -> refresh ()))))
       [| key |];
-    match (load, page) with
+    match (matched, page) with
     | None, _ -> not_found
     | Some _, Some page when String.equal page.key key -> page.element
     | Some _, _ -> pending

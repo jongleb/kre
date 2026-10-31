@@ -41,20 +41,41 @@ module Client = struct
   end)
 end
 
-module Sql =
-  Sqlgg_mariadb.Make
-    (struct
-      type 'a future = 'a Lwt.t
+module Sql = struct
+  include
+    Sqlgg_mariadb.Make
+      (struct
+        type 'a future = 'a Lwt.t
 
-      let return value = Lwt.return value
-      let ( >>= ) promise next = Lwt.bind promise next
+        let return value = Lwt.return value
+        let ( >>= ) promise next = Lwt.bind promise next
 
-      let bracket resource release use =
-        Lwt.bind resource (fun resource ->
-            Lwt.finalize (fun () -> use resource) (fun () -> release resource))
-    end)
-    (Client)
-    (Sqlgg_mariadb.Default_types (Client))
+        let bracket resource release use =
+          Lwt.bind resource (fun resource ->
+              Lwt.finalize (fun () -> use resource) (fun () -> release resource))
+      end)
+      (Client)
+      (Sqlgg_mariadb.Default_types (Client))
+
+  let select conn sql set_params callback =
+    Forge.Live.read sql;
+    select conn sql set_params callback
+
+  let select_one conn sql set_params callback =
+    Forge.Live.read sql;
+    select_one conn sql set_params callback
+
+  let select_one_maybe conn sql set_params callback =
+    Forge.Live.read sql;
+    select_one_maybe conn sql set_params callback
+
+  let execute conn sql set_params =
+    Lwt.map
+      (fun response ->
+        Forge.Live.wrote sql;
+        response)
+      (execute conn sql set_params)
+end
 
 module Driver = struct
   type conn = Client.t

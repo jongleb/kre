@@ -22,8 +22,24 @@ let show = function
 let () =
   Forge_client.Http.base_url := "http://127.0.0.1:" ^ argv.(2);
   Forge_client.Http.headers := [ ("X-User", "ann") ];
+  let stop = ref ignore in
+  let changed =
+    Js.Promise.make (fun ~resolve ~reject:_ ->
+        stop :=
+          Forge_client.Live.watch Cats_client.Live.find_all (fun table ->
+              (resolve table [@u])))
+  in
   ignore
     (let open Forge_client.Promise in
+     let* () =
+       Js.Promise.make (fun ~resolve ~reject:_ ->
+           ignore
+             (Js.Global.setTimeout
+                ~f:(fun () ->
+                  let unit = () in
+                  (resolve unit [@u]))
+                300))
+     in
      let* created = Cats_client.create ~body:tom in
      Js.log
        (show
@@ -35,7 +51,10 @@ let () =
      let* all = Cats_client.find_all ~limit:5 () in
      Js.log
        (show (Result.map (fun cats -> string_of_int (List.length cats)) all));
-     let+ missing =
+     let* missing =
        Cats_client.find_one ~id:(Result.get_ok (Cat.Id.of_repr 404))
      in
-     Js.log (show (Result.map (fun _ -> "") missing)))
+     Js.log (show (Result.map (fun _ -> "") missing));
+     let+ table = changed in
+     Js.log ("live " ^ table);
+     !stop ())

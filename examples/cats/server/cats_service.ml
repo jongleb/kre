@@ -13,6 +13,7 @@ module Make () = struct
     last_id := Some id;
     let cat = { Cat.id; name; age; breed } in
     Dynarray.add_last cats cat;
+    Forge.Live.publish [ "cats" ];
     Lwt.return cat
 
   let find_all () = Lwt.return (Dynarray.to_list cats)

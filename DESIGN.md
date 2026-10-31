@@ -591,6 +591,7 @@ module Spec : sig
   type route = {
     verb : verb; path : string; name : string; params : param list;
     body : dto option; returns : returns; status : Dream.status; guards : string list;
+    live : string list;                          (* [@@live], фаза 2 *)
   }
   type t = { prefix : string; version : int option; routes : route list }
   val to_json : t -> Jsonkit.t
@@ -627,6 +628,17 @@ module App : sig
   val run : ?interface:string -> ?port:int -> ?tls:tls -> ?middleware:Dream.middleware list ->
     ?error_handler:Error.handler -> ?on_start:(unit -> unit Lwt.t) -> ?on_shutdown:(unit -> unit Lwt.t) ->
     Controller.t list -> unit
+end
+
+(* Forge.Live — live loaders, фаза 2 *)
+module Live : sig
+  val publish : string list -> unit                        (* хранилища без SQL *)
+  val read : string -> unit                                (* драйвер: SELECT, для проверки [@@live] *)
+  val wrote : string -> unit                               (* драйвер: INSERT/UPDATE/DELETE *)
+  val deferred : (unit -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t   (* Db.transaction *)
+  val audit : string list -> Dream.middleware              (* ppx для [@@live] *)
+  val subscribe : string list -> string Lwt_stream.t * (unit -> unit)
+  val controller : Controller.t                            (* GET /__forge/live?table=… *)
 end
 ```
 
@@ -1256,6 +1268,7 @@ val root : ?layout:(children:React.element -> React.element) -> unit -> parent
 val nest : parent -> layout:(children:React.element -> React.element) -> parent
 val no_data : 'p -> 's -> unit Js.Promise.t
 val child :
+  ?live:string list ->                              (* фаза 2: перезапуск loader по /__forge/live *)
   parent -> path:'p Path.t -> search:'s Search.t ->
   loader:('p -> 's -> 'd Js.Promise.t) ->
   component:(data:'d -> params:'p -> search:'s -> React.element) -> ('p, 's, 'd) route
@@ -1529,6 +1542,7 @@ open http://localhost:8080/cats/1
 - ✅ декораторы параметров Nest/Spring: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Forge.Extract`), заголовки и cookies в spec/OpenAPI, заголовки в клиенте
 - ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)
 - ✅ table CRUD: `Forge.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
+- ✅ live loaders: `Forge.Live` (шина в памяти, `publish`/`subscribe`, канал `/__forge/live`), драйвер сообщает SQL (`read`/`wrote`), `Db.transaction` держит изменения до commit, `[@@live]` → `spec.live` + `x-forge-live` + `Cats_client.Live`, `Router.child ~live`, проверка списка при `FORGE_ENV=test` (`docs/live.md`). Метаданных `reads`/`writes` sqlgg не даёт — таблицы берутся из текста SQL в traits
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

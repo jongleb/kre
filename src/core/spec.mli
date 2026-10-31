@@ -40,6 +40,7 @@ type route = {
   guards : string list;  (** Guard expressions, for documentation only. *)
   summary : string option;  (** [[@@summary]]: OpenAPI operation summary. *)
   description : string option;  (** [[@@description]]. *)
+  live : string list;  (** [[@@live]]: tables whose changes reload the page. *)
 }
 
 type t = { prefix : string; version : int option; routes : route list }

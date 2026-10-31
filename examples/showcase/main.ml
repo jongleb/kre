@@ -1,5 +1,6 @@
 let controllers =
   [
+    Forge.Live.controller;
     Cats_controller.register (module Cats_service);
     Admin_controller.register (module Fake_cats);
     Notes_controller.register ();

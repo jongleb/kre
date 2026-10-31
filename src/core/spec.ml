@@ -29,6 +29,7 @@ type route = {
   guards : string list;
   summary : string option;
   description : string option;
+  live : string list;
 }
 
 type t = { prefix : string; version : int option; routes : route list }
@@ -87,6 +88,7 @@ let to_json spec =
         ( "description",
           Option.fold ~none:`Null ~some:(fun s -> `String s) route.description
         );
+        ("live", `List (List.map (fun table -> `String table) route.live));
       ]
   in
   `Assoc
@@ -156,6 +158,10 @@ let of_json json =
       guards = List.map to_string (to_list (member "guards" json));
       summary = to_string_option (member "summary" json);
       description = to_string_option (member "description" json);
+      live =
+        (match member "live" json with
+        | `Null -> []
+        | tables -> List.map to_string (to_list tables));
     }
   in
   match
