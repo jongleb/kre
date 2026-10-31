@@ -12,6 +12,10 @@ let ok_exn result =
 
 let to_list { first; rest } = first :: rest
 
+let at prefix { first; rest } =
+  let locate error = { error with path = prefix @ error.path } in
+  { first = locate first; rest = List.map locate rest }
+
 let to_json errors =
   Jsonkit.declassify
     (`List

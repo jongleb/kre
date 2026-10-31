@@ -26,3 +26,31 @@ val handle :
   'a returns ->
   (Dream.request -> ('a, Error.t) result Lwt.t) ->
   handler
+
+(** How many times a query parameter may appear, and what the handler gets. *)
+type ('a, 'b) presence =
+  | Required : ('a, 'a) presence
+  | Optional : ('a, 'a option) presence
+  | Repeated : ('a, 'a list) presence
+
+val segment :
+  (module S : Forge_shared.Scalar.S) ->
+  string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path
+
+val query :
+  (module S : Forge_shared.Scalar.S) ->
+  (S.t, 'b) presence -> string -> Dream.request -> ('b, Error.t) result Lwt.t
+
+val body :
+  (module J : Forge_shared.Json.S) ->
+  Dream.request -> (J.t, Error.t) result Lwt.t
+
+val ok : 'a Lwt.t -> ('a, Error.t) result Lwt.t
+
+(** Sequencing of extractions in generated handlers. *)
+module Syntax : sig
+  val ( let* ) :
+    ('a, Error.t) result Lwt.t ->
+    ('a -> ('b, Error.t) result Lwt.t) ->
+    ('b, Error.t) result Lwt.t
+end

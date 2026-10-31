@@ -1,0 +1,6 @@
+(executable
+ (name pp)
+ (libraries forge_ppx ppxlib))
+
+(cram
+ (deps pp.exe))

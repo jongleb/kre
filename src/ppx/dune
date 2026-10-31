@@ -1,0 +1,7 @@
+(library
+ (name forge_ppx)
+ (public_name forge-ppx)
+ (kind ppx_rewriter)
+ (libraries ppxlib)
+ (preprocess
+  (pps ppxlib.metaquot)))

@@ -388,15 +388,22 @@ let spec =
                                    ("name", `String "id");
                                    ("in", `String "path");
                                    ("presence", `String "required");
-                                   ("scalar", `String "int");
-                                   ("schema", Scalar.Int.t_jsonschema);
+                                   ( "value",
+                                     `Assoc
+                                       [
+                                         ("type", `String "int");
+                                         ( "module",
+                                           `String "Forge_shared.Scalar.Int" );
+                                         ("schema", Scalar.Int.t_jsonschema);
+                                       ] );
                                  ];
                              ] );
                          ("body", `Null);
                          ( "returns",
                            `Assoc
                              [
-                               ("name", `String "Cat");
+                               ("type", `String "Cat.t");
+                               ("module", `String "Cat");
                                ("schema", Cat.t_jsonschema);
                              ] );
                          ("status", `Int 200);
@@ -419,12 +426,22 @@ let spec =
                          {
                            name = "id";
                            location = Path;
-                           scalar = Scalar.Int.name;
-                           schema = Scalar.Int.t_jsonschema;
+                           value =
+                             {
+                               type_ = "int";
+                               module_ = "Forge_shared.Scalar.Int";
+                               schema = Scalar.Int.t_jsonschema;
+                             };
                          };
                        ];
                      body = None;
-                     returns = Json { name = "Cat"; schema = Cat.t_jsonschema };
+                     returns =
+                       Json
+                         {
+                           type_ = "Cat.t";
+                           module_ = "Cat";
+                           schema = Cat.t_jsonschema;
+                         };
                      status = `OK;
                      guards = [];
                    };

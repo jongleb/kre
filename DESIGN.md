@@ -35,7 +35,7 @@ Forge — фуллстек-фреймворк на OCaml, который вос�
 | sqlgg / ppx\_sqlgg | собственный форк | типизированный SQL |
 | cmdliner | текущая | CLI `forge` |
 | ocamlformat | 0.29 (синтаксис 5.5) | форматирование |
-| ppx\_expect + alcotest | текущие | тесты |
+| cram (dune) + alcotest | текущие | тесты: ppx — cram на вывод `pp.exe`, остальное — alcotest |
 
 **Два базовых решения по библиотекам.** Весь JSON — [jsonkit](https://github.com/melange-community/jsonkit): тип `Jsonkit.t`, кодеки, `[@@deriving jsonschema]`; Forge не определяет собственного JSON-типа и не генерирует кодеков сам — чего не хватает, добавляется в jsonkit. Все пути — [routes](https://github.com/anuragsoni/routes) (anuragsoni): типизированный двунаправленный роутер, чистый OCaml, работает и в Melange; одно значение `Routes.path` даёт матчинг на сервере, `sprintf` для клиентов и `string_of_path` для OpenAPI. `Dream.router` со строковыми паттернами не используется; `Forge.App.handler` матчит через `Routes.one_of`/`Routes.match'` и остаётся обычным `Dream.handler`.
 
@@ -71,7 +71,7 @@ forge/
     client/           # Routes, Cats_page.mlx, gen/cats_client.ml (генерируется)
     bin/main.ml
   test/
-    ppx/              # ppx_expect-тесты на -dsource вывод каждой трансформации
+    ppx/              # cram-тесты на вывод драйвера: эталон каждой трансформации + каждая ошибка
     core/             # alcotest: Error.handler, Codec, Validation, Spec→OpenAPI
     e2e/              # поднимает examples/cats, дёргает Dream.test и сгенерированный клиент
   docs/               # зеркало оглавления docs.nestjs.com, по файлу на главу
@@ -142,7 +142,7 @@ let find id = Lwt.return (Dynarray.find_opt (fun c -> c.Cat.id = id) cats)
 
 open Forge
 
-let find_all (module Cats : Cats_service.S) ?(limit = 20) () : Cat.t list Lwt.t =
+let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () : Cat.t list Lwt.t =
   let%lwt all = Cats.find_all () in
   Lwt.return (List.filteri (fun i _ -> i < limit) all)
 [@@get]
@@ -667,12 +667,12 @@ let name (module M1 : S1) … (module Mn : Sn)   (* 0..n модульных па
 В порядке проверки:
 
 1. Label встречается как `:label` в полном пути (префикс + путь хендлера) → **path**. Тип обязателен в аннотации.
-2. Label = `body` → **body**. Тип `T.t` → модуль `T` должен удовлетворять `Forge_shared.Json.DTO`; генерируется `T.of_json` → `T.validate` → при ошибке `Error.unprocessable`.
+2. Label = `body` → **body**. Тип `T.t` (или список) → модуль `T : Forge_shared.Json.S`; генерируется `Forge.Route.body (module T)`: не-JSON → 400, ошибки разбора и правил → 422.
 3. Параметр несёт `[@guard e]`/`[@from e]` → **guard**: `e req` вычисляется до тела; `Error` → ответ; в `spec` и в клиент не попадает.
-4. Всё остальное labelled/optional → **query**. `?x : τ option` = необязательный; `?(x = d)` = необязательный с дефолтом; `~x` = обязательный, отсутствие → 400. `τ list` → повторяемый параметр `?x=a&x=b`.
+4. Всё остальное labelled/optional → **query**, тип обязателен. `?(x : τ option)` и `~(x : τ option)` = необязательный; `?(x : τ = d)` = необязательный с дефолтом (дефолт применяет сам хендлер, ppx передаёт `?x`); `~(x : τ)` = обязательный, отсутствие → 400; `~(x : τ list)` → повторяемый `?x=a&x=b`.
 5. Позиционный с аннотацией `Dream.request` → сырой запрос. Любой другой позиционный, кроме финального `()`, — ошибка.
 
-Подбор кодека по типу (синтаксически, по последнему компоненту пути типа): `int → Codec.int`, `int64`, `float`, `bool`, `string`; `T.t → T.codec` (модуль обязан экспортировать `codec : t Forge_shared.Scalar.S`); `τ option` и `τ list` — обёртки. Иной тип → ошибка «unsupported param type, provide `[@codec e]`» (параметр `[@codec e]` с явным `'a Codec.t` разрешён).
+Подбор модуля по типу (синтаксически): `int → Forge_shared.Scalar.Int`, `int64`, `float`, `bool`, `string` — аналогично; `T.t → T` (для path/query `T : Forge_shared.Scalar.S`, для body и результата `T : Forge_shared.Json.S`); `τ list` в body/результате → `Forge_shared.Json.List (τ)`. Иной тип → ошибка с перечислением форм. `[@codec e]` не реализован: свой разбор — это свой модуль `Scalar.S` (например, `Refined.Make`).
 
 ### Инъекция из запроса: `[@from]` и `Forge.Extract`
 
@@ -723,52 +723,43 @@ end
 | `T.t Lwt.t` | `T.to_json`, `application/json` | `Json ("T", T.jsonschema)` |
 | `T.t list Lwt.t`, `T.t option Lwt.t` | JSON-массив / JSON или 404 | `Json` с обёрткой в схеме |
 | `(τ, E) result Lwt.t` | как τ; `Error e` → `error_handler` | как τ |
-| `Forge.Response.t Lwt.t`, `Dream.response Lwt.t` | как есть | `Raw` |
+| `Dream.response Lwt.t` | как есть | `Raw` |
 | `τ Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, элементы через `T.to_json` | `Json` + `sse = true` |
 
 Не-`Lwt` возврат — ошибка «handler must return … Lwt.t». Аннотация, не подпадающая под таблицу, — ошибка с перечислением форм.
 
 ### Зависимости (modular explicits)
 
-Модульные параметры всех хендлеров объединяются по имени. Одно имя с разными сигнатурами (текстуально) — ошибка. Объединённый список становится параметрами `register`, в том порядке, в котором имена впервые встретились в файле. Внутри сгенерированного функтора параметры хендлеров удаляются, тело ссылается на функторные модули.
+Модульные параметры всех хендлеров объединяются по имени. Одно имя с разными сигнатурами — ошибка. Объединённый список становится параметрами `register` в порядке первого появления. Хендлеры остаются как написаны, со своими modular explicits; `register` вызывает их как `find_one (module Cats) ~id`. Функтор `Make` из первой версии плана не нужен (решение фазы 1): так меньше переписывания, хендлер можно вызвать в тесте напрямую, а `[@@@inject]` для хелперов отложен.
 
 ### Что генерируется
 
-Для файла с префиксом `"cats"` и зависимостями `Cats : Cats_service.S`:
+Файл остаётся как был (атрибуты Forge снимаются), в конец добавляются три элемента. Для `cats` с хендлером `find_one (module Cats : Cats_service.S) ~(id : int)`:
 
 ```ocaml
-module Make (Cats : Cats_service.S) = struct
-  (* все не-хендлерные items файла как есть *)
-  let find_one ~id = …                          (* тело хендлера без модульных параметров *)
-
-  (* путь — значение routes; из "cats" + ":id" и типа ~id:int ppx строит: *)
-  let __forge_path_find_one = Routes.(s "cats" / int /? nil)
-
-  let __forge_route_find_one =
-    Routes.(__forge_path_find_one @--> fun id ->
-      Forge.Route.handle ~verb:`GET ~status:200 ~guards:[]
-        ~result:(Forge.Route.Json (module Cat))
-        (fun _req -> find_one ~id))
-
-  let routes : Forge.Route.t list = [ __forge_route_find_all; __forge_route_find_one; __forge_route_create ]
-end
-
-(* пути экспортируются и наружу — для тестов, ссылок и клиента *)
 module Paths = struct
-  let find_one = Routes.(s "cats" / int /? nil)     (* : (int -> 'a, 'a) Routes.path *)
-  …
+  let find_one () =
+    Routes.(/?) (Routes.(/) (Routes.s "cats")
+                   (Forge.Route.segment (module Forge_shared.Scalar.Int) ":id")) Routes.nil
 end
 
-let spec : Forge.Spec.t = { prefix = "/cats"; version = None; routes = [ … ] }
+let spec : Forge.Spec.t = { Forge.Spec.prefix = "/cats"; version = None; routes = [ … ] }
 
-let register (module Cats : Cats_service.S) : Forge.Controller.t =
-  let module M = Make (Cats) in
-  Forge.Controller.v ~spec ~routes:M.routes ~middleware:[ Logger_middleware.use ] ()
+let register (module Cats : Cats_service.S) =
+  Forge.Controller.v ~middleware:[ Logger_middleware.use ] ~spec
+    [ Forge.Route.v `GET
+        (Routes.(@-->) (Paths.find_one ())
+           (fun __forge_arg_id ->
+              Forge.Route.handle ~status:(Dream.int_to_status 200)
+                (Forge.Route.Json (module Cat))
+                (fun __forge_request -> find_one (module Cats) ~id:__forge_arg_id))) ]
 ```
 
-Путь и параметры: из строки `[@@get ":id"]` и типов path-параметров ppx собирает `Routes.path` — `int → Routes.int`, `int64`, `string → str`, `T.t → Routes.pattern T.codec.to_string T.codec.of_string_opt ":name"`. Хендлер получает path-параметры в порядке их появления в пути, что совпадает с типом `(int -> 'a, 'a) Routes.path`. `Forge.Route.t` — `Dream.handler Routes.route` с привязанным методом; `Forge.App.handler` собирает все контроллеры в один `Routes.one_of` на метод и матчит `Dream.target`. `MatchWithTrailingSlash` → 301 на путь без слеша (настраивается в `run ~trailing_slash`). `Paths` даёт тестам и серверному коду `Routes.sprintf Cats_controller.Paths.find_one 42 = "/cats/42"` — URL нельзя написать неправильно.
+Извлечения (query, body, `[@guard]`/`[@from]`) идут цепочкой `let open Forge.Route.Syntax in let* … in`, слева направо; первая `Error` прерывает цепочку. Хендлер без зависимостей даёт `register ()`. Функции `Paths` принимают `()`, чтобы путь был полиморфным: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. Путь сегмента — `Forge.Route.segment (module M) ":name"`: отказ `M.of_string` — это `NoMatch`, то есть 404. Полные эталоны вывода — `test/ppx/controller.t`.
 
-`Forge.Route` — внутренний модуль рантайма: `handle` оборачивает guards, парсинг, сериализацию и маппинг ошибок; `Syntax.let*` — `Lwt_result`-bind с `Error.t`. Генерируемый код не содержит логики, только вызовы `Forge.Route`; это держит ppx маленьким и тестируемым.
+`Forge.Route` — модуль рантайма: `handle` оборачивает guards, сериализацию и маппинг ошибок; `query`, `body`, `segment`, `ok`, `Syntax.let*` — всё, что вызывает сгенерированный код. Логики в сгенерированном коде нет.
+
+Отложено до фазы 2 (как отдельные строки): `[@@header]`, `[@@redirect]`, `[@@sse]`, `[@@@inject]`, `[@@@error_handler]`, `[@@timeout]`.
 
 ### Ошибки ppx (все через `Location.raise_errorf`, с локацией на виновный узел)
 
@@ -781,7 +772,7 @@ let register (module Cats : Cats_service.S) : Forge.Controller.t =
 - Конфликт сигнатур модульного параметра.
 - `[@@status]` вне 100–599; `[@@sse]` без `Lwt_stream.t`.
 
-Каждая ошибка — отдельный ppx\_expect-тест в `test/ppx/`.
+Каждая ошибка — отдельный случай в cram-тесте `test/ppx/errors.t` (вывод `pp.exe -impl`).
 
 ## DI и остальные примитивы Nest
 
@@ -1165,7 +1156,7 @@ File-based routing (`routes/cats.$id.tsx`) — не нужен: дерево и�
 
 | Уровень | Инструмент | Что проверяет |
 | --- | --- | --- |
-| ppx | ppx\_expect на `-dsource` выводе | каждая трансформация: эталонный сгенерированный код; каждая ошибка ppx — отдельный тест с ожидаемым сообщением |
+| ppx | cram на выводе `pp.exe -impl` | каждая трансформация: эталонный сгенерированный код; каждая ошибка ppx — отдельный тест с ожидаемым сообщением |
 | core | alcotest | `Error.to_response`, `Codec`, `Validation`, `Refined`, `Spec.to_json`, OpenAPI-генератор, `Route.handle` с подменённым запросом |
 | контроллеры (unit) | alcotest + `Dream.test` | `Cats_controller.register (module Fake_cats)` → `Forge.App.handler` → `Dream.test handler (Dream.request ~method_:`GET \~target:"/cats/1" "")\` → статус/тело |
 | e2e | alcotest, запуск `examples/cats` | сервер на случайном порту; сгенерированный native-вариант клиента (тот же генератор с `--target native` поверх cohttp) ходит по всем маршрутам; OpenAPI валидируется схемой 3.1 |
@@ -1334,7 +1325,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 
 | Задача | Критерий |
 | --- | --- |
-| ppx `controller`: атрибуты, классификация, `Make`/`register`/`spec`, все ошибки | ppx\_expect на каждый пункт раздела ppx; cats-контроллер компилируется |
+| ✅ ppx `controller`: атрибуты, классификация, `Paths`/`spec`/`register`, все ошибки | cram на эталон и каждую ошибку; cats-контроллер компилируется и проходит e2e через `Dream.test` |
 | ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | round-trip тесты; 422-envelope совпадает с описанным |
 | `Forge_shared.Refined` (String, Int, Enum, Regex, Email, Make) | схемы содержат ограничения; `codec` работает в path/query |
 | ppx `config` | `load` собирает все ошибки сразу |
@@ -1417,3 +1408,4 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 - [ ] Имя: `Forge` — рабочее; проверить коллизии в opam перед публикацией.
 - [ ] `.mlx` против reason-синтаксиса для JSX: `.mlx` по умолчанию, пока не упрёмся в ограничения.
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
+- [ ] Атрибуты контроллера, отложенные из фазы 1: `[@@header]`, `[@@redirect]`, `[@@sse]`, `[@@@inject]`, `[@@@error_handler]`, `[@@timeout]`, `[@codec e]`.

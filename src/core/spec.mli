@@ -7,24 +7,24 @@ type presence =
 
 type location = Path | Query of presence
 
-type dto = { name : string; schema : Jsonkit.Jsonschema.t }
-(** A JSON type, named by its OCaml module. *)
-
-type param = {
-  name : string;
-  location : location;
-  scalar : string;  (** [Forge_shared.Scalar.S.name] of the parameter type. *)
+type value = {
+  type_ : string;  (** The OCaml type as written, e.g. ["Cat.t list"]. *)
+  module_ : string;
+      (** Its [Json.S] or [Scalar.S] module, e.g.
+          ["Forge_shared.Json.List (Cat)"]. *)
   schema : Jsonkit.Jsonschema.t;
 }
+(** A value crossing the wire, described for code generators. *)
 
-type returns = Unit | Text | Json of dto | Raw
+type param = { name : string; location : location; value : value }
+type returns = Unit | Text | Json of value | Raw
 
 type route = {
   verb : verb;
   path : string;  (** Full path with the controller prefix, [:name] segments. *)
   name : string;  (** The handler. *)
   params : param list;
-  body : dto option;
+  body : value option;
   returns : returns;
   status : Dream.status;
   guards : string list;  (** Guard expressions, for documentation only. *)

@@ -51,3 +51,65 @@ let handle (type a) ~status ?(guards = []) (returns : a returns)
           Dream.error (fun log ->
               log ~request "unhandled exception: %s" (Printexc.to_string exn));
           Lwt.return_error (Error.internal "internal server error"))
+
+type ('a, 'b) presence =
+  | Required : ('a, 'a) presence
+  | Optional : ('a, 'a option) presence
+  | Repeated : ('a, 'a list) presence
+
+let segment (module S : Forge_shared.Scalar.S) label path =
+  Routes.pattern S.to_string
+    (fun s -> Result.to_option (S.of_string s))
+    label path
+
+let query (type b) (module S : Forge_shared.Scalar.S)
+    (presence : (S.t, b) presence) name request : (b, Error.t) result Lwt.t =
+  let parse raw =
+    Result.map_error
+      (fun errors ->
+        Error.bad_request
+          ~extensions:
+            [
+              ( "errors",
+                Forge_shared.Validation.to_json
+                  (Forge_shared.Validation.at [ name ] errors) );
+            ]
+          ("invalid query parameter " ^ name))
+      (S.of_string raw)
+  in
+  let parsed : (b, Error.t) result =
+    match presence with
+    | Required ->
+        Option.fold
+          ~none:(Error (Error.bad_request ("missing query parameter " ^ name)))
+          ~some:parse (Dream.query request name)
+    | Optional ->
+        Option.fold ~none:(Ok None)
+          ~some:(fun raw -> Result.map Option.some (parse raw))
+          (Dream.query request name)
+    | Repeated ->
+        List.fold_right
+          (fun raw parsed ->
+            Result.bind (parse raw) (fun value ->
+                Result.map (List.cons value) parsed))
+          (Dream.queries request name)
+          (Ok [])
+  in
+  Lwt.return parsed
+
+let body (module J : Forge_shared.Json.S) request =
+  Lwt.map
+    (fun text ->
+      match Jsonkit.of_string text with
+      | json ->
+          Result.map_error Error.unprocessable
+            (Forge_shared.Json.parse (module J) json)
+      | exception Jsonkit.Of_string_error message ->
+          Error (Error.bad_request ("request body is not JSON: " ^ message)))
+    (Dream.body request)
+
+let ok promise = Lwt.map Result.ok promise
+
+module Syntax = struct
+  let ( let* ) promise next = Lwt_result.bind promise next
+end

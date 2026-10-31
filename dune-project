@@ -35,7 +35,6 @@
 
 (package
  (name forge-ppx)
- (allow_empty)
  (synopsis "Forge ppx: controller, dto, config, table")
  (depends
   (ocaml

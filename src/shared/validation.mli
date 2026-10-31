@@ -12,6 +12,7 @@ type 'a rule
 
 val fail : rule:string -> string -> t
 val ok_exn : ('a, t) result -> 'a
+val at : string list -> t -> t
 val to_list : t -> error list
 val to_json : t -> Jsonkit.t
 val rule : name:string -> ('a -> ('a, string) result) -> 'a rule

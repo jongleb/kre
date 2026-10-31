@@ -1,0 +1,846 @@
+open Ppxlib
+open Ast_builder.Default
+
+type verb = Get | Post | Put | Patch | Delete
+
+type value = { type_ : core_type; module_ : module_expr }
+(** A type crossing the wire and the module that converts it. *)
+
+type presence = Required | Optional | Repeated
+
+(** Where one argument of a handler comes from. *)
+type source =
+  | Dependency of { name : string; pattern : pattern; package : core_type }
+  | Path of value
+  | Query of { name : string; presence : presence; value : value }
+  | Body of value
+  | Extracted of expression  (** [[@guard e]] or [[@from e]]. *)
+  | Request
+  | Unit
+
+type argument = { label : arg_label; source : source; loc : location }
+
+(** One segment of a route path. *)
+type segment = Literal of string | Param of { name : string; value : value }
+
+(** How the handler's result becomes a response. *)
+type shape = Empty | Text | Raw | Json of value | Found of value
+
+(** [Fallible] handlers return [(_, Forge.Error.t) result Lwt.t]. *)
+type outcome = Plain | Fallible
+
+type handler = {
+  name : string;
+  verb : verb;
+  segments : segment list;
+  status : int;
+  middleware : expression list;
+  guards : expression list;
+  arguments : argument list;
+  shape : shape;
+  outcome : outcome;
+}
+
+let string_payload (attribute : attribute) =
+  match attribute.attr_payload with
+  | PStr [] -> ""
+  | PStr
+      [
+        {
+          pstr_desc =
+            Pstr_eval
+              ({ pexp_desc = Pexp_constant (Pconst_string (s, _, _)); _ }, _);
+          _;
+        };
+      ] ->
+      s
+  | _ ->
+      Location.raise_errorf ~loc:attribute.attr_loc
+        "[@@@@%s] expects a string literal, e.g. [@@@@%s \":id\"]"
+        attribute.attr_name.txt attribute.attr_name.txt
+
+let int_payload (attribute : attribute) =
+  match attribute.attr_payload with
+  | PStr
+      [
+        {
+          pstr_desc =
+            Pstr_eval
+              ({ pexp_desc = Pexp_constant (Pconst_integer (s, None)); _ }, _);
+          _;
+        };
+      ] ->
+      int_of_string s
+  | _ ->
+      Location.raise_errorf ~loc:attribute.attr_loc
+        "[@@@@%s] expects an integer literal" attribute.attr_name.txt
+
+let list_payload (attribute : attribute) =
+  let invalid loc =
+    Location.raise_errorf ~loc
+      "[@@@@%s] expects a list literal, e.g. [@@@@%s [ a; b ]]"
+      attribute.attr_name.txt attribute.attr_name.txt
+  in
+  let rec elements (expression : expression) =
+    match expression.pexp_desc with
+    | Pexp_construct ({ txt = Lident "[]"; _ }, None) -> []
+    | Pexp_construct
+        ( { txt = Lident "::"; _ },
+          Some { pexp_desc = Pexp_tuple [ head; tail ]; _ } ) ->
+        head :: elements tail
+    | _ -> invalid expression.pexp_loc
+  in
+  match attribute.attr_payload with
+  | PStr [ { pstr_desc = Pstr_eval (expression, _); _ } ] -> elements expression
+  | _ -> invalid attribute.attr_loc
+
+let segments path =
+  List.filter (fun segment -> segment <> "") (String.split_on_char '/' path)
+
+let ident ~loc path = pmod_ident ~loc { txt = Longident.parse path; loc }
+
+let unsupported ~loc (type_ : core_type) =
+  Location.raise_errorf ~loc
+    "unsupported type %a; path and query parameters take int, int64, float, \
+     bool, string or T.t with T : Forge_shared.Scalar.S; bodies and results \
+     also take T.t with T : Forge_shared.Json.S and lists of those"
+    Pprintast.core_type type_
+
+let scalar ~loc (type_ : core_type) =
+  {
+    type_;
+    module_ =
+      (match type_.ptyp_desc with
+      | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
+          ident ~loc "Forge_shared.Scalar.Int"
+      | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
+          ident ~loc "Forge_shared.Scalar.Int64"
+      | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
+          ident ~loc "Forge_shared.Scalar.Float"
+      | Ptyp_constr ({ txt = Lident "bool"; _ }, []) ->
+          ident ~loc "Forge_shared.Scalar.Bool"
+      | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
+          ident ~loc "Forge_shared.Scalar.String"
+      | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
+          pmod_ident ~loc { txt = path; loc }
+      | _ -> unsupported ~loc type_);
+  }
+
+let rec json ~loc (type_ : core_type) =
+  match type_.ptyp_desc with
+  | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]) ->
+      {
+        type_;
+        module_ =
+          pmod_apply ~loc
+            (ident ~loc "Forge_shared.Json.List")
+            (json ~loc element).module_;
+      }
+  | _ -> scalar ~loc type_
+
+let extraction (type_ : core_type) =
+  List.find_map
+    (fun (attribute : attribute) ->
+      match (attribute.attr_name.txt, attribute.attr_payload) with
+      | ("guard" | "from"), PStr [ { pstr_desc = Pstr_eval (guard, _); _ } ] ->
+          Some guard
+      | ("guard" | "from"), _ ->
+          Location.raise_errorf ~loc:attribute.attr_loc
+            "[@@%s] expects a guard expression of type 'a Forge.Guard.t"
+            attribute.attr_name.txt
+      | _ -> None)
+    type_.ptyp_attributes
+
+let transform structure =
+  let verbs =
+    [
+      ("get", Get);
+      ("post", Post);
+      ("put", Put);
+      ("patch", Patch);
+      ("delete", Delete);
+    ]
+  in
+  let verb_attribute (binding : value_binding) =
+    List.find_map
+      (fun (attribute : attribute) ->
+        Option.map
+          (fun verb -> (verb, attribute))
+          (List.assoc_opt attribute.attr_name.txt verbs))
+      binding.pvb_attributes
+  in
+  let controller_attribute (item : structure_item) =
+    match item.pstr_desc with
+    | Pstr_attribute ({ attr_name = { txt = "controller"; _ }; _ } as attribute)
+      ->
+        Some attribute
+    | _ -> None
+  in
+  let positional_error loc =
+    Location.raise_errorf ~loc
+      "positional parameter must be (module M : S), (req : Dream.request), (x \
+       : t [@from guard]) or (); use a labelled parameter for path, query and \
+       body values"
+  in
+  let classify ~names (param : function_param) =
+    let loc = param.pparam_loc in
+    match param.pparam_desc with
+    | Pparam_newtype _ ->
+        Location.raise_errorf ~loc
+          "handlers cannot take (type a) parameters; move them into a helper"
+    | Pparam_val (Nolabel, _, pattern) ->
+        let source =
+          match pattern.ppat_desc with
+          | Ppat_constraint
+              ( { ppat_desc = Ppat_unpack { txt = Some name; _ }; _ },
+                ({ ptyp_desc = Ptyp_package _; _ } as package) ) ->
+              Dependency { name; pattern; package }
+          | Ppat_construct ({ txt = Lident "()"; _ }, None) -> Unit
+          | Ppat_constraint (_, type_) -> (
+              match (extraction type_, type_.ptyp_desc) with
+              | Some guard, _ -> Extracted guard
+              | ( None,
+                  Ptyp_constr ({ txt = Ldot (Lident "Dream", "request"); _ }, [])
+                ) ->
+                  Request
+              | None, _ -> positional_error loc)
+          | _ -> positional_error loc
+        in
+        { label = Nolabel; source; loc }
+    | Pparam_val
+        (((Labelled label | Optional label) as arg_label), default, pattern) ->
+        let annotated () =
+          match pattern.ppat_desc with
+          | Ppat_constraint (_, type_) -> type_
+          | _ ->
+              Location.raise_errorf ~loc
+                "parameter %s needs a type annotation: ~(%s : int)" label label
+        in
+        let source =
+          match
+            ( List.find_opt (String.equal label) names,
+              label,
+              Option.bind
+                (match pattern.ppat_desc with
+                | Ppat_constraint (_, type_) -> Some type_
+                | _ -> None)
+                extraction,
+              arg_label )
+          with
+          | Some _, _, _, Optional _ ->
+              Location.raise_errorf ~loc
+                "path parameter %s cannot be optional; use ~(%s : …)" label
+                label
+          | Some _, _, _, _ -> Path (scalar ~loc (annotated ()))
+          | None, "body", None, _ -> Body (json ~loc (annotated ()))
+          | None, _, Some guard, _ -> Extracted guard
+          | None, _, None, _ ->
+              let type_ = annotated () in
+              let presence, element =
+                match (type_.ptyp_desc, arg_label, default) with
+                | _, Optional _, Some _ -> (Optional, type_)
+                | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), _, _
+                  ->
+                    (Optional, element)
+                | ( Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]),
+                    Labelled _,
+                    _ ) ->
+                    (Repeated, element)
+                | _, Labelled _, _ -> (Required, type_)
+                | _ ->
+                    Location.raise_errorf ~loc
+                      "optional query parameter %s needs a default or an \
+                       option type: ?(%s : int = 0) or ?(%s : int option)"
+                      label label label
+              in
+              Query { name = label; presence; value = scalar ~loc element }
+        in
+        { label = arg_label; source; loc }
+  in
+  let returns ~name (type_ : core_type) =
+    let loc = type_.ptyp_loc in
+    match type_.ptyp_desc with
+    | Ptyp_constr ({ txt = Ldot (Lident "Lwt", "t"); _ }, [ inner ]) ->
+        let outcome, payload =
+          match inner.ptyp_desc with
+          | Ptyp_constr ({ txt = Lident "result"; _ }, [ ok; _ ]) ->
+              (Fallible, ok)
+          | _ -> (Plain, inner)
+        in
+        let shape =
+          match payload.ptyp_desc with
+          | Ptyp_constr ({ txt = Lident "unit"; _ }, []) -> Empty
+          | Ptyp_constr ({ txt = Lident "string"; _ }, []) -> Text
+          | Ptyp_constr ({ txt = Ldot (Lident "Dream", "response"); _ }, []) ->
+              Raw
+          | Ptyp_constr ({ txt = Lident "option"; _ }, [ found ]) ->
+              Found (json ~loc found)
+          | _ -> Json (json ~loc payload)
+        in
+        (shape, outcome)
+    | _ ->
+        Location.raise_errorf ~loc
+          "handler %s must return a promise: t Lwt.t or (t, Forge.Error.t) \
+           result Lwt.t, where t is unit, string, Dream.response, T.t, T.t \
+           list or T.t option"
+          name
+  in
+  match structure with
+  | [] -> []
+  | first :: rest -> (
+      match controller_attribute first with
+      | None ->
+          Option.iter
+            (fun (attribute : attribute) ->
+              Location.raise_errorf ~loc:attribute.attr_loc
+                "[@@@@@@controller] must be the first item of the file")
+            (List.find_map controller_attribute rest);
+          Option.fold ~none:structure
+            ~some:(fun ((_ : verb), (attribute : attribute)) ->
+              Location.raise_errorf ~loc:attribute.attr_loc
+                "[@@@@%s] outside a controller; add [@@@@@@controller \
+                 \"prefix\"] as the first item of the file"
+                attribute.attr_name.txt)
+            (List.find_map
+               (fun (item : structure_item) ->
+                 match item.pstr_desc with
+                 | Pstr_value (_, bindings) ->
+                     List.find_map verb_attribute bindings
+                 | _ -> None)
+               structure)
+      | Some controller ->
+          let loc = controller.attr_loc in
+          let floating name =
+            List.filter_map
+              (fun (item : structure_item) ->
+                match item.pstr_desc with
+                | Pstr_attribute attribute when attribute.attr_name.txt = name
+                  ->
+                    Some attribute
+                | _ -> None)
+              rest
+          in
+          Option.iter
+            (fun (attribute : attribute) ->
+              Location.raise_errorf ~loc:attribute.attr_loc
+                "second [@@@@@@controller]; a file is one controller")
+            (List.nth_opt (floating "controller") 0);
+          let prefix = segments (string_payload controller) in
+          let version =
+            Option.map int_payload (List.nth_opt (floating "version") 0)
+          in
+          let controller_middleware =
+            List.concat_map list_payload (floating "use")
+          in
+          let controller_guards =
+            List.concat_map list_payload (floating "guards")
+          in
+          let attribute_of (binding : value_binding) name =
+            List.find_opt
+              (fun (attribute : attribute) -> attribute.attr_name.txt = name)
+              binding.pvb_attributes
+          in
+          let handler (binding : value_binding) (verb, (attribute : attribute))
+              =
+            let name =
+              match binding.pvb_pat.ppat_desc with
+              | Ppat_var { txt; _ } -> txt
+              | _ ->
+                  Location.raise_errorf ~loc:binding.pvb_pat.ppat_loc
+                    "[@@@@%s] needs a plain name: let find_one … = …"
+                    attribute.attr_name.txt
+            in
+            let params, return_type =
+              match binding.pvb_expr.pexp_desc with
+              | Pexp_function
+                  (params, Some (Pconstraint type_), Pfunction_body _) ->
+                  (params, type_)
+              | Pexp_function (_, None, _) ->
+                  Location.raise_errorf ~loc:binding.pvb_expr.pexp_loc
+                    "handler %s: missing return type annotation; add one \
+                     before =, e.g. : Cat.t Lwt.t"
+                    name
+              | _ ->
+                  Location.raise_errorf ~loc:binding.pvb_expr.pexp_loc
+                    "handler %s must be a function with its parameters on the \
+                     let: let %s (…) () : t Lwt.t = …"
+                    name name
+            in
+            let raw_segments =
+              Option.fold ~none:[]
+                ~some:(fun version -> [ "v" ^ string_of_int version ])
+                version
+              @ prefix
+              @ segments (string_payload attribute)
+            in
+            let param_name segment =
+              match String.split_on_char ':' segment with
+              | [ ""; name ] -> Some name
+              | _ -> None
+            in
+            let arguments =
+              List.map
+                (classify ~names:(List.filter_map param_name raw_segments))
+                params
+            in
+            (match
+               List.filter_map
+                 (fun argument ->
+                   match argument.source with
+                   | Body _ -> Some argument.loc
+                   | _ -> None)
+                 arguments
+             with
+            | _ :: second :: _ ->
+                Location.raise_errorf ~loc:second
+                  "handler %s has two body parameters; keep one ~(body : T.t)"
+                  name
+            | _ -> ());
+            let shape, outcome = returns ~name return_type in
+            {
+              name;
+              verb;
+              segments =
+                List.map
+                  (fun segment ->
+                    Option.fold ~none:(Literal segment)
+                      ~some:(fun name ->
+                        Param
+                          {
+                            name;
+                            value =
+                              (match
+                                 List.find_map
+                                   (fun argument ->
+                                     match
+                                       (argument.label, argument.source)
+                                     with
+                                     | Labelled label, Path value
+                                       when label = name ->
+                                         Some value
+                                     | _ -> None)
+                                   arguments
+                               with
+                              | Some value -> value
+                              | None ->
+                                  Location.raise_errorf ~loc:attribute.attr_loc
+                                    "path segment :%s has no parameter; add \
+                                     ~(%s : int) to the handler"
+                                    name name);
+                          })
+                      (param_name segment))
+                  raw_segments;
+              status =
+                Option.fold
+                  ~none:(match shape with Empty -> 204 | _ -> 200)
+                  ~some:(fun attribute ->
+                    match int_payload attribute with
+                    | status when status >= 100 && status <= 599 -> status
+                    | status ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@status %d] is not an HTTP status; use 100–599"
+                          status)
+                  (attribute_of binding "status");
+              middleware =
+                Option.fold ~none:[] ~some:list_payload
+                  (attribute_of binding "use");
+              guards =
+                controller_guards
+                @ Option.fold ~none:[] ~some:list_payload
+                    (attribute_of binding "guards");
+              arguments;
+              shape;
+              outcome;
+            }
+          in
+          let handler_attributes =
+            [ "status"; "use"; "guards" ] @ List.map fst verbs
+          in
+          let items, handlers =
+            List.fold_left
+              (fun (items, handlers) (item : structure_item) ->
+                match item.pstr_desc with
+                | Pstr_attribute attribute
+                  when List.mem attribute.attr_name.txt
+                         [ "controller"; "use"; "guards"; "version" ] ->
+                    (items, handlers)
+                | Pstr_value (flag, bindings) -> (
+                    match
+                      (List.filter_map verb_attribute bindings, flag, bindings)
+                    with
+                    | [], _, _ -> (item :: items, handlers)
+                    | (_, attribute) :: _, Recursive, _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@%s] on let rec: handlers cannot be recursive; \
+                           move the recursion into a helper"
+                          attribute.attr_name.txt
+                    | [ found ], Nonrecursive, [ binding ] ->
+                        ( {
+                            item with
+                            pstr_desc =
+                              Pstr_value
+                                ( flag,
+                                  [
+                                    {
+                                      binding with
+                                      pvb_attributes =
+                                        List.filter
+                                          (fun (attribute : attribute) ->
+                                            not
+                                              (List.mem attribute.attr_name.txt
+                                                 handler_attributes))
+                                          binding.pvb_attributes;
+                                    };
+                                  ] );
+                          }
+                          :: items,
+                          handler binding found :: handlers )
+                    | (_, attribute) :: _, Nonrecursive, _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@%s] on let … and …: declare each handler with \
+                           its own let"
+                          attribute.attr_name.txt)
+                | _ -> (item :: items, handlers))
+              ([], []) rest
+          in
+          let handlers = List.rev handlers in
+          let print printer value = Format.asprintf "%a" printer value in
+          let dependencies =
+            List.fold_left
+              (fun dependencies argument ->
+                match argument.source with
+                | Dependency { name; pattern; package } -> (
+                    match List.assoc_opt name dependencies with
+                    | None -> dependencies @ [ (name, (pattern, package)) ]
+                    | Some (_, known)
+                      when print Pprintast.core_type known
+                           = print Pprintast.core_type package ->
+                        dependencies
+                    | Some (_, known) ->
+                        let signature (package : core_type) =
+                          match package.ptyp_desc with
+                          | Ptyp_package ({ txt; _ }, _) -> Longident.name txt
+                          | _ -> print Pprintast.core_type package
+                        in
+                        Location.raise_errorf ~loc:argument.loc
+                          "dependency %s has two signatures in this \
+                           controller, %s and %s; rename one of them"
+                          name (signature known) (signature package))
+                | _ -> dependencies)
+              []
+              (List.concat_map (fun handler -> handler.arguments) handlers)
+          in
+          let verb_tag verb =
+            pexp_variant ~loc
+              (match verb with
+              | Get -> "GET"
+              | Post -> "POST"
+              | Put -> "PUT"
+              | Patch -> "PATCH"
+              | Delete -> "DELETE")
+              None
+          in
+          let variable label = "__forge_arg_" ^ label in
+          let bound index argument =
+            match argument.label with
+            | Labelled label | Optional label -> variable label
+            | Nolabel -> variable (string_of_int index)
+          in
+          let path_expression handler =
+            match
+              List.map
+                (function
+                  | Literal segment ->
+                      [%expr Routes.s [%e estring ~loc segment]]
+                  | Param { name; value } ->
+                      [%expr
+                        Forge.Route.segment
+                          [%e pexp_pack ~loc value.module_]
+                          [%e estring ~loc (":" ^ name)]])
+                handler.segments
+            with
+            | [] -> [%expr Routes.nil]
+            | first :: rest ->
+                [%expr
+                  Routes.( /? )
+                    [%e
+                      List.fold_left
+                        (fun joined next ->
+                          [%expr Routes.( / ) [%e joined] [%e next]])
+                        first rest]
+                    Routes.nil]
+          in
+          let route handler =
+            let extractions =
+              List.concat
+                (List.mapi
+                   (fun index argument ->
+                     match argument.source with
+                     | Query { name; presence; value } ->
+                         [
+                           ( bound index argument,
+                             [%expr
+                               Forge.Route.query
+                                 [%e pexp_pack ~loc value.module_]
+                                 [%e
+                                   match presence with
+                                   | Required -> [%expr Forge.Route.Required]
+                                   | Optional -> [%expr Forge.Route.Optional]
+                                   | Repeated -> [%expr Forge.Route.Repeated]]
+                                 [%e estring ~loc name] __forge_request] );
+                         ]
+                     | Body value ->
+                         [
+                           ( bound index argument,
+                             [%expr
+                               Forge.Route.body
+                                 [%e pexp_pack ~loc value.module_]
+                                 __forge_request] );
+                         ]
+                     | Extracted guard ->
+                         [
+                           ( bound index argument,
+                             [%expr [%e guard] __forge_request] );
+                         ]
+                     | Dependency _ | Path _ | Request | Unit -> [])
+                   handler.arguments)
+            in
+            let call =
+              pexp_apply ~loc (evar ~loc handler.name)
+                (List.mapi
+                   (fun index argument ->
+                     ( argument.label,
+                       match argument.source with
+                       | Dependency { name; _ } ->
+                           pexp_pack ~loc (ident ~loc name)
+                       | Request -> [%expr __forge_request]
+                       | Unit -> [%expr ()]
+                       | Path _ | Query _ | Body _ | Extracted _ ->
+                           evar ~loc (bound index argument) ))
+                   handler.arguments)
+            in
+            let result =
+              match handler.outcome with
+              | Plain -> [%expr Forge.Route.ok [%e call]]
+              | Fallible -> call
+            in
+            let body =
+              match extractions with
+              | [] -> result
+              | _ ->
+                  [%expr
+                    let open Forge.Route.Syntax in
+                    [%e
+                      List.fold_right
+                        (fun (name, expression) rest ->
+                          pexp_letop ~loc
+                            (letop
+                               ~let_:
+                                 (binding_op ~loc ~op:{ txt = "let*"; loc }
+                                    ~pat:(pvar ~loc name) ~exp:expression)
+                               ~ands:[] ~body:rest))
+                        extractions result]]
+            in
+            let shape =
+              match handler.shape with
+              | Empty -> [%expr Forge.Route.Unit]
+              | Text -> [%expr Forge.Route.Text]
+              | Raw -> [%expr Forge.Route.Raw]
+              | Json value ->
+                  [%expr Forge.Route.Json [%e pexp_pack ~loc value.module_]]
+              | Found value ->
+                  [%expr Forge.Route.Found [%e pexp_pack ~loc value.module_]]
+            in
+            let handle =
+              pexp_apply ~loc [%expr Forge.Route.handle]
+                ([
+                   ( Labelled "status",
+                     [%expr Dream.int_to_status [%e eint ~loc handler.status]]
+                   );
+                 ]
+                @ (match handler.guards with
+                  | [] -> []
+                  | guards -> [ (Labelled "guards", elist ~loc guards) ])
+                @ [
+                    (Nolabel, shape);
+                    (Nolabel, [%expr fun __forge_request -> [%e body]]);
+                  ])
+            in
+            let target =
+              List.fold_right
+                (fun segment target ->
+                  match segment with
+                  | Literal _ -> target
+                  | Param { name; _ } ->
+                      [%expr fun [%p pvar ~loc (variable name)] -> [%e target]])
+                handler.segments handle
+            in
+            pexp_apply ~loc [%expr Forge.Route.v]
+              ((match handler.middleware with
+                 | [] -> []
+                 | middleware ->
+                     [ (Labelled "middleware", elist ~loc middleware) ])
+              @ [
+                  (Nolabel, verb_tag handler.verb);
+                  ( Nolabel,
+                    [%expr
+                      Routes.( @--> )
+                        ([%e evar ~loc ("Paths." ^ handler.name)] ())
+                        [%e target]] );
+                ])
+          in
+          let spec_value value =
+            [%expr
+              {
+                Forge.Spec.type_ =
+                  [%e estring ~loc (print Pprintast.core_type value.type_)];
+                module_ =
+                  [%e
+                    estring ~loc
+                      (let rec name (module_ : module_expr) =
+                         match module_.pmod_desc with
+                         | Pmod_ident { txt; _ } -> Longident.name txt
+                         | Pmod_apply (functor_, argument) ->
+                             name functor_ ^ " (" ^ name argument ^ ")"
+                         | _ -> print Pprintast.module_expr module_
+                       in
+                       name value.module_)];
+                schema =
+                  (let module M = [%m value.module_] in
+                   M.t_jsonschema);
+              }]
+          in
+          let spec_route handler =
+            [%expr
+              {
+                Forge.Spec.verb = [%e verb_tag handler.verb];
+                path =
+                  [%e
+                    estring ~loc
+                      ("/"
+                      ^ String.concat "/"
+                          (List.map
+                             (function
+                               | Literal segment -> segment
+                               | Param { name; _ } -> ":" ^ name)
+                             handler.segments))];
+                name = [%e estring ~loc handler.name];
+                params =
+                  [%e
+                    elist ~loc
+                      (List.concat_map
+                         (fun segment ->
+                           match segment with
+                           | Literal _ -> []
+                           | Param { name; value } ->
+                               [
+                                 [%expr
+                                   {
+                                     Forge.Spec.name = [%e estring ~loc name];
+                                     location = Forge.Spec.Path;
+                                     value = [%e spec_value value];
+                                   }];
+                               ])
+                         handler.segments
+                      @ List.filter_map
+                          (fun argument ->
+                            match argument.source with
+                            | Query { name; presence; value } ->
+                                Some
+                                  [%expr
+                                    {
+                                      Forge.Spec.name = [%e estring ~loc name];
+                                      location =
+                                        Forge.Spec.Query
+                                          [%e
+                                            match presence with
+                                            | Required ->
+                                                [%expr Forge.Spec.Required]
+                                            | Optional ->
+                                                [%expr Forge.Spec.Optional]
+                                            | Repeated ->
+                                                [%expr Forge.Spec.Repeated]];
+                                      value = [%e spec_value value];
+                                    }]
+                            | _ -> None)
+                          handler.arguments)];
+                body =
+                  [%e
+                    Option.fold ~none:[%expr None]
+                      ~some:(fun value -> [%expr Some [%e spec_value value]])
+                      (List.find_map
+                         (fun argument ->
+                           match argument.source with
+                           | Body value -> Some value
+                           | _ -> None)
+                         handler.arguments)];
+                returns =
+                  [%e
+                    match handler.shape with
+                    | Empty -> [%expr Forge.Spec.Unit]
+                    | Text -> [%expr Forge.Spec.Text]
+                    | Raw -> [%expr Forge.Spec.Raw]
+                    | Json value | Found value ->
+                        [%expr Forge.Spec.Json [%e spec_value value]]];
+                status = Dream.int_to_status [%e eint ~loc handler.status];
+                guards =
+                  [%e
+                    elist ~loc
+                      (List.map
+                         (fun guard ->
+                           estring ~loc (print Pprintast.expression guard))
+                         handler.guards)];
+              }]
+          in
+          let paths =
+            pstr_module ~loc
+              (module_binding ~loc
+                 ~name:{ txt = Some "Paths"; loc }
+                 ~expr:
+                   (pmod_structure ~loc
+                      (List.map
+                         (fun handler ->
+                           [%stri
+                             let [%p pvar ~loc handler.name] =
+                              fun () -> [%e path_expression handler]])
+                         handlers)))
+          in
+          let spec =
+            [%stri
+              let spec : Forge.Spec.t =
+                {
+                  Forge.Spec.prefix =
+                    [%e estring ~loc ("/" ^ String.concat "/" prefix)];
+                  version =
+                    [%e
+                      Option.fold ~none:[%expr None]
+                        ~some:(fun version ->
+                          [%expr Some [%e eint ~loc version]])
+                        version];
+                  routes = [%e elist ~loc (List.map spec_route handlers)];
+                }]
+          in
+          let controller_value =
+            pexp_apply ~loc [%expr Forge.Controller.v]
+              ((match controller_middleware with
+                 | [] -> []
+                 | middleware ->
+                     [ (Labelled "middleware", elist ~loc middleware) ])
+              @ [
+                  (Labelled "spec", [%expr spec]);
+                  (Nolabel, elist ~loc (List.map route handlers));
+                ])
+          in
+          let register =
+            [%stri
+              let register =
+                [%e
+                  match dependencies with
+                  | [] -> [%expr fun () -> [%e controller_value]]
+                  | _ ->
+                      List.fold_right
+                        (fun (_, (pattern, _)) body ->
+                          pexp_fun ~loc Nolabel None pattern body)
+                        dependencies controller_value]]
+          in
+          List.rev items @ [ paths; spec; register ])
