@@ -1,0 +1,36 @@
+(rule
+ (targets cats_client.ml)
+ (deps ../client_native/spec.json)
+ (action
+  (run
+   %{bin:forge}
+   client
+   --spec
+   ../client_native/spec.json
+   --controller
+   cats
+   --out
+   %{targets})))
+
+(library
+ (name cats_client_js)
+ (modes melange)
+ (modules cats_client scenario)
+ (libraries cats_shared_js forge-client forge-client.shared jsonkit-melange)
+ (preprocess
+  (pps melange.ppx)))
+
+(melange.emit
+ (target js)
+ (modules)
+ (libraries cats_client_js)
+ (module_systems commonjs))
+
+(test
+ (name run_scenario)
+ (modules run_scenario)
+ (deps
+  (alias melange))
+ (libraries cats_server forge dream lwt lwt.unix alcotest)
+ (preprocess
+  (pps lwt_ppx)))

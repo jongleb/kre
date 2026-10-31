@@ -41,7 +41,7 @@ Forge — фуллстек-фреймворк на OCaml, который вос�
 
 **Правило про версии компилятора (решено в фазе 0).** Melange 7.0.1-55 поддерживает OCaml 5.5, поэтому отдельный switch для клиента не нужен, а синтаксис 5.5 (modular explicits) разрешён везде, включая `shared/` и `client/`. `dune-project` требует `ocaml >= 5.5 & < 5.6`; локальный switch проекта — `opam switch create . 5.5.1`.
 
-**Монады.** Сервер — `Lwt.t`; клиент — `Js.Promise.t` (обёртка `Forge_client.Promise` с `let*`). Ни один тип в `shared/` не упоминает монаду: контракт между концами — только данные (DTO) и `spec`.
+**Монады.** Сервер — `Lwt.t`; клиент — `Js.Promise.t`. `Forge_client.Promise` даёт `return`, `let*`, `let+` над `Js.Promise.t` в Melange и над `Lwt.t` в native, поэтому код поверх клиента собирается в обоих режимах (типа-алиаса `Promise.t` нет). Ни один тип в `shared/` не упоминает монаду: контракт между концами — только данные (DTO) и `spec`.
 
 **Lwt-конвенции.** Пользовательский код — `lwt_ppx` (`let%lwt`, `match%lwt`, `try%lwt`); сгенерированный ppx-код — `Lwt_result.Syntax` (`let*` над `('a, Error.t) result Lwt.t`), без `lwt_ppx`, чтобы `forge.ppx` не зависел от порядка применения препроцессоров. Исключения в хендлерах ловятся в `Forge.Route.handle` через `Lwt.catch`, не через `try%lwt` в сгенерированном коде. Жизненный цикл — `Lwt_switch` (`run ~on_shutdown` вешает на него). Таймаут на хендлер — `[@@timeout 5.0]` → `Lwt.pick` с `Lwt_unix.sleep`, по умолчанию выключен. Eio и `Lwt_eio` не используются; переход на effects — только вместе с заменой Dream, через тот же `Forge.Route.handle`.
 
@@ -1400,7 +1400,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ `Forge_shared.Refined` (String, Int, Enum, Email, Make; Regex — открытый вопрос) | схемы содержат ограничения; `of_string` работает в path/query |
 | ✅ ppx `config` (+ `Forge.Config`, profiles) | `load` собирает все ошибки сразу; cram на вывод и ошибки |
 | ✅ `--emit-spec`, `--emit-openapi`; `forge client` (melange + native), `forge openapi`, `forge routes` | OpenAPI cats проходит `openapi-spec-validator`; native-клиент проходит e2e по cats против живого сервера |
-| `Forge_client`: `Http`, `Error`, `Promise` | e2e из браузера (melange-тест в node) |
+| ✅ `Forge_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: сгенерированный клиент, собранный Melange, в node 22 против живого сервера (`NODE=` задаёт бинарь) |
 | `Forge_client.Router` + `[%path]`, `search`, `params` | тесты матчинга и round-trip; `Link` с неверными params не компилируется (expect-тест на ошибку типов) |
 | `Forge.Db` как sqlgg-traits + `Forge_db_mariadb`; `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запрос против `schema.sql` компилируется и выполняется в e2e |
 | `forge migrate up/down/status/new` | e2e применяет миграции на пустую БД |
