@@ -1,4 +1,4 @@
-type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
+type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE | `HEAD | `OPTIONS ]
 
 type presence =
   | Required

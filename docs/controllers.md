@@ -85,3 +85,32 @@ let rename ~(cat_id : (int[@param "id"])) ~(name : (Cat.Name.t[@body "name"])) :
 ```
 
 Заголовки и cookies попадают в `spec` и OpenAPI (`in: header`, `in: cookie`); заголовки — ещё и в сгенерированный клиент: `update ~id ~client_name ?trace ~page_size ~body`.
+
+## Глаголы, маски, хосты
+
+`[@@get]`, `[@@post]`, `[@@put]`, `[@@patch]`, `[@@delete]`, `[@@head]`, `[@@options]`, `[@@all]` (`@All` — маршрут на каждый метод). HEAD без своего маршрута отвечает GET-хендлером без тела. Маска `[@@get "*"]` — хвост пути в параметр `[@wildcard]`. `[@@@host ":account.example.com"]` — контроллер отвечает только на такие хосты (`@Controller({ host })`), `[@host_param "account"]` — часть хоста (`@HostParam`).
+
+<!-- $MDX file=examples/files_controller.ml -->
+```ocaml
+[@@@controller "files"]
+
+let download ~(path : (string[@wildcard])) () : string Lwt.t =
+  Lwt.return ("file " ^ path)
+[@@get "*"]
+
+let probe () : unit Lwt.t = Lwt.return_unit [@@options "probe"]
+
+let echo (request : Dream.request) () : string Lwt.t =
+  Lwt.return (Dream.method_to_string (Dream.method_ request))
+[@@all "echo"]
+```
+
+<!-- $MDX file=examples/tenant_controller.ml -->
+```ocaml
+[@@@controller "tenant"]
+[@@@host ":account.example.com"]
+
+let whoami ~(account : (string[@host_param "account"])) () : string Lwt.t =
+  Lwt.return account
+[@@get]
+```

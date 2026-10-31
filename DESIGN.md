@@ -1517,6 +1517,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
+- ✅ страница Controllers: `[@@head]`, `[@@options]`, `[@@all]`, маска `*` + `[@wildcard]`, HEAD через GET, `[@@@host]` + `[@host_param]`
 - ✅ `Forge_shared.Id.Make ()`: типизированные идентификаторы сущностей (`Cat.Id.t`)
 - ✅ interceptors: `Forge.Interceptor.t` (полиморфный `around` над типизированным результатом), `[@@intercept]`/`[@@@intercept]`, готовые `logging`, `timeout`, `map_error`, `tap`, `chain`
 - ✅ декораторы параметров Nest/Spring: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Forge.Extract`), заголовки и cookies в spec/OpenAPI, заголовки в клиенте

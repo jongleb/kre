@@ -1,7 +1,7 @@
 open Ppxlib
 open Ast_builder.Default
 
-type verb = Get | Post | Put | Patch | Delete
+type verb = Get | Post | Put | Patch | Delete | Head | Options | All
 
 type value = { type_ : core_type; module_ : module_expr }
 (** A type crossing the wire and the module that converts it. *)
@@ -24,13 +24,17 @@ type source =
     }  (** [[@header]], [[@cookie]], [[@signed_cookie]], [[@session]]. *)
   | Body of value
   | Extracted of expression  (** [[@guard e]] or [[@from e]]. *)
+  | Wildcard  (** [[@wildcard]]: what a trailing [*] matched. *)
   | Request
   | Unit
 
 type argument = { label : arg_label; source : source; loc : location }
 
 (** One segment of a route path. *)
-type segment = Literal of string | Param of { name : string; value : value }
+type segment =
+  | Literal of string
+  | Param of { name : string; value : value }
+  | Rest  (** A trailing [*]. *)
 
 (** How the handler's result becomes a response. *)
 type shape =
@@ -183,6 +187,9 @@ let transform structure =
       ("put", Put);
       ("patch", Patch);
       ("delete", Delete);
+      ("head", Head);
+      ("options", Options);
+      ("all", All);
     ]
   in
   let verb_attribute (binding : value_binding) =
@@ -206,7 +213,7 @@ let transform structure =
        : t [@from guard]) or (); use a labelled parameter for path, query and \
        body values"
   in
-  let classify ~names (param : function_param) =
+  let classify ~names ~host (param : function_param) =
     let loc = param.pparam_loc in
     let presence ~label ~(arg_label : arg_label) ~(default : expression option)
         (type_ : core_type) =
@@ -305,6 +312,22 @@ let transform structure =
           | "session" -> Some (located Session "session field")
           | ("headers" | "cookies" | "ip" | "host" | "req") as name ->
               Some (extractor name)
+          | "wildcard" -> Some Wildcard
+          | "host_param" -> (
+              let name = required "host segment" in
+              match host with
+              | Some pattern ->
+                  Some
+                    (Extracted
+                       [%expr
+                         Forge.Extract.host_param
+                           ~pattern:[%e estring ~loc pattern]
+                           [%e estring ~loc name]])
+              | None ->
+                  Location.raise_errorf ~loc:attribute.attr_loc
+                    "[@@host_param %S] reads the controller's host pattern; \
+                     add [@@@@@@host \":%s.example.com\"]"
+                    name name)
           | _ -> None)
         type_.ptyp_attributes
     in
@@ -458,6 +481,9 @@ let transform structure =
           let version =
             Option.map int_payload (List.nth_opt (floating "version") 0)
           in
+          let host =
+            Option.map string_payload (List.nth_opt (floating "host") 0)
+          in
           let controller_middleware =
             List.concat_map list_payload (floating "use")
           in
@@ -512,7 +538,8 @@ let transform structure =
             in
             let arguments =
               List.map
-                (classify ~names:(List.filter_map param_name raw_segments))
+                (classify ~host
+                   ~names:(List.filter_map param_name raw_segments))
                 params
             in
             (match
@@ -567,30 +594,34 @@ let transform structure =
               segments =
                 List.map
                   (fun segment ->
-                    Option.fold ~none:(Literal segment)
-                      ~some:(fun name ->
-                        Param
-                          {
-                            name;
-                            value =
-                              (match
-                                 List.find_map
-                                   (fun argument ->
-                                     match argument.source with
-                                     | Path { segment; value }
-                                       when String.equal segment name ->
-                                         Some value
-                                     | _ -> None)
-                                   arguments
-                               with
-                              | Some value -> value
-                              | None ->
-                                  Location.raise_errorf ~loc:attribute.attr_loc
-                                    "path segment :%s has no parameter; add \
-                                     ~(%s : int) to the handler"
-                                    name name);
-                          })
-                      (param_name segment))
+                    match segment with
+                    | "*" -> Rest
+                    | segment ->
+                        Option.fold ~none:(Literal segment)
+                          ~some:(fun name ->
+                            Param
+                              {
+                                name;
+                                value =
+                                  (match
+                                     List.find_map
+                                       (fun argument ->
+                                         match argument.source with
+                                         | Path { segment; value }
+                                           when String.equal segment name ->
+                                             Some value
+                                         | _ -> None)
+                                       arguments
+                                   with
+                                  | Some value -> value
+                                  | None ->
+                                      Location.raise_errorf
+                                        ~loc:attribute.attr_loc
+                                        "path segment :%s has no parameter; \
+                                         add ~(%s : int) to the handler"
+                                        name name);
+                              })
+                          (param_name segment))
                   raw_segments;
               status =
                 Option.fold
@@ -772,6 +803,7 @@ let transform structure =
                            "version";
                            "error_handler";
                            "intercept";
+                           "host";
                          ] ->
                     (items, handlers)
                 | Pstr_value (flag, bindings) -> (
@@ -840,16 +872,19 @@ let transform structure =
               []
               (List.concat_map (fun handler -> handler.arguments) handlers)
           in
-          let verb_tag verb =
-            pexp_variant ~loc
-              (match verb with
-              | Get -> "GET"
-              | Post -> "POST"
-              | Put -> "PUT"
-              | Patch -> "PATCH"
-              | Delete -> "DELETE")
-              None
+          let methods handler =
+            match handler.verb with
+            | Get -> [ "GET" ]
+            | Post -> [ "POST" ]
+            | Put -> [ "PUT" ]
+            | Patch -> [ "PATCH" ]
+            | Delete -> [ "DELETE" ]
+            | Head -> [ "HEAD" ]
+            | Options -> [ "OPTIONS" ]
+            | All ->
+                [ "GET"; "POST"; "PUT"; "PATCH"; "DELETE"; "HEAD"; "OPTIONS" ]
           in
+          let verb_tag method_ = pexp_variant ~loc method_ None in
           let variable label = "__forge_arg_" ^ label in
           let bound index argument =
             match argument.label with
@@ -857,19 +892,26 @@ let transform structure =
             | Nolabel -> variable (string_of_int index)
           in
           let path_expression handler =
+            let ending =
+              match List.rev handler.segments with
+              | Rest :: _ -> [%expr Routes.wildcard]
+              | _ -> [%expr Routes.nil]
+            in
             match
-              List.map
+              List.filter_map
                 (function
                   | Literal segment ->
-                      [%expr Routes.s [%e estring ~loc segment]]
+                      Some [%expr Routes.s [%e estring ~loc segment]]
                   | Param { name; value } ->
-                      [%expr
-                        Forge.Route.segment
-                          [%e pexp_pack ~loc value.module_]
-                          [%e estring ~loc (":" ^ name)]])
+                      Some
+                        [%expr
+                          Forge.Route.segment
+                            [%e pexp_pack ~loc value.module_]
+                            [%e estring ~loc (":" ^ name)]]
+                  | Rest -> None)
                 handler.segments
             with
-            | [] -> [%expr Routes.nil]
+            | [] -> ending
             | first :: rest ->
                 [%expr
                   Routes.( /? )
@@ -878,9 +920,9 @@ let transform structure =
                         (fun joined next ->
                           [%expr Routes.( / ) [%e joined] [%e next]])
                         first rest]
-                    Routes.nil]
+                    [%e ending]]
           in
-          let route handler =
+          let route handler method_ =
             let extractions =
               List.concat
                 (List.mapi
@@ -938,7 +980,7 @@ let transform structure =
                                        [%expr Forge_shared.Presence.Repeated]]
                                  [%e estring ~loc name] __forge_request] );
                          ]
-                     | Dependency _ | Path _ | Request | Unit -> [])
+                     | Dependency _ | Path _ | Wildcard | Request | Unit -> [])
                    handler.arguments)
             in
             let call =
@@ -952,6 +994,7 @@ let transform structure =
                        | Request -> [%expr __forge_request]
                        | Unit -> [%expr ()]
                        | Path { segment; _ } -> evar ~loc (variable segment)
+                       | Wildcard -> [%expr Forge.Route.rest __forge_rest]
                        | Query _ | Body _ | Extracted _ | Located _ ->
                            evar ~loc (bound index argument) ))
                    handler.arguments)
@@ -1049,7 +1092,8 @@ let transform structure =
                   match segment with
                   | Literal _ -> target
                   | Param { name; _ } ->
-                      [%expr fun [%p pvar ~loc (variable name)] -> [%e target]])
+                      [%expr fun [%p pvar ~loc (variable name)] -> [%e target]]
+                  | Rest -> [%expr fun __forge_rest -> [%e target]])
                 handler.segments handle
             in
             pexp_apply ~loc [%expr Forge.Route.v]
@@ -1058,7 +1102,7 @@ let transform structure =
                  | middleware ->
                      [ (Labelled "middleware", elist ~loc middleware) ])
               @ [
-                  (Nolabel, verb_tag handler.verb);
+                  (Nolabel, verb_tag method_);
                   ( Nolabel,
                     [%expr
                       Routes.( @--> )
@@ -1087,10 +1131,10 @@ let transform structure =
                    M.t_jsonschema);
               }]
           in
-          let spec_route handler =
+          let spec_route handler method_ =
             [%expr
               {
-                Forge.Spec.verb = [%e verb_tag handler.verb];
+                Forge.Spec.verb = [%e verb_tag method_];
                 path =
                   [%e
                     estring ~loc
@@ -1099,7 +1143,8 @@ let transform structure =
                           (List.map
                              (function
                                | Literal segment -> segment
-                               | Param { name; _ } -> ":" ^ name)
+                               | Param { name; _ } -> ":" ^ name
+                               | Rest -> "*")
                              handler.segments))];
                 name = [%e estring ~loc handler.name];
                 params =
@@ -1159,8 +1204,8 @@ let transform structure =
                                          [%e presence_expression presence]],
                                      value )
                              | Located { carrier = Session; _ }
-                             | Dependency _ | Body _ | Extracted _ | Request
-                             | Unit ->
+                             | Dependency _ | Body _ | Extracted _ | Wildcard
+                             | Request | Unit ->
                                  None))
                          handler.arguments)];
                 body =
@@ -1218,7 +1263,13 @@ let transform structure =
                         ~some:(fun version ->
                           [%expr Some [%e eint ~loc version]])
                         version];
-                  routes = [%e elist ~loc (List.map spec_route handlers)];
+                  routes =
+                    [%e
+                      elist ~loc
+                        (List.concat_map
+                           (fun handler ->
+                             List.map (spec_route handler) (methods handler))
+                           handlers)];
                 }]
           in
           let controller_value =
@@ -1236,9 +1287,17 @@ let transform structure =
                         Location.raise_errorf ~loc:attribute.attr_loc
                           "[@@@@@@error_handler] expects a Forge.Error.handler")
                   (List.nth_opt (floating "error_handler") 0)
+              @ Option.fold ~none:[]
+                  ~some:(fun host -> [ (Labelled "host", estring ~loc host) ])
+                  host
               @ [
                   (Labelled "spec", [%expr spec]);
-                  (Nolabel, elist ~loc (List.map route handlers));
+                  ( Nolabel,
+                    elist ~loc
+                      (List.concat_map
+                         (fun handler ->
+                           List.map (route handler) (methods handler))
+                         handlers) );
                 ])
           in
           let register =

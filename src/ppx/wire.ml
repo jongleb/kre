@@ -184,7 +184,16 @@ let scan path =
                           when List.exists
                                  (fun (attribute : attribute) ->
                                    List.mem attribute.attr_name.txt
-                                     [ "get"; "post"; "put"; "patch"; "delete" ])
+                                     [
+                                       "get";
+                                       "post";
+                                       "put";
+                                       "patch";
+                                       "delete";
+                                       "head";
+                                       "options";
+                                       "all";
+                                     ])
                                  binding.pvb_attributes ->
                             List.fold_left
                               (fun needs (param : function_param) ->

@@ -1,4 +1,4 @@
-type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
+type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE | `HEAD | `OPTIONS ]
 type response = { status : int; body : string }
 
 (** How an answer becomes the value a generated client function returns. *)

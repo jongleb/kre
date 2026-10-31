@@ -1,4 +1,4 @@
-type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
+type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE | `HEAD | `OPTIONS ]
 type response = { status : int; body : string }
 
 type 'a returns =
@@ -13,6 +13,8 @@ let method_name = function
   | `PUT -> "PUT"
   | `PATCH -> "PATCH"
   | `DELETE -> "DELETE"
+  | `HEAD -> "HEAD"
+  | `OPTIONS -> "OPTIONS"
 
 let encode text =
   String.concat ""

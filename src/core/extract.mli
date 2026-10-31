@@ -22,3 +22,4 @@ val session :
   (S.t, 'b) Forge_shared.Presence.t -> string -> 'b Guard.t
 
 val body_field : (module J : Forge_shared.Json.S) -> string -> J.t Guard.t
+val host_param : pattern:string -> string -> string Guard.t

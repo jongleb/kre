@@ -159,6 +159,12 @@ let body (module J : Forge_shared.Json.S) request =
 
 let ok promise = Lwt.map Result.ok promise
 
+let rest parts =
+  let matched = Routes.Parts.wildcard_match parts in
+  if String.starts_with ~prefix:"/" matched then
+    String.sub matched 1 (String.length matched - 1)
+  else matched
+
 module Syntax = struct
   let ( let* ) promise next = Lwt_result.bind promise next
 end

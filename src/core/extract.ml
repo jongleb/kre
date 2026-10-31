@@ -105,3 +105,12 @@ let body_field (module J : Forge_shared.Json.S) name request =
       | exception Jsonkit.Of_string_error message ->
           Error (Error.bad_request ("request body is not JSON: " ^ message)))
     (Dream.body request)
+
+let host_param ~pattern name request =
+  Lwt.return
+    (Option.to_result
+       ~none:(Error.bad_request ("host does not match " ^ pattern))
+       (Option.bind
+          (Host.parameters ~pattern
+             (Option.value (Dream.header request "Host") ~default:""))
+          (List.assoc_opt name)))

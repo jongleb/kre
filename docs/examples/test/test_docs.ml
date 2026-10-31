@@ -160,6 +160,43 @@ let () =
                 "statuses and calls"
                 ([ 200; 403; 504 ], 2)
                 (statuses, !Audit_controller.calls));
+          Alcotest.test_case "verbs, wildcard, HEAD fallback" `Quick (fun () ->
+              let files = app [ Files_controller.register () ] in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [
+                  (200, "file docs/guide.pdf");
+                  (200, "");
+                  (204, "");
+                  (200, "PATCH");
+                  (200, "HEAD");
+                ]
+                [
+                  call files `GET "/files/docs/guide.pdf";
+                  call files `HEAD "/files/docs/guide.pdf";
+                  call files `OPTIONS "/files/probe";
+                  call files `PATCH "/files/echo";
+                  (match call files `HEAD "/files/echo" with
+                  | 200, _ -> (200, "HEAD")
+                  | other -> other);
+                ]);
+          Alcotest.test_case "host routing" `Quick (fun () ->
+              let tenant = app [ Tenant_controller.register () ] in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [ (200, "acme"); (404, "") ]
+                [
+                  call
+                    ~headers:[ ("Host", "acme.example.com") ]
+                    tenant `GET "/tenant";
+                  (match
+                     call
+                       ~headers:[ ("Host", "acme.other.org") ]
+                       tenant `GET "/tenant"
+                   with
+                  | 404, _ -> (404, "")
+                  | other -> other);
+                ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

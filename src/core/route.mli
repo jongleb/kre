@@ -56,6 +56,7 @@ val body :
   Dream.request -> (J.t, Error.t) result Lwt.t
 
 val ok : 'a Lwt.t -> ('a, Error.t) result Lwt.t
+val rest : Routes.Parts.t -> string
 
 (** Sequencing of extractions in generated handlers. *)
 module Syntax : sig

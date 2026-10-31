@@ -1,4 +1,4 @@
-type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
+type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE | `HEAD | `OPTIONS ]
 type presence = Required | Optional | Repeated
 
 type location =
@@ -130,6 +130,8 @@ let of_json json =
         | "PUT" -> `PUT
         | "PATCH" -> `PATCH
         | "DELETE" -> `DELETE
+        | "HEAD" -> `HEAD
+        | "OPTIONS" -> `OPTIONS
         | verb -> fail verb);
       path = to_string (member "path" json);
       name = to_string (member "name" json);

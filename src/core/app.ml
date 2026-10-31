@@ -4,49 +4,94 @@ type tls =
 
 let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
     =
-  let routes =
-    List.concat_map
-      (fun (controller : Controller.t) ->
-        List.map
-          (fun (route : Route.t) ->
-            ( route.verb,
-              Routes.map
-                (fun (handle : Route.handler) ->
-                  Dream.pipeline (controller.middleware @ route.middleware)
-                    (fun request ->
-                      Lwt.bind (handle request)
-                        (Result.fold ~ok:Lwt.return
-                           ~error:
-                             (Option.value controller.error_handler
-                                ~default:error_handler request))))
-                route.target ))
-          controller.routes)
-      controllers
+  let route controller (route : Route.t) =
+    ( route.verb,
+      Routes.map
+        (fun (handle : Route.handler) ->
+          Dream.pipeline (controller.Controller.middleware @ route.middleware)
+            (fun request ->
+              Lwt.bind (handle request)
+                (Result.fold ~ok:Lwt.return
+                   ~error:
+                     (Option.value controller.error_handler
+                        ~default:error_handler request))))
+        route.target )
   in
-  let router verb =
-    Routes.one_of
+  let routers controllers =
+    let routes =
+      List.concat_map
+        (fun (controller : Controller.t) ->
+          List.map (route controller) controller.routes)
+        controllers
+    in
+    fun verb ->
+      Routes.one_of
+        (List.filter_map
+           (fun (route_verb, target) ->
+             if route_verb = verb then Some target else None)
+           routes)
+  in
+  let hosts =
+    List.sort_uniq compare
       (List.filter_map
-         (fun (route_verb, target) ->
-           if route_verb = verb then Some target else None)
-         routes)
+         (fun (controller : Controller.t) -> controller.host)
+         controllers)
   in
-  let get = router `GET
-  and post = router `POST
-  and put = router `PUT
-  and patch = router `PATCH
-  and delete = router `DELETE in
+  let groups =
+    List.map
+      (fun host ->
+        ( Some host,
+          routers
+            (List.filter
+               (fun (controller : Controller.t) -> controller.host = Some host)
+               controllers) ))
+      hosts
+    @ [
+        ( None,
+          routers
+            (List.filter
+               (fun (controller : Controller.t) -> controller.host = None)
+               controllers) );
+      ]
+  in
   Dream.pipeline middleware (fun request ->
       let path, query = Dream.split_target (Dream.target request) in
+      let host = Option.value (Dream.header request "Host") ~default:"" in
+      let attempt verb =
+        List.find_map
+          (fun (pattern, routers) ->
+            match
+              ( Option.map (fun pattern -> Host.parameters ~pattern host) pattern,
+                Routes.match' (routers verb) ~target:path )
+            with
+            | ( (None | Some (Some _)),
+                ((Routes.FullMatch _ | Routes.MatchWithTrailingSlash _) as
+                 matched) ) ->
+                Some matched
+            | _ -> None)
+          groups
+      in
+      let verb =
+        match Dream.method_ request with
+        | #Spec.verb as verb -> Some verb
+        | _ -> None
+      in
       let matched =
-        Option.map
-          (fun router -> Routes.match' router ~target:path)
-          (match Dream.method_ request with
-          | `GET -> Some get
-          | `POST -> Some post
-          | `PUT -> Some put
-          | `PATCH -> Some patch
-          | `DELETE -> Some delete
-          | _ -> None)
+        match (verb, Option.bind verb attempt) with
+        | Some `HEAD, None ->
+            Option.map
+              (function
+                | Routes.FullMatch handle ->
+                    Routes.FullMatch
+                      (fun request ->
+                        Lwt.map
+                          (fun response ->
+                            Dream.set_body response "";
+                            response)
+                          (handle request))
+                | other -> other)
+              (attempt `GET)
+        | _, matched -> matched
       in
       match matched with
       | Some (Routes.FullMatch handle) -> handle request
