@@ -15,10 +15,15 @@
 (library
  (name cats_client_js)
  (modes melange)
- (modules cats_client scenario)
- (libraries cats_shared_js forge-client forge-client.shared jsonkit-melange)
+ (modules cats_client scenario pages routes router_check)
+ (libraries
+  cats_shared_js
+  forge-client
+  forge-client.shared
+  jsonkit-melange
+  reason-react)
  (preprocess
-  (pps melange.ppx)))
+  (pps melange.ppx reason-react-ppx forge-ppx)))
 
 (melange.emit
  (target js)

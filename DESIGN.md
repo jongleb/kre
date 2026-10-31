@@ -1170,47 +1170,49 @@ end
 
 ### Forge\_client.Router
 
+Реализовано в фазе 1 (`src/client/router.ml`):
+
 ```ocaml
-type ('params, 'search, 'data) route
+type parent                                         (* layout'ы вокруг маршрутов *)
+type ('p, 's, 'd) route
+type any = Any : ('p, 's, 'd) route -> any
+type t
 
-val root  : ?layout:(children:React.element -> React.element) -> unit -> (unit, unit, unit) route
-
+val root : ?layout:(children:React.element -> React.element) -> unit -> parent
+val nest : parent -> layout:(children:React.element -> React.element) -> parent
+val no_data : 'p -> 's -> unit Js.Promise.t
 val child :
-  (_, _, _) route ->                               (* родитель: его путь — префикс, его layout — обёртка *)
-  path:'params Path.t ->
-  ?search:'search Search.t ->                      (* по умолчанию unit *)
-  ?loader:('params -> 'search -> 'data Promise.t) -> (* по умолчанию unit *)
-  ?pending:React.element ->
-  ?on_error:(Error.t -> React.element) ->
-  component:(data:'data -> params:'params -> search:'search -> React.element) ->
-  ('params, 'search, 'data) route
-
-val make : any_route list -> t                      (* any_route = Any : (_,_,_) route -> any_route *)
-val provider : t -> React.element                  (* <Router.provider router /> *)
-
-val link : ('p, 's, _) route -> params:'p -> search:'s -> ?replace:bool -> children:React.element -> React.element
-val navigate : ('p, 's, _) route -> params:'p -> search:'s -> unit
+  parent -> path:'p Path.t -> search:'s Search.t ->
+  loader:('p -> 's -> 'd Js.Promise.t) ->
+  component:(data:'d -> params:'p -> search:'s -> React.element) -> ('p, 's, 'd) route
+val make : any list -> t
 val href : ('p, 's, _) route -> params:'p -> search:'s -> string
-val use_params : ('p, _, _) route -> 'p
-val use_search : (_, 's, _) route -> 's
-val use_loader_data : (_, _, 'd) route -> 'd
-val use_navigate : unit -> (unit -> unit)          (* назад/вперёд *)
-val preload : (_, _, _) route -> params:_ -> search:_ -> unit   (* prefetch на hover *)
+val navigate : ('p, 's, _) route -> params:'p -> search:'s -> unit
+val link : ('p, 's, _) route -> params:'p -> search:'s -> children:React.element -> React.element
+module View : sig   (* <View router /> *)
+  val make : router:t -> ?server_url:string -> ?pending:React.element -> ?not_found:React.element -> unit -> React.element
+  [@@react.component]
+end
 ```
 
-Матчинг — по `Path.t` (см. ниже) сверху вниз по дереву; `search` парсится `Search.t`; при ошибке парсинга — `on_error` ближайшего предка. Loader вызывается при входе и при изменении `params`/`search`; результат кэшируется по сериализованному ключу (как TanStack `loaderDeps`).
+Отличия от первой версии (фаза 1):
+- `?search` и `?loader` «по умолчанию unit» не типизируются в OCaml (необязательный аргумент не может менять тип результата), поэтому они обязательны: `~search:Forge_client.Search.none`, `~loader:Forge_client.Router.no_data`.
+- Пути маршрутов абсолютные; родитель (`parent`) даёт только layout'ы. Параметры родителя не наследуются — запись `params` описывает весь путь.
+- `link` — функция, а не полиморфный компонент: ошибка в `params` — ошибка типов на вызове (`test/router/link.t`).
+- Матчинг — сверху вниз по списку `make`; неразобранный `search` — как отсутствие маршрута (`not_found`). Loader вызывается в `useEffect` при смене URL; ответ устаревшего URL отбрасывается по ключу. Кэш loader'ов, `preload`, `use_params`/`use_search`/`use_loader_data`, `on_error` — фаза 2.
+- URL читается через `ReasonReactRouter.useUrl`; `?server_url` — для серверного рендера.
 
-### Path, Search, Params — три ppx в forge-client
+### Path, Search, Params — ppx в forge-ppx
 
-`Path.t` — это `Routes.path` из той же библиотеки routes, что и на сервере: матчинг через `Routes.match'`, `href` через `Routes.sprintf`. `[%path "/cats/:id"]` — сахар: ppx строит `Routes.(s "cats" / int /? nil)` и, если в области видимости есть `type params = {…} [@@deriving params]`, генерирует пару `fun id -> { id }` / `fun { id } -> id`, чтобы роут работал с записью, а не с curried-аргументами. Без `params`-типа сегменты `:name` — `string`. Имена в `[%path]` и поля записи сверяются ppx; типы — компилятором. Сгенерированный API-клиент использует те же `Routes.path` из `spec` (`Routes.sprintf`), так что путь к API и путь страницы печатаются одним механизмом.
+Библиотека routes не собирается под Melange, поэтому `Forge_client.Path` — свой: шаблон сегментов + `decode`/`encode` в ассоциативный список. Путь и тип параметров объявляются вместе, чтобы ppx сверил имена:
 
 ```ocaml
-type params = { id : int } [@@deriving params]      (* → params_codec : params Path.codec *)
-type search = { page : int [@default 1]; q : string option } [@@deriving search]
-(* → search_codec : search Search.t: парсинг/печать query string, дефолты, option *)
+type params = { id : int } [@@deriving params ~path:"/cats/:id"]   (* → params_path : params Forge_client.Path.t *)
+type search = { limit : int; [@default 20] breed : string option } [@@deriving search]   (* → search_codec : search Forge_client.Search.t *)
+let index = Forge_client.Router.child root ~path:[%path "/cats"] ~search:search_codec …   (* [%path] — только без параметров *)
 ```
 
-Поддерживаемые типы — те же, что в серверном `Codec`: `int`, `float`, `bool`, `string`, `T.t` с `T.codec`, `option`, `list`. Это одно и то же множество намеренно: сгенерированный API-клиент и роутер страниц используют одни кодеки.
+`params`: поле на каждый `:name` и наоборот, иначе ошибка со списком расхождений; типы полей — `Scalar.S`. `search`: `τ option` — необязательный, `τ list` — повторяемый, `[@default e]` — с дефолтом, иначе обязательный; ошибки разбора — `Validation.t` с путём `[name]`. Типы — те же `Forge_shared.Scalar`, что у сервера и клиента API.
 
 ### Компоненты
 
@@ -1401,7 +1403,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ ppx `config` (+ `Forge.Config`, profiles) | `load` собирает все ошибки сразу; cram на вывод и ошибки |
 | ✅ `--emit-spec`, `--emit-openapi`; `forge client` (melange + native), `forge openapi`, `forge routes` | OpenAPI cats проходит `openapi-spec-validator`; native-клиент проходит e2e по cats против живого сервера |
 | ✅ `Forge_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: сгенерированный клиент, собранный Melange, в node 22 против живого сервера (`NODE=` задаёт бинарь) |
-| `Forge_client.Router` + `[%path]`, `search`, `params` | тесты матчинга и round-trip; `Link` с неверными params не компилируется (expect-тест на ошибку типов) |
+| ✅ `Forge_client.Router` + `[%path]`, `search`, `params` | node: `href`, матчинг, `search` с дефолтом и ошибкой, SSR `link` и `View`; cram: `link` с неверными params не компилируется |
 | `Forge.Db` как sqlgg-traits + `Forge_db_mariadb`; `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запрос против `schema.sql` компилируется и выполняется в e2e |
 | `forge migrate up/down/status/new` | e2e применяет миграции на пустую БД |
 | `forge new`, `forge generate controller/service/dto` | сгенерированный проект собирается и проходит свой e2e |

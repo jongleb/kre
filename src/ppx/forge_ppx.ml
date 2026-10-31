@@ -3,9 +3,20 @@ let () =
     ~preprocess_impl:Dto.structure ~preprocess_intf:Dto.signature;
   Ppxlib.Driver.register_transformation "forge.controller"
     ~impl:Controller.transform;
+  Ppxlib.Driver.register_transformation "forge.path"
+    ~rules:[ Ppxlib.Context_free.Rule.extension Page.path ];
   ignore
     (Ppxlib.Deriving.add "config"
        ~str_type_decl:
          (Ppxlib.Deriving.Generator.V2.make_noarg Configuration.structure)
        ~sig_type_decl:
-         (Ppxlib.Deriving.Generator.V2.make_noarg Configuration.signature))
+         (Ppxlib.Deriving.Generator.V2.make_noarg Configuration.signature));
+  ignore
+    (Ppxlib.Deriving.add "params"
+       ~str_type_decl:
+         (Ppxlib.Deriving.Generator.V2.make
+            Ppxlib.Deriving.Args.(empty +> arg "path" (estring __))
+            Page.params));
+  ignore
+    (Ppxlib.Deriving.add "search"
+       ~str_type_decl:(Ppxlib.Deriving.Generator.V2.make_noarg Page.search))

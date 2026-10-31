@@ -1,0 +1,107 @@
+type parent = { layouts : (children:React.element -> React.element) list }
+
+type ('p, 's, 'd) route = {
+  parent : parent;
+  path : 'p Path.t;
+  search : 's Search.t;
+  loader : 'p -> 's -> 'd Js.Promise.t;
+  component : data:'d -> params:'p -> search:'s -> React.element;
+}
+
+type any = Any : ('p, 's, 'd) route -> any
+type t = any list
+
+let root ?layout () = { layouts = Option.to_list layout }
+let nest parent ~layout = { layouts = parent.layouts @ [ layout ] }
+let no_data _ _ = Js.Promise.resolve ()
+
+let child parent ~path ~search ~loader ~component =
+  { parent; path; search; loader; component }
+
+let make routes = routes
+
+let href route ~params ~search =
+  Path.print route.path params ^ Search.print route.search search
+
+let navigate route ~params ~search =
+  ReasonReactRouter.push (href route ~params ~search)
+
+let link route ~params ~search ~children =
+  let href = href route ~params ~search in
+  (a ~href
+     ~onClick:(fun event ->
+       React.Event.Mouse.preventDefault event;
+       ReasonReactRouter.push href)
+     ~children:[ children ] () [@JSX])
+
+module View = struct
+  type page = { key : string; element : React.element }
+
+  let[@react.component] make ~router ?server_url ?(pending = React.null)
+      ?(not_found = React.string "Not found") () =
+    let url =
+      ReasonReactRouter.useUrl
+        ?serverUrl:
+          (Option.map
+             (fun server_url ->
+               let target, hash =
+                 match String.split_on_char '#' server_url with
+                 | target :: hash -> (target, String.concat "#" hash)
+                 | [] -> ("", "")
+               in
+               let path, search =
+                 match String.split_on_char '?' target with
+                 | path :: search -> (path, String.concat "?" search)
+                 | [] -> ("", "")
+               in
+               {
+                 ReasonReactRouter.path =
+                   List.filter
+                     (fun segment -> segment <> "")
+                     (String.split_on_char '/' path);
+                 hash;
+                 search;
+               })
+             server_url)
+        ()
+    in
+    let key = String.concat "/" url.path ^ "?" ^ url.search in
+    let page, set_page = React.useState (fun () -> None) in
+    let load =
+      List.find_map
+        (fun (Any route) ->
+          Option.bind (Path.match_ route.path url.path) (fun params ->
+              Result.fold
+                ~error:(fun _ -> None)
+                ~ok:(fun search ->
+                  Some
+                    (fun () ->
+                      Js.Promise.then_
+                        (fun data ->
+                          Js.Promise.resolve
+                            (List.fold_right
+                               (fun layout children -> layout ~children)
+                               route.parent.layouts
+                               (route.component ~data ~params ~search)))
+                        (route.loader params search)))
+                (Search.parse route.search url.search)))
+        router
+    in
+    React.useEffect1
+      (fun () ->
+        Option.iter
+          (fun load ->
+            ignore
+              (Js.Promise.then_
+                 (fun element ->
+                   set_page (fun _ -> Some { key; element });
+                   Js.Promise.resolve ())
+                 (load ())))
+          load;
+        None)
+      [| key |];
+    match (load, page) with
+    | None, _ -> not_found
+    | Some _, Some page when String.equal page.key key -> page.element
+    | Some _, _ -> pending
+end

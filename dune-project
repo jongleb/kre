@@ -63,7 +63,11 @@
    (= :version))
   cohttp-lwt-unix
   lwt
-  uri))
+  uri
+  (reason-react
+   (>= 0.17.0))
+  (reason-react-ppx
+   (>= 0.17.0))))
 
 (package
  (name forge-cli)

@@ -23,10 +23,32 @@ let () =
        let%lwt () = server in
        Lwt.return output)
   in
+  let router =
+    Lwt_main.run
+      (Lwt_process.pread
+         ( "",
+           [|
+             Option.value (Sys.getenv_opt "NODE") ~default:"node";
+             "js/examples/cats/client_js/router_check.js";
+           |] ))
+  in
   Alcotest.run "melange client"
     [
       ( "node",
         [
+          Alcotest.test_case "router" `Quick (fun () ->
+              Alcotest.(check string)
+                "transcript"
+                "href /cats/42\n\
+                 href /cats?limit=5&breed=maine%20coon\n\
+                 match 7\n\
+                 match none\n\
+                 search 20/persian\n\
+                 search limit:type\n\
+                 link <a href=\"/cats/3\">tom</a>\n\
+                 view loading\n\
+                 view Not found\n"
+                router);
           Alcotest.test_case "scenario" `Quick (fun () ->
               Alcotest.(check string)
                 "transcript"

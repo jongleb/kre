@@ -2,6 +2,6 @@
  (name forge_client)
  (public_name forge-client)
  (modes melange)
- (libraries forge-client.shared jsonkit-melange)
+ (libraries forge-client.shared jsonkit-melange reason-react)
  (preprocess
-  (pps melange.ppx)))
+  (pps melange.ppx reason-react-ppx)))
