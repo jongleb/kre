@@ -52,18 +52,14 @@ let handle (type a) ~status ?(guards = []) (returns : a returns)
               log ~request "unhandled exception: %s" (Printexc.to_string exn));
           Lwt.return_error (Error.internal "internal server error"))
 
-type ('a, 'b) presence =
-  | Required : ('a, 'a) presence
-  | Optional : ('a, 'a option) presence
-  | Repeated : ('a, 'a list) presence
-
 let segment (module S : Forge_shared.Scalar.S) label path =
   Routes.pattern S.to_string
     (fun s -> Result.to_option (S.of_string s))
     label path
 
 let query (type b) (module S : Forge_shared.Scalar.S)
-    (presence : (S.t, b) presence) name request : (b, Error.t) result Lwt.t =
+    (presence : (S.t, b) Forge_shared.Presence.t) name request :
+    (b, Error.t) result Lwt.t =
   let parse raw =
     Result.map_error
       (fun errors ->

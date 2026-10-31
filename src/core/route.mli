@@ -27,19 +27,16 @@ val handle :
   (Dream.request -> ('a, Error.t) result Lwt.t) ->
   handler
 
-(** How many times a query parameter may appear, and what the handler gets. *)
-type ('a, 'b) presence =
-  | Required : ('a, 'a) presence
-  | Optional : ('a, 'a option) presence
-  | Repeated : ('a, 'a list) presence
-
 val segment :
   (module S : Forge_shared.Scalar.S) ->
   string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path
 
 val query :
   (module S : Forge_shared.Scalar.S) ->
-  (S.t, 'b) presence -> string -> Dream.request -> ('b, Error.t) result Lwt.t
+  (S.t, 'b) Forge_shared.Presence.t ->
+  string ->
+  Dream.request ->
+  ('b, Error.t) result Lwt.t
 
 val body :
   (module J : Forge_shared.Json.S) ->

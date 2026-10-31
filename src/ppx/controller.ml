@@ -584,9 +584,12 @@ let transform structure =
                                  [%e pexp_pack ~loc value.module_]
                                  [%e
                                    match presence with
-                                   | Required -> [%expr Forge.Route.Required]
-                                   | Optional -> [%expr Forge.Route.Optional]
-                                   | Repeated -> [%expr Forge.Route.Repeated]]
+                                   | Required ->
+                                       [%expr Forge_shared.Presence.Required]
+                                   | Optional ->
+                                       [%expr Forge_shared.Presence.Optional]
+                                   | Repeated ->
+                                       [%expr Forge_shared.Presence.Repeated]]
                                  [%e estring ~loc name] __forge_request] );
                          ]
                      | Body value ->

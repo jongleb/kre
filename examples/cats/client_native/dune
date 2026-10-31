@@ -1,0 +1,37 @@
+(rule
+ (targets spec.json)
+ (action
+  (setenv
+   SESSION_SECRET
+   unused
+   (run %{exe:../bin/main.exe} --emit-spec %{targets}))))
+
+(rule
+ (targets cats_client.ml)
+ (deps spec.json)
+ (action
+  (run
+   %{bin:forge}
+   client
+   --spec
+   spec.json
+   --controller
+   cats
+   --out
+   %{targets})))
+
+(test
+ (name test_client)
+ (libraries
+  cats_server
+  cats_shared
+  forge
+  forge.shared
+  forge-client.native
+  dream
+  lwt
+  lwt.unix
+  alcotest
+  alcotest-lwt)
+ (preprocess
+  (pps lwt_ppx)))

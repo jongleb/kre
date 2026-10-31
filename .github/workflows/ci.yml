@@ -17,3 +17,5 @@ jobs:
       - run: opam exec -- dune build @all
       - run: opam exec -- dune test
       - run: opam exec -- dune build @fmt
+      - run: opam exec -- dune build examples/cats/bin/openapi.json
+      - run: pipx run openapi-spec-validator _build/default/examples/cats/bin/openapi.json

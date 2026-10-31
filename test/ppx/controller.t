@@ -216,15 +216,15 @@ A controller with every kind of parameter.
                   let open Forge.Route.Syntax in
                     let* __forge_arg_limit =
                       Forge.Route.query (module Forge_shared.Scalar.Int)
-                        Forge.Route.Optional "limit" __forge_request
+                        Forge_shared.Presence.Optional "limit" __forge_request
                      in
                     let* __forge_arg_q =
                       Forge.Route.query (module Forge_shared.Scalar.String)
-                        Forge.Route.Optional "q" __forge_request
+                        Forge_shared.Presence.Optional "q" __forge_request
                      in
                     let* __forge_arg_tags =
                       Forge.Route.query (module Forge_shared.Scalar.String)
-                        Forge.Route.Repeated "tags" __forge_request
+                        Forge_shared.Presence.Repeated "tags" __forge_request
                      in
                     Forge.Route.ok
                       (list (module Cats) ?limit:__forge_arg_limit

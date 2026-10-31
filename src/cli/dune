@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name forge)
+ (package forge-cli)
+ (libraries forge cmdliner yojson dream))

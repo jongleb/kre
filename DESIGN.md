@@ -1093,8 +1093,8 @@ type t = {
 ### Цепочка
 
 1. ppx эмитит в каждый контроллер `spec : Forge.Spec.t`.
-2. `Forge.App.run` регистрирует все `spec` в `Forge.Registry` (список, доступный после сборки списка контроллеров).
-3. Серверный бинарь принимает флаги `--emit-spec FILE` (JSON всех `spec`) и `--emit-openapi FILE`; с ними он не стартует сервер.
+2. `Forge.App.run` получает список контроллеров, а с ним и все `spec` — отдельный реестр не нужен.
+3. С флагом `--emit-spec FILE` (JSON-массив `Spec.to_json`) или `--emit-openapi FILE` `App.run` пишет файл и не стартует сервер; `forge` читает массив обратно через `Spec.of_json`.
 4. `forge client --spec spec.json --out client/gen/` пишет melange-модули; dune rule в шаблоне проекта запускает шаги 3–4 автоматически:
 
 ```
@@ -1106,36 +1106,63 @@ type t = {
 
 ### Генерируемый клиент
 
-На каждый контроллер — модуль `<Prefix>_client`:
+На каждый контроллер — модуль `<prefix>_client` (`forge client --spec spec.json --controller cats --out cats_client.ml`). Эталон для cats:
 
 ```ocaml
-(* для каждого route *)
-val find_one : id:int -> (Cat.t, Forge_client.Error.t) result Promise.t
+let find_all ?limit () =
+  Forge_client.Http.request `GET
+    ~path:[ "cats" ]
+    ~query:[ Forge_client.Wire.query (module Forge_shared.Scalar.Int) Forge_shared.Presence.Optional "limit" limit ]
+    (Forge_client.Wire.Json (module Forge_shared.Json.List (Cat)))
 
-(* реализация *)
 let find_one ~id =
   Forge_client.Http.request `GET
-    ~path:(Forge_client.Path.build "/cats/:id" [ ("id", Forge_client.Codec.int.to_string id) ])
-    ~query:[]
-    ~decode:Cat.of_json
+    ~path:[ "cats"; Forge_client.Wire.segment (module Forge_shared.Scalar.Int) id ]
+    (Forge_client.Wire.Json (module Cat))
+
+let create ~body =
+  Forge_client.Http.request `POST ~path:[ "cats" ]
+    ~body:(Forge_client.Wire.body (module Create_cat_dto) body)
+    (Forge_client.Wire.Json (module Cat))
 ```
 
-Правила отображения: path/query-параметры → labelled/optional с теми же именами и типами (`Codec` по имени из `spec`); `body` → `~body:T.t` с `T.to_json`; guard-параметры отсутствуют; `returns` → `Unit | Text | Json T | Raw` → `unit | string | T.t | Forge_client.Http.response`; `sse` → `T.t Forge_client.Sse.t` (обёртка над `EventSource`). Типы `T` резолвятся по имени модуля из `spec` — поэтому DTO обязаны лежать в `shared/`; генератор не проверяет это, проверит компилятор.
+Правила: path-параметры → `~name`, query `Required`/`Repeated` → `~name`, `Optional` → `?name`, тело → `~body`; `()` в конце, если параметров нет или есть необязательные. Guard-параметры в клиент не попадают. Типы не печатаются: их выводит компилятор из модулей в `spec` (`value.module_`), поэтому DTO обязаны лежать в `shared/`. Путь собирается из сегментов (`Wire.segment` кодирует), без библиотеки routes: она не собирается под Melange.
 
-### Forge\_client.Http
+**Один и тот же сгенерированный файл** компилируется против двух библиотек с одним именем `Forge_client`: `forge-client` (Melange, `fetch`, `Js.Promise.t`) и `forge-client.native` (cohttp, `Lwt.t`). Флаг `--target` не нужен. Native-вариант используется в e2e: `examples/cats/client_native` генерирует клиент dune-правилом из `main.exe --emit-spec` и гоняет его против живого сервера.
+
+### Forge\_client.Http и Wire
 
 ```ocaml
-val base_url : string ref                        (* "" = same origin *)
-val request : [ `GET | `POST | … ] -> path:string -> ?query:(string * string list) list ->
-  ?body:Jsonkit.t -> decode:(Jsonkit.t -> ('a, string) result) -> ('a, Error.t) result Promise.t
-val interceptors : (request -> request) list ref  (* auth header, csrf token *)
+(* общие для обоих бэкендов *)
+module Wire : sig
+  type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
+  type response = { status : int; body : string }
+  type 'a returns = Unit : unit returns | Text : string returns
+                  | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns | Raw : response returns
+  val segment : (module S : Forge_shared.Scalar.S) -> S.t -> string
+  val query : (module S : Forge_shared.Scalar.S) -> (S.t, 'b) Forge_shared.Presence.t -> string -> 'b -> (string * string) list
+  val body : (module J : Forge_shared.Json.S) -> J.t -> string
+  val url : base:string -> path:string list -> query:(string * string) list list -> string
+  val decode : 'a returns -> response -> ('a, Error.t) result
+end
+module Error : sig
+  type problem = { status : int; type_ : string; title : string; detail : string; errors : Forge_shared.Validation.error list }
+  type t = Problem of problem | Network of string | Decode of Forge_shared.Validation.t
+  val of_response : status:int -> string -> t
+  val message : t -> string
+end
+(* свой у каждого бэкенда; promise = Js.Promise.t или Lwt.t *)
+module Http : sig
+  val base_url : string ref                       (* "" = same origin *)
+  val headers : (string * string) list ref        (* auth, csrf — упрощённые interceptors *)
+  val request : Wire.verb -> path:string list -> ?query:(string * string) list list -> ?body:string ->
+    'a Wire.returns -> ('a, Error.t) result promise
+end
 ```
-
-`Forge_client.Error.t` — тот же envelope, что `Forge.Error.t`, плюс `Network of string` и `Decode of string`.
 
 ### OpenAPI
 
-`--emit-openapi` строит документ 3.1: `paths` из `spec.routes`, `components.schemas` из `jsonschema` всех встреченных DTO (имя модуля = имя схемы), `parameters` из `Codec.schema`, `responses` с кодом из `status` и envelope ошибки для 4xx. Теги — префиксы контроллеров. Описания — из docstrings `(** … *)` над хендлером, если ppx их сохранил в `spec` (фаза 2). Swagger UI — `Forge.Openapi.ui : path:string -> Dream.route` поверх статического `swagger-ui-dist`.
+`--emit-openapi` (и `forge openapi --spec`) строит документ 3.1 через `Forge.Openapi.document ~title ~version specs`: `paths` из `spec.routes`, `components.schemas` из `jsonschema` всех встреченных DTO (имя модуля = имя схемы), `parameters` из `Codec.schema`, `responses` с кодом из `status` и envelope ошибки для 4xx. Теги — префиксы контроллеров. Описания — из docstrings `(** … *)` над хендлером, если ppx их сохранил в `spec` (фаза 2). Схемы DTO с простым именем модуля (`Cat`) уходят в `components.schemas` и подключаются `$ref`; остальные (`Forge_shared.Scalar.Int`, `Forge_shared.Json.List (Cat)`) встраиваются. Ошибки — `default`-ответ `application/problem+json` со схемой `Problem`. Документ cats проходит `openapi-spec-validator` (шаг CI). Swagger UI — фаза 2.
 
 ## Frontend: Forge\_client и typed router
 
@@ -1372,7 +1399,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | cram на вывод; e2e cats: 422 с путём поля, `~strict` |
 | ✅ `Forge_shared.Refined` (String, Int, Enum, Email, Make; Regex — открытый вопрос) | схемы содержат ограничения; `of_string` работает в path/query |
 | ✅ ppx `config` (+ `Forge.Config`, profiles) | `load` собирает все ошибки сразу; cram на вывод и ошибки |
-| `--emit-spec`, `--emit-openapi`; `forge client` (melange + native) | OpenAPI проходит валидацию 3.1; native-клиент проходит e2e по cats |
+| ✅ `--emit-spec`, `--emit-openapi`; `forge client` (melange + native), `forge openapi`, `forge routes` | OpenAPI cats проходит `openapi-spec-validator`; native-клиент проходит e2e по cats против живого сервера |
 | `Forge_client`: `Http`, `Error`, `Promise` | e2e из браузера (melange-тест в node) |
 | `Forge_client.Router` + `[%path]`, `search`, `params` | тесты матчинга и round-trip; `Link` с неверными params не компилируется (expect-тест на ошибку типов) |
 | `Forge.Db` как sqlgg-traits + `Forge_db_mariadb`; `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запрос против `schema.sql` компилируется и выполняется в e2e |
@@ -1451,4 +1478,6 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 - [ ] Имя: `Forge` — рабочее; проверить коллизии в opam перед публикацией.
 - [ ] `.mlx` против reason-синтаксиса для JSX: `.mlx` по умолчанию, пока не упрёмся в ограничения.
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
+- [ ] `--emit-spec` запускает composition root (`main.ml`), а он сначала грузит конфиг, поэтому сборка требует переменных окружения (в cats dune-правило ставит `SESSION_SECRET=unused`). `spec` статичен; вариант — `forge` сам собирает маленький бинарь, который печатает `Cats_controller.spec`, без запуска `main`.
+- [ ] `ssl 0.8.0`, собранный против OpenSSL 4, падает при инициализации `conduit-lwt-unix` (минимум SSL3 больше не поддерживается), а с ним и native-клиент на cohttp. Локальный switch пересобран против `openssl@3` (`PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig opam reinstall ssl`); на ubuntu в CI OpenSSL 3. Чинить в ssl или уйти с conduit в native-клиенте.
 - [ ] Атрибуты контроллера, отложенные из фазы 1: `[@@header]`, `[@@redirect]`, `[@@sse]`, `[@@@inject]`, `[@@@error_handler]`, `[@@timeout]`, `[@codec e]`.

@@ -63,27 +63,44 @@ let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
 
 let run ?interface ?port ?tls ?middleware ?error_handler
     ?(on_start = Lwt.return) ?(on_shutdown = Lwt.return) controllers =
-  let stop, stopper = Lwt.wait () in
-  List.iter
-    (fun signal ->
-      ignore
-        (Lwt_unix.on_signal signal (fun _ ->
-             match Lwt.state stop with
-             | Lwt.Sleep -> Lwt.wakeup_later stopper ()
-             | Lwt.Return () | Lwt.Fail _ -> ())))
-    [ Sys.sigint; Sys.sigterm ];
-  let tls, certificate_file, key_file =
-    match tls with
-    | None -> (None, None, None)
-    | Some Development_certificate -> (Some true, None, None)
-    | Some (Certificate { certificate_file; key_file }) ->
-        (Some true, Some certificate_file, Some key_file)
+  let specs =
+    List.map (fun (controller : Controller.t) -> controller.spec) controllers
   in
-  Lwt_main.run
-    (let open Lwt.Syntax in
-     let* () = on_start () in
-     let* () =
-       Dream.serve ?interface ?port ~stop ?tls ?certificate_file ?key_file
-         (handler ?middleware ?error_handler controllers)
-     in
-     on_shutdown ())
+  let write file json =
+    Out_channel.with_open_text file (fun channel ->
+        Out_channel.output_string channel (Yojson.Basic.pretty_to_string json))
+  in
+  match Array.to_list Sys.argv with
+  | _ :: "--emit-spec" :: file :: _ ->
+      write file (`List (List.map Spec.to_json specs))
+  | _ :: "--emit-openapi" :: file :: _ ->
+      write file
+        (Openapi.document
+           ~title:
+             (Filename.remove_extension (Filename.basename Sys.executable_name))
+           ~version:"0.0.0" specs)
+  | _ ->
+      let stop, stopper = Lwt.wait () in
+      List.iter
+        (fun signal ->
+          ignore
+            (Lwt_unix.on_signal signal (fun _ ->
+                 match Lwt.state stop with
+                 | Lwt.Sleep -> Lwt.wakeup_later stopper ()
+                 | Lwt.Return () | Lwt.Fail _ -> ())))
+        [ Sys.sigint; Sys.sigterm ];
+      let tls, certificate_file, key_file =
+        match tls with
+        | None -> (None, None, None)
+        | Some Development_certificate -> (Some true, None, None)
+        | Some (Certificate { certificate_file; key_file }) ->
+            (Some true, Some certificate_file, Some key_file)
+      in
+      Lwt_main.run
+        (let open Lwt.Syntax in
+         let* () = on_start () in
+         let* () =
+           Dream.serve ?interface ?port ~stop ?tls ?certificate_file ?key_file
+             (handler ?middleware ?error_handler controllers)
+         in
+         on_shutdown ())

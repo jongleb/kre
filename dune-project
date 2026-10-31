@@ -58,11 +58,15 @@
   (melange
    (>= 7.0.0))
   (jsonkit-melange
-   (>= 1.1.0))))
+   (>= 1.1.0))
+  (forge
+   (= :version))
+  cohttp-lwt-unix
+  lwt
+  uri))
 
 (package
  (name forge-cli)
- (allow_empty)
  (synopsis "The forge command-line tool")
  (depends
   (ocaml
@@ -70,4 +74,8 @@
     (>= 5.5)
     (< 5.6)))
   (cmdliner
-   (>= 2.0.0))))
+   (>= 2.0.0))
+  (forge
+   (= :version))
+  yojson
+  dream))

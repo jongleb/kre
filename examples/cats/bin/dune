@@ -1,3 +1,11 @@
 (executable
  (name main)
  (libraries cats_server cats_shared forge dream))
+
+(rule
+ (targets openapi.json)
+ (action
+  (setenv
+   SESSION_SECRET
+   unused
+   (run %{exe:main.exe} --emit-openapi %{targets}))))

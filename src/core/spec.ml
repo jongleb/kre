@@ -67,3 +67,64 @@ let to_json spec =
       ("version", Option.fold ~none:`Null ~some:(fun v -> `Int v) spec.version);
       ("routes", `List (List.map route_to_json spec.routes));
     ]
+
+let of_json json =
+  let fail what = raise (Yojson.Basic.Util.Type_error (what, json)) in
+  let open Yojson.Basic.Util in
+  let value json =
+    {
+      type_ = to_string (member "type" json);
+      module_ = to_string (member "module" json);
+      schema = member "schema" json;
+    }
+  in
+  let param json =
+    {
+      name = to_string (member "name" json);
+      location =
+        (match
+           (to_string (member "in" json), to_string (member "presence" json))
+         with
+        | "path", _ -> Path
+        | "query", "required" -> Query Required
+        | "query", "optional" -> Query Optional
+        | "query", "repeated" -> Query Repeated
+        | location, presence -> fail (location ^ "/" ^ presence));
+      value = value (member "value" json);
+    }
+  in
+  let route json =
+    {
+      verb =
+        (match to_string (member "verb" json) with
+        | "GET" -> `GET
+        | "POST" -> `POST
+        | "PUT" -> `PUT
+        | "PATCH" -> `PATCH
+        | "DELETE" -> `DELETE
+        | verb -> fail verb);
+      path = to_string (member "path" json);
+      name = to_string (member "name" json);
+      params = List.map param (to_list (member "params" json));
+      body = Option.map value (to_option Fun.id (member "body" json));
+      returns =
+        (match member "returns" json with
+        | `String "unit" -> Unit
+        | `String "text" -> Text
+        | `String "raw" -> Raw
+        | `Assoc _ as returns -> Json (value returns)
+        | _ -> fail "returns");
+      status = Dream.int_to_status (to_int (member "status" json));
+      guards = List.map to_string (to_list (member "guards" json));
+    }
+  in
+  match
+    {
+      prefix = to_string (member "prefix" json);
+      version = to_int_option (member "version" json);
+      routes = List.map route (to_list (member "routes" json));
+    }
+  with
+  | spec -> Ok spec
+  | exception Type_error (message, culprit) ->
+      Error (message ^ ": " ^ Yojson.Basic.to_string culprit)

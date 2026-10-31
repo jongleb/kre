@@ -34,3 +34,4 @@ type t = { prefix : string; version : int option; routes : route list }
 (** Runtime description of a controller; source for clients and OpenAPI. *)
 
 val to_json : t -> Jsonkit.t
+val of_json : Jsonkit.t -> (t, string) result

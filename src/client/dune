@@ -1,0 +1,7 @@
+(library
+ (name forge_client)
+ (public_name forge-client)
+ (modes melange)
+ (libraries forge-client.shared jsonkit-melange)
+ (preprocess
+  (pps melange.ppx)))

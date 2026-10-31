@@ -1,0 +1,4 @@
+(melange.emit
+ (target js)
+ (libraries forge-client)
+ (modules))
