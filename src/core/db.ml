@@ -15,6 +15,12 @@ module type S = sig
 
   val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t
   val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t
+  val tx : conn Guard.t
+
+  val within :
+    Dream.request ->
+    (unit -> ('a, Error.t) result Lwt.t) ->
+    ('a, Error.t) result Lwt.t
 end
 
 module Make
@@ -48,4 +54,20 @@ struct
           (fun exn ->
             let* () = Driver.rollback conn in
             Lwt.reraise exn))
+
+  let field : conn Dream.field = Dream.new_field ~name:"forge.transaction" ()
+
+  let tx =
+    Guard.field field
+      ~missing:(Error.internal "no open transaction; add [@@transactional]")
+
+  let within request run =
+    match Dream.field request field with
+    | Some _ ->
+        Lwt.return_error
+          (Error.internal "nested [@@transactional] is not supported")
+    | None ->
+        transaction (fun conn ->
+            Dream.set_field request field conn;
+            run ())
 end

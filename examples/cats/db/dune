@@ -31,11 +31,13 @@
 (library
  (name cats_db)
  (wrapped false)
- (modules cats_sql cats_db_service)
+ (modules cats_sql cats_db_service batch_controller)
  (flags
   (:standard -w -32-27))
  (libraries cats_server cats_shared forge forge-db-mariadb sqlgg.traits lwt)
  (preprocess
   (per_module
    ((pps lwt_ppx)
-    cats_db_service))))
+    cats_db_service)
+   ((pps lwt_ppx forge-ppx)
+    batch_controller))))

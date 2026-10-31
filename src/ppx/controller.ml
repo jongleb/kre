@@ -47,6 +47,9 @@ type handler = {
   outcome : outcome;
   headers : expression list;  (** [[@@header (name, value)]], repeatable. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
+  transaction : longident option;
+      (** [[@@transactional]]: the [Forge.Db.S] module read by [[@from M.tx]].
+      *)
 }
 
 let string_payload (attribute : attribute) =
@@ -486,6 +489,34 @@ let transform structure =
                            (\"Cache-Control\", \"no-store\")]"
                     | _ -> None)
                   binding.pvb_attributes;
+              transaction =
+                (match
+                   ( attribute_of binding "transactional",
+                     List.find_map
+                       (fun argument ->
+                         match argument.source with
+                         | Extracted
+                             {
+                               pexp_desc =
+                                 Pexp_ident { txt = Ldot (db, "tx"); _ };
+                               _;
+                             } ->
+                             Some (db, argument.loc)
+                         | _ -> None)
+                       arguments )
+                 with
+                | Some _, Some (db, _) -> Some db
+                | None, None -> None
+                | Some attribute, None ->
+                    Location.raise_errorf ~loc:attribute.attr_loc
+                      "[@@@@transactional] needs the connection: add ~(conn : \
+                       Db.conn [@@from Db.tx]) where Db is a Forge.Db.S \
+                       dependency"
+                | None, Some (db, loc) ->
+                    Location.raise_errorf ~loc
+                      "[@@from %s.tx] reads the open transaction; add \
+                       [@@@@transactional] to %s"
+                      (Longident.name db) name);
               timeout =
                 Option.map
                   (fun (attribute : attribute) ->
@@ -512,7 +543,15 @@ let transform structure =
             }
           in
           let handler_attributes =
-            [ "status"; "use"; "guards"; "header"; "redirect"; "timeout" ]
+            [
+              "status";
+              "use";
+              "guards";
+              "header";
+              "redirect";
+              "timeout";
+              "transactional";
+            ]
             @ List.map fst verbs
           in
           let items, handlers =
@@ -739,7 +778,18 @@ let transform structure =
                     handler.timeout
                 @ [
                     (Nolabel, shape);
-                    (Nolabel, [%expr fun __forge_request -> [%e body]]);
+                    ( Nolabel,
+                      [%expr
+                        fun __forge_request ->
+                          [%e
+                            Option.fold ~none:body
+                              ~some:(fun db ->
+                                [%expr
+                                  [%e
+                                    pexp_ident ~loc
+                                      { txt = Ldot (db, "within"); loc }]
+                                    __forge_request (fun () -> [%e body])])
+                              handler.transaction]] );
                   ])
             in
             let target =

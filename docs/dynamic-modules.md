@@ -59,6 +59,30 @@ let () =
                    [
                      call `GET "/cats/1"; call `GET "/cats"; call `GET "/cats/2";
                    ]));
+          Alcotest.test_case "[@@transactional]: Ok commits, Error rolls back"
+            `Quick (fun () ->
+              let batch =
+                Dream.test
+                  (Forge.App.handler [ Batch_controller.register (module Db) ])
+              in
+              let post note =
+                Dream.status_to_int
+                  (Dream.status
+                     (batch
+                        (Dream.request ~method_:`POST ~target:"/batch"
+                           (Printf.sprintf
+                              {|{"name":"tx","age":1,"breed":"persian","note":"%s"}|}
+                              note))))
+              in
+              let before = List.length (Lwt_main.run (Cats.find_all ())) in
+              let committed = post "ok" in
+              let rolled_back = post "fail" in
+              Alcotest.(check (triple int int int))
+                "statuses and rows"
+                (204, 409, before + 1)
+                ( committed,
+                  rolled_back,
+                  List.length (Lwt_main.run (Cats.find_all ())) ));
           Alcotest.test_case "transaction rolls back on Error" `Quick (fun () ->
               let attempt =
                 Lwt_main.run
@@ -70,7 +94,7 @@ let () =
                        Lwt.return_error "abort"))
               in
               Alcotest.(check (pair (result reject string) int))
-                "rolled back" (Error "abort", 1)
+                "rolled back" (Error "abort", 2)
                 ( Result.map ignore attempt,
                   List.length (Lwt_main.run (Cats.find_all ())) ));
         ] );

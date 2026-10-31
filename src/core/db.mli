@@ -17,6 +17,12 @@ module type S = sig
 
   val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t
   val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t
+  val tx : conn Guard.t
+
+  val within :
+    Dream.request ->
+    (unit -> ('a, Error.t) result Lwt.t) ->
+    ('a, Error.t) result Lwt.t
 end
 
 module Make

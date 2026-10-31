@@ -1354,12 +1354,16 @@ let update (module Cats : Cats_service.S)
 
 ### `[@@transactional]`
 
+Реализовано в фазе 2:
+
 ```ocaml
-let transfer (module Db : Db.S) ~(conn : Db.conn [@from Db.tx]) ~(body : Transfer_dto.t) : unit Lwt.t = …
+let import (module Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
+    ~(conn : Forge_db_mariadb.Client.t [@from Db.tx]) ~(body : Create_cat_dto.t)
+    : (unit, Forge.Error.t) result Lwt.t = …
 [@@post] [@@transactional]
 ```
 
-Семантика: обёртка открывает `Db.transaction`, кладёт `conn` в `Dream.field` `Db.tx_field`, выполняет тело; `Ok` → commit, `Error`/исключение → rollback и обычный маппинг ошибки. `[@from Db.tx]` читает это поле; `[@from Db.tx]` без `[@@transactional]` — ошибка ppx (проверяется синтаксически по имени). Опции: ``[@@transactional ~isolation:`Serializable]``, `~read_only:true`. Вложенные транзакции не поддерживаются: второй `[@@transactional]` в цепочке вызовов — ошибка при старте (детектируется по `spec`), не молчаливый savepoint.
+`Forge.Db.S` получил `tx : conn Guard.t` (читает соединение из поля запроса) и `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (открывает транзакцию, кладёт соединение в поле, `Ok` → commit, `Error`/исключение → rollback). ppx находит параметр `[@from M.tx]` и оборачивает разбор параметров и вызов хендлера в `M.within`; guards выполняются до транзакции. `[@@transactional]` без такого параметра и `[@from M.tx]` без `[@@transactional]` — ошибки компиляции. Вложенный `within` на том же запросе — 500 вместо молчаливого savepoint. Опции изоляции и `read_only` — когда понадобятся. Пример — `examples/cats/db/batch_controller.ml`, проверка — алиас `@db`.
 
 ### Actuator
 
