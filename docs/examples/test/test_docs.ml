@@ -304,6 +304,42 @@ let () =
                 ((200, "v2"), Some "application/problem+json")
                 ( call legacy `GET "/v2/legacy/status",
                   Dream.header plain "Content-Type" ));
+          Alcotest.test_case "file upload" `Quick (fun () ->
+              let uploads = app [ Uploads_controller.register () ] in
+              let part name ?filename content =
+                Printf.sprintf
+                  "--X\r\n\
+                   Content-Disposition: form-data; name=\"%s\"%s\r\n\
+                   \r\n\
+                   %s\r\n"
+                  name
+                  (Option.fold ~none:""
+                     ~some:(Printf.sprintf "; filename=\"%s\"")
+                     filename)
+                  content
+              in
+              let body =
+                String.concat ""
+                  [
+                    part "title" "me";
+                    part "tag" "cat";
+                    part "tag" "orange";
+                    part "avatar" ~filename:"me.png" "PNGDATA";
+                    "--X--\r\n";
+                  ]
+              in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [ (200, "me: me.png, 7 bytes, tags cat,orange"); (415, "") ]
+                [
+                  call
+                    ~headers:
+                      [ ("Content-Type", "multipart/form-data; boundary=X") ]
+                    ~body uploads `POST "/uploads/avatar";
+                  (match call ~body:"{}" uploads `POST "/uploads/avatar" with
+                  | 415, _ -> (415, "")
+                  | other -> other);
+                ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

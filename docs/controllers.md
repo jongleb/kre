@@ -53,6 +53,7 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 | `@Ip()` | `request.getRemoteAddr()` | `[@ip]` |
 | `@HostParam()` | — | `[@host]` |
 | свой декоратор | `HandlerMethodArgumentResolver` | `[@from guard]` с любым `'a Forge.Guard.t` |
+| `@UploadedFile('avatar')`, `@UploadedFiles()` | `@RequestPart`, `MultipartFile` | `[@file "avatar"] : Forge.Upload.t`, `[@files "photos"]`, поле формы — `[@form "title"]` |
 | `@Res()`, `@Next()` | `HttpServletResponse` | не нужны: ответ — возвращаемое значение, `next` — middleware |
 
 <!-- $MDX file=examples/entities_controller.ml -->

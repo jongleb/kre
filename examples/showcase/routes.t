@@ -19,6 +19,8 @@ Every route of the showcase, straight from the controllers' specs.
   GET     /legacy/slow                     slow 200
   GET     /legacy/fresh                    fresh 200
   GET     /legacy/gone                     gone 204
+  GET     /v2/legacy/status                status 200
+  GET     /legacy/plain                    plain 204
   GET     /ticks                           count 200
   GET     /files/*                         download 200
   OPTIONS /files/probe                     probe 204

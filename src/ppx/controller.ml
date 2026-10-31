@@ -9,7 +9,7 @@ type value = { type_ : core_type; module_ : module_expr }
 type presence = Required | Optional | Repeated
 
 (** Where a decorated parameter is read from. *)
-type carrier = Header | Cookie | Signed_cookie | Session
+type carrier = Header | Cookie | Signed_cookie | Session | Form
 
 (** Where one argument of a handler comes from. *)
 type source =
@@ -312,6 +312,19 @@ let transform structure =
           | "cookie" -> Some (located Cookie "cookie")
           | "signed_cookie" -> Some (located Signed_cookie "cookie")
           | "session" -> Some (located Session "session field")
+          | "form" -> Some (located Form "form field")
+          | "file" ->
+              Some
+                (Extracted
+                   [%expr
+                     Forge.Extract.file
+                       [%e estring ~loc (required "file field")]])
+          | "files" ->
+              Some
+                (Extracted
+                   [%expr
+                     Forge.Extract.files
+                       [%e estring ~loc (required "file field")]])
           | ("headers" | "cookies" | "ip" | "host" | "req") as name ->
               Some (extractor name)
           | "wildcard" -> Some Wildcard
@@ -1014,7 +1027,8 @@ let transform structure =
                                    | Cookie -> "Forge.Extract.cookie"
                                    | Signed_cookie ->
                                        "Forge.Extract.signed_cookie"
-                                   | Session -> "Forge.Extract.session")]
+                                   | Session -> "Forge.Extract.session"
+                                   | Form -> "Forge.Extract.form")]
                                  [%e pexp_pack ~loc value.module_]
                                  [%e
                                    match presence with
@@ -1252,7 +1266,7 @@ let transform structure =
                                        Forge.Spec.Cookie
                                          [%e presence_expression presence]],
                                      value )
-                             | Located { carrier = Session; _ }
+                             | Located { carrier = Session | Form; _ }
                              | Dependency _ | Body _ | Extracted _ | Wildcard
                              | Request | Unit ->
                                  None))

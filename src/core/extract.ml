@@ -114,3 +114,53 @@ let host_param ~pattern name request =
           (Host.parameters ~pattern
              (Option.value (Dream.header request "Host") ~default:""))
           (List.assoc_opt name)))
+
+let multipart : Dream.multipart_form Dream.field =
+  Dream.new_field ~name:"forge.multipart" ()
+
+let parts request =
+  match Dream.field request multipart with
+  | Some form -> Lwt.return_ok form
+  | None ->
+      Lwt.map
+        (function
+          | `Ok form ->
+              Dream.set_field request multipart form;
+              Ok form
+          | `Wrong_content_type ->
+              Error
+                (Error.make ~status:`Unsupported_Media_Type ~code:"media_type"
+                   "expected multipart/form-data")
+          | `Expired _ | `Wrong_session _ | `Invalid_token _ | `Missing_token _
+          | `Many_tokens _ ->
+              Error (Error.bad_request "invalid multipart form"))
+        (Dream.multipart ~csrf:false request)
+
+let uploads name request =
+  Lwt_result.map
+    (fun form ->
+      List.map
+        (fun (filename, content) -> { Upload.filename; content })
+        (Option.value (List.assoc_opt name form) ~default:[]))
+    (parts request)
+
+let file name request =
+  Lwt.map
+    (fun found ->
+      Result.bind found (function
+        | upload :: _ -> Ok upload
+        | [] -> Error (Error.bad_request ("missing file " ^ name))))
+    (uploads name request)
+
+let files name request = uploads name request
+
+let form (module S : Forge_shared.Scalar.S) presence name request =
+  Lwt.map
+    (fun found ->
+      Result.bind found (fun uploads ->
+          lookup
+            (module S)
+            presence ~what:"form field" name
+            ~missing:(Error.bad_request ("missing form field " ^ name))
+            (List.map (fun (upload : Upload.t) -> upload.content) uploads)))
+    (uploads name request)

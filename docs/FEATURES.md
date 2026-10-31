@@ -51,7 +51,7 @@
 | `@Session()` | `@SessionAttribute` | `[@session "user_id"]` | ✅ |
 | `@Ip()`, `@Req()` | `HttpServletRequest` | `[@ip]`, `(req : Dream.request)`, `[@req]` | ✅ |
 | `createParamDecorator` | `HandlerMethodArgumentResolver` | `[@from guard]` | ✅ |
-| `@UploadedFile` | `@RequestPart` | | 🔜 |
+| `@UploadedFile`, `@UploadedFiles`, form fields | `@RequestPart`, `MultipartFile` | `[@file "avatar"] : Forge.Upload.t`, `[@files "photos"]`, `[@form "title"]` (тип решает разбор) | ✅ |
 | `@Res`, `@Next` | `HttpServletResponse` | ответ — возвращаемое значение | — |
 
 ## Конвейер запроса
