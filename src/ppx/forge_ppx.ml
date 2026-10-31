@@ -20,3 +20,14 @@ let () =
   ignore
     (Ppxlib.Deriving.add "search"
        ~str_type_decl:(Ppxlib.Deriving.Generator.V2.make_noarg Page.search))
+
+let () =
+  Ppxlib.Driver.add_arg "-melange"
+    (Arg.Unit (fun () -> Table.target := Table.Melange))
+    ~doc:" Build for Melange: [@@deriving table] emits nothing";
+  ignore
+    (Ppxlib.Deriving.add "table"
+       ~str_type_decl:
+         (Ppxlib.Deriving.Generator.V2.make
+            Ppxlib.Deriving.Args.(empty +> arg "name" (estring __))
+            Table.structure))

@@ -83,3 +83,20 @@
    (= :version))
   yojson
   dream))
+
+(package
+ (name forge-db-mariadb)
+ (synopsis "MariaDB driver and sqlgg traits for Forge.Db")
+ (depends
+  (ocaml
+   (and
+    (>= 5.5)
+    (< 5.6)))
+  (forge
+   (= :version))
+  (mariadb
+   (>= 2.2.0))
+  (sqlgg
+   (>= 20260721))
+  lwt
+  uri))

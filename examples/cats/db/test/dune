@@ -1,0 +1,18 @@
+(executable
+ (name test_db)
+ (libraries
+  cats_db
+  cats_server
+  cats_shared
+  forge
+  forge-db-mariadb
+  dream
+  lwt
+  alcotest)
+ (preprocess
+  (pps lwt_ppx)))
+
+(rule
+ (alias db)
+ (action
+  (run %{exe:test_db.exe})))

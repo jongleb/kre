@@ -1021,22 +1021,34 @@ ORM не пишем. Одна глава Data вместо пяти у Nest: з�
 
 ### Forge.Db
 
+Реализовано в фазе 1. sqlgg уже содержит traits для MariaDB (`sqlgg.mariadb`: `Sqlgg_mariadb.Make (IO) (Mariadb.Nonblocking.S) (Types)`), поэтому `Forge.Db` не реализует traits, а даёт пул и транзакции; запросы — модули sqlgg, применённые к traits драйвера.
+
 ```ocaml
+(* Forge.Db — в ядре, без C-зависимостей *)
 module type DRIVER = sig
   type conn
   val connect : string -> conn Lwt.t
-  val exec  : conn -> string -> param list -> int Lwt.t          (* affected rows *)
-  val query : conn -> string -> param list -> row Lwt_stream.t
-  val transaction : conn -> (conn -> 'a Lwt.t) -> 'a Lwt.t
+  val close : conn -> unit Lwt.t
+  val start : conn -> unit Lwt.t
+  val commit : conn -> unit Lwt.t
+  val rollback : conn -> unit Lwt.t
 end
 module type S = sig
-  include DRIVER
-  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t   (* из пула *)
+  type conn
+  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool *)
+  val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/исключение → rollback *)
 end
-module Make (D : DRIVER) (Cfg : sig val url : string  val pool : int end) : S
+module Make (Driver : DRIVER) (Config : sig val url : string val size : int end) : S with type conn = Driver.conn
+
+(* Forge_db_mariadb — отдельный пакет forge-db-mariadb (C-биндинги) *)
+module Client : Mariadb.Nonblocking.S with type 'a future = 'a Lwt.t
+module Sql : Sqlgg_traits.M_io with type 'a connection = Client.t and type 'a IO.future = 'a Lwt.t
+                                and type Types.Int.t = int64 and type Types.Text.t = string
+                                and type Types.Bool.t = bool and type Types.Float.t = float
+module Driver : Forge.Db.DRIVER with type conn = Client.t      (* mariadb://user:pass@host:port/db?socket=… *)
 ```
 
-Драйверы: `Forge_db_mariadb` (ocaml-mariadb, Lwt) — первый; `Forge_db_pgx` — второй. Оба — отдельные пакеты, чтобы ядро не тянуло C-биндинги. Интерфейс `DRIVER` сделан так, чтобы sqlgg-сгенерированный код работал поверх него через `Sqlgg_traits`.
+Сервис с базой — функтор: `module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) … end`. `Forge_db_pgx` — фаза 2.
 
 ### sqlgg
 
@@ -1068,19 +1080,25 @@ val find_adults_by_breed : Db.conn -> breed:string -> min_age:int -> User.t list
 
 ### &#91;@@deriving table\]
 
-DDL, снапшот схемы, `of_row` и генерация `schema.sql` для sqlgg — фаза 1 (это вход в цепочку выше). Минимальный CRUD — фаза 2.
+Реализовано в фазе 1 (DDL и `of_row`; CRUD — фаза 2):
 
 ```ocaml
 type t = {
-  id         : int;      [@primary] [@auto]
-  email      : string;   [@unique] [@size 255]
-  name       : string;
-  age        : int option;
-  created_at : Ptime.t;  [@default "CURRENT_TIMESTAMP"]
-} [@@deriving table ~name:"users", dto]
+  id : int; [@primary] [@auto]
+  name : Name.t; [@column string] [@size 64]
+  age : Age.t; [@column int]
+  breed : Breed.t; [@column string] [@size 32] [@index]
+}
+[@@deriving table ~name:"cats", dto]
+(* → table : Forge.Table.t
+     of_row : id:int64 -> name:string -> age:int64 -> breed:string -> t   (форма колбэка sqlgg) *)
 ```
 
-Генерирует `schema : Forge.Table.t` (имя, колонки с SQL-типами, индексы), `create_sql : dialect -> string`, и через `Forge.Table.Crud (Db) (Schema)` — `find : int -> t option Lwt.t`, `insert : t -> int Lwt.t`, `update : t -> unit Lwt.t`, `delete : int -> unit Lwt.t`. Маппинг типов: `int → BIGINT`, `string → VARCHAR(size|TEXT)`, `bool → BOOLEAN`, `float → DOUBLE`, `Ptime.t → TIMESTAMP`, `τ option → NULL`. Связи (`has_many`, `belongs_to`) **не делаем** — это sqlgg.
+- Типы колонок: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` или `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. Поле абстрактного типа `T.t` (`Refined`) требует `[@column int|string|bool|float]`: ppx не видит представление `T.t`, а тип аргумента `of_row` обязан совпасть с тем, что даёт sqlgg; значение проходит `T.of_string` (`Forge.Table.decode`), то есть правила `Refined` проверяются и на чтении из базы. `Ptime.t` → `TIMESTAMP` — фаза 2.
+- Атрибуты: `[@primary]`, `[@auto]` (только с `[@primary]`), `[@unique]`, `[@index]` — одна роль на поле; `[@size n]`; `[@references M]` → `FOREIGN KEY … REFERENCES <M.table> (id)`; `[@sql.default "SQL"]` — не `[@default]`, потому что `[@default]` уже значит дефолт jsonkit-деривера (OCaml-значение, а не SQL).
+- `Forge.Table.schema [ Cat.table; … ]` печатает DDL (MariaDB/MySQL). Реестра нет: `schema.sql` собирает маленький бинарь со списком таблиц, dune-правило передаёт его sqlgg (`examples/cats/db/dune`): `sqlgg -dialect mysql -gen caml_io -name Make schema.sql queries/cats.sql`.
+- Под Melange (`(pps … forge-ppx -- -melange)`) `table` ничего не генерирует, `dto` на том же типе работает.
+- Проверено на живой MariaDB 11.8: `examples/cats/db` (вставка через контроллер, чтение `Sql.List.all conn ~limit Cat.of_row` и `Sql.Single.by_id`, откат транзакции); алиас `dune build @examples/cats/db/test/db` с `FORGE_TEST_DB_URL`.
 
 ### Миграции
 
@@ -1404,7 +1422,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ `--emit-spec`, `--emit-openapi`; `forge client` (melange + native), `forge openapi`, `forge routes` | OpenAPI cats проходит `openapi-spec-validator`; native-клиент проходит e2e по cats против живого сервера |
 | ✅ `Forge_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: сгенерированный клиент, собранный Melange, в node 22 против живого сервера (`NODE=` задаёт бинарь) |
 | ✅ `Forge_client.Router` + `[%path]`, `search`, `params` | node: `href`, матчинг, `search` с дефолтом и ошибкой, SSR `link` и `View`; cram: `link` с неверными params не компилируется |
-| `Forge.Db` как sqlgg-traits + `Forge_db_mariadb`; `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запрос против `schema.sql` компилируется и выполняется в e2e |
+| ✅ `Forge.Db` (пул, транзакции) + `Forge_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запросы против сгенерированного `schema.sql` компилируются и выполняются на MariaDB 11.8 (алиас `@db`, отдельная CI-задача) |
 | `forge migrate up/down/status/new` | e2e применяет миграции на пустую БД |
 | `forge new`, `forge generate controller/service/dto` | сгенерированный проект собирается и проходит свой e2e |
 | Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data | каждая глава содержит порт Nest-примера, который компилируется в `docs/` как mdx-тест |
@@ -1476,7 +1494,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 - [ ] jsonkit: режим декодирования с накоплением ошибок и путями (`["age"]`) — нужен для аппликативных 422; до него — первая ошибка без пути.
 - [ ] Регулярные выражения в `Forge_shared` (`Validation.regex`, `Refined.Regex`): `Str` есть только в native; варианты — `re` (проверить сборку в melange) или своя реализация на `Js.Re` за общим интерфейсом.
 - [ ] Длина строк в `Validation.min_length`/`max_length`: `String.length` считает байты в native и UTF-16-единицы в JS; для не-ASCII нужен подсчёт code points, одинаковый на обоих концах.
-- [ ] sqlgg: точная форма traits-интерфейса форка для `Forge.Db` (IO = Lwt) и способ отдать `schema.sql` в dune-правило без ручного перечисления типов (вариант: `table` регистрирует схему в `Forge.Table.Registry`, бинарь `--emit-schema`).
+- [x] sqlgg: traits берутся из `sqlgg.mariadb` (opam `sqlgg.20260721`), `Forge.Db` — пул и транзакции; `schema.sql` печатает бинарь со списком таблиц, реестр не нужен. Форк `jongleb/sqlgg` пока не требуется; если понадобятся его возможности (IR, lattice-nullability), — pin в `dune-project`.
 - [ ] Имя: `Forge` — рабочее; проверить коллизии в opam перед публикацией.
 - [ ] `.mlx` против reason-синтаксиса для JSX: `.mlx` по умолчанию, пока не упрёмся в ограничения.
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.

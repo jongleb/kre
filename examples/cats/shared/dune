@@ -1,6 +1,6 @@
 (library
  (name cats_shared)
  (wrapped false)
- (libraries forge.shared jsonkit)
+ (libraries forge forge.shared jsonkit)
  (preprocess
   (pps jsonkit.ppx forge-ppx)))

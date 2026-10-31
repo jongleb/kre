@@ -23,3 +23,28 @@ jobs:
       - run: opam exec -- dune build @fmt
       - run: opam exec -- dune build examples/cats/bin/openapi.json
       - run: pipx run openapi-spec-validator _build/default/examples/cats/bin/openapi.json
+
+  db:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_USER: forge
+          MARIADB_PASSWORD: forge
+          MARIADB_DATABASE: forge_test
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5.1"
+      - run: opam install . --deps-only --with-test --yes
+      - run: opam exec -- dune build @examples/cats/db/test/db
+        env:
+          FORGE_TEST_DB_URL: mariadb://forge:forge@127.0.0.1:3306/forge_test

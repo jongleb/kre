@@ -1,0 +1,41 @@
+(rule
+ (targets schema.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:schema.exe}))))
+
+(rule
+ (targets cats_sql.ml)
+ (deps schema.sql queries/cats.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run
+    sqlgg
+    -dialect
+    mysql
+    -gen
+    caml_io
+    -name
+    Make
+    -static-header
+    schema.sql
+    queries/cats.sql))))
+
+(executable
+ (name schema)
+ (modules schema)
+ (libraries cats_shared forge))
+
+(library
+ (name cats_db)
+ (wrapped false)
+ (modules cats_sql cats_db_service)
+ (flags
+  (:standard -w -32-27))
+ (libraries cats_server cats_shared forge forge-db-mariadb sqlgg.traits lwt)
+ (preprocess
+  (per_module
+   ((pps lwt_ppx)
+    cats_db_service))))

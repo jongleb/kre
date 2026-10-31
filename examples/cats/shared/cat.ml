@@ -17,5 +17,10 @@ module Breed = Forge_shared.Refined.Enum (struct
   let values = [ "siamese"; "persian"; "maine coon" ]
 end)
 
-type t = { id : int; name : Name.t; age : Age.t; breed : Breed.t }
-[@@deriving dto]
+type t = {
+  id : int; [@primary] [@auto]
+  name : Name.t; [@column string] [@size 64]
+  age : Age.t; [@column int]
+  breed : Breed.t; [@column string] [@size 32] [@index]
+}
+[@@deriving table ~name:"cats", dto]
