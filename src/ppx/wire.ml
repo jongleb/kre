@@ -256,20 +256,36 @@ let scan path =
             })
 
 let expand ~loc ~input directories =
-  let base = Filename.dirname input in
-  let components =
+  let application = Filename.dirname (Filename.dirname input) in
+  let rec sources directory =
     List.concat_map
-      (fun directory ->
-        let directory = Filename.concat base directory in
-        List.map
-          (fun file -> scan (Filename.concat directory file))
-          (List.sort String.compare
-             (List.filter
-                (fun file ->
-                  Filename.check_suffix file ".ml"
-                  && not (Filename.check_suffix file ".pp.ml"))
-                (Array.to_list (Sys.readdir directory)))))
-      directories
+      (fun entry ->
+        let path = Filename.concat directory entry in
+        match entry with
+        | "_build" | "node_modules" | "test" | "tests" -> []
+        | entry when String.starts_with ~prefix:"." entry -> []
+        | _ when Sys.is_directory path -> sources path
+        | entry
+          when Filename.check_suffix entry ".ml"
+               && not (Filename.check_suffix entry ".pp.ml") ->
+            [ path ]
+        | _ -> [])
+      (List.sort String.compare (Array.to_list (Sys.readdir directory)))
+  in
+  let components =
+    List.fold_left
+      (fun (seen, components) path ->
+        let name =
+          String.capitalize_ascii
+            (Filename.remove_extension (Filename.basename path))
+        in
+        if List.mem name seen then (seen, components)
+        else (name :: seen, components @ [ scan path ]))
+      ([], [])
+      (List.concat_map
+         (fun directory -> sources (Filename.concat application directory))
+         (match directories with [] -> [ "." ] | directories -> directories))
+    |> snd
   in
   let providers =
     List.filter_map
@@ -422,14 +438,14 @@ let extension =
                   | Pexp_sequence (first, rest) -> strings first @ strings rest
                   | _ ->
                       Location.raise_errorf ~loc:expression.pexp_loc
-                        "[%%wire] takes directories: [%%wire \"../server\"; \
-                         \"../db\"]"
+                        "[%%wire] scans the application directory; to narrow \
+                         it, list subdirectories: [%%wire \"server\"; \"db\"]"
                 in
                 strings expression
             | _ ->
                 Location.raise_errorf ~loc
-                  "[%%wire] takes directories: [%%wire \"../server\"; \
-                   \"../db\"]")
+                  "[%%wire] scans the application directory; to narrow it, \
+                   list subdirectories: [%%wire \"server\"; \"db\"]")
           items
       in
       expand ~loc

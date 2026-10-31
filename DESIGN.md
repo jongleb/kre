@@ -821,11 +821,11 @@ let register (module Cats : Cats_service.S) =
 ```ocaml
 (* bin/main.ml *)
 let () =
-  let app = [%wire "../server"; "../db"] in
+  let app = [%wire] in
   Forge.App.run ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
 ```
 
-ppx читает `.ml`/`.mli` перечисленных каталогов во время сборки (`preprocessor_deps` в dune — пересборка при изменении) и сам находит компоненты:
+Как `@SpringBootApplication`, `[%wire]` сканирует каталог приложения — родитель каталога с `main.ml` — рекурсивно, пропуская `test`/`tests`, `_build`, `node_modules` и скрытые; копии одного модуля (`copy_files#` для Melange) склеиваются по имени. Сузить — `[%wire "server"; "db"]`, пути от каталога приложения. В dune: `(preprocessor_deps (source_tree ..))` — пересборка при изменении исходников. Компоненты ppx находит сам:
 
 | Что в файле | Роль | Nest / Spring |
 | --- | --- | --- |

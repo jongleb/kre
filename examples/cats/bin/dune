@@ -5,10 +5,7 @@
  (preprocess
   (pps forge-ppx))
  (preprocessor_deps
-  (glob_files ../server/*.ml)
-  (glob_files ../server/*.mli)
-  (glob_files ../db/*.ml)
-  (glob_files ../db/*.mli)))
+  (source_tree ..)))
 
 (rule
  (targets openapi.json)
