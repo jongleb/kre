@@ -38,6 +38,8 @@ type route = {
   returns : returns;
   status : Dream.status;
   guards : string list;  (** Guard expressions, for documentation only. *)
+  summary : string option;  (** [[@@summary]]: OpenAPI operation summary. *)
+  description : string option;  (** [[@@description]]. *)
 }
 
 type t = { prefix : string; version : int option; routes : route list }

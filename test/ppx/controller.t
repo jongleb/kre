@@ -124,6 +124,8 @@ A controller with every kind of parameter.
                         M.t_jsonschema))
                 });
            status = (Dream.int_to_status 200);
+           summary = None;
+           description = None;
            guards = ["Auth.signed_in"]
          };
         {
@@ -163,6 +165,8 @@ A controller with every kind of parameter.
                  schema = ((let module M = Cat in M.t_jsonschema))
                });
           status = (Dream.int_to_status 200);
+          summary = None;
+          description = None;
           guards = ["Auth.signed_in"]
         };
         {
@@ -185,6 +189,8 @@ A controller with every kind of parameter.
                  schema = ((let module M = Cat in M.t_jsonschema))
                });
           status = (Dream.int_to_status 201);
+          summary = None;
+          description = None;
           guards = ["Auth.signed_in"; "Auth.admin"]
         };
         {
@@ -207,6 +213,8 @@ A controller with every kind of parameter.
           body = None;
           returns = Forge.Spec.Unit;
           status = (Dream.int_to_status 204);
+          summary = None;
+          description = None;
           guards = ["Auth.signed_in"]
         }]
     }

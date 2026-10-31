@@ -1236,7 +1236,7 @@ end
 
 ### OpenAPI
 
-`--emit-openapi` (и `forge openapi --spec`) строит документ 3.1 через `Forge.Openapi.document ~title ~version specs`: `paths` из `spec.routes`, `components.schemas` из `jsonschema` всех встреченных DTO (имя модуля = имя схемы), `parameters` из `Codec.schema`, `responses` с кодом из `status` и envelope ошибки для 4xx. Теги — префиксы контроллеров. Описания — из docstrings `(** … *)` над хендлером, если ppx их сохранил в `spec` (фаза 2). Схемы DTO с простым именем модуля (`Cat`) уходят в `components.schemas` и подключаются `$ref`; остальные (`Forge_shared.Scalar.Int`, `Forge_shared.Json.List (Cat)`) встраиваются. Ошибки — `default`-ответ `application/problem+json` со схемой `Problem`. Документ cats проходит `openapi-spec-validator` (шаг CI). Swagger UI — фаза 2.
+`--emit-openapi` (и `forge openapi --spec`) строит документ 3.1 через `Forge.Openapi.document ~title ~version specs`: `paths` из `spec.routes`, `components.schemas` из `jsonschema` всех встреченных DTO (имя модуля = имя схемы), `parameters` из `Codec.schema`, `responses` с кодом из `status` и envelope ошибки для 4xx. Теги — префиксы контроллеров. Описания операций — атрибуты `[@@summary "…"]` и `[@@description "…"]` на хендлере (как `@ApiOperation`), они попадают в `Spec.route` и OpenAPI; docstrings не используются, потому что комментарии над функциями запрещены правилами кода. Схемы DTO с простым именем модуля (`Cat`) уходят в `components.schemas` и подключаются `$ref`; остальные (`Forge_shared.Scalar.Int`, `Forge_shared.Json.List (Cat)`) встраиваются. Ошибки — `default`-ответ `application/problem+json` со схемой `Problem`. Документ cats проходит `openapi-spec-validator` (шаг CI). Swagger UI — фаза 2.
 
 ## Frontend: Forge\_client и typed router
 

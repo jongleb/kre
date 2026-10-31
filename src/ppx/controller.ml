@@ -63,6 +63,8 @@ type handler = {
   interceptors : expression list;  (** [[@@@intercept]] then [[@@intercept]]. *)
   error_handler : expression option;
       (** [[@@error_handler h]] on the handler. *)
+  summary : string option;  (** [[@@summary]]. *)
+  description : string option;  (** [[@@description]]. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
@@ -694,6 +696,10 @@ let transform structure =
               arguments;
               shape;
               outcome;
+              summary =
+                Option.map string_payload (attribute_of binding "summary");
+              description =
+                Option.map string_payload (attribute_of binding "description");
               error_handler =
                 Option.map
                   (fun (attribute : attribute) ->
@@ -846,6 +852,8 @@ let transform structure =
               "cache";
               "version";
               "error_handler";
+              "summary";
+              "description";
             ]
             @ List.map fst verbs
           in
@@ -1292,6 +1300,18 @@ let transform structure =
                     | Stream value ->
                         [%expr Forge.Spec.Events [%e spec_value value]]];
                 status = Dream.int_to_status [%e eint ~loc handler.status];
+                summary =
+                  [%e
+                    Option.fold ~none:[%expr None]
+                      ~some:(fun summary ->
+                        [%expr Some [%e estring ~loc summary]])
+                      handler.summary];
+                description =
+                  [%e
+                    Option.fold ~none:[%expr None]
+                      ~some:(fun description ->
+                        [%expr Some [%e estring ~loc description]])
+                      handler.description];
                 guards =
                   [%e
                     elist ~loc

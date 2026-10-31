@@ -27,6 +27,8 @@ type route = {
   returns : returns;
   status : Dream.status;
   guards : string list;
+  summary : string option;
+  description : string option;
 }
 
 type t = { prefix : string; version : int option; routes : route list }
@@ -80,6 +82,11 @@ let to_json spec =
           | Events value -> `Assoc [ ("events", value_to_json value) ] );
         ("status", `Int (Dream.status_to_int route.status));
         ("guards", `List (List.map (fun guard -> `String guard) route.guards));
+        ( "summary",
+          Option.fold ~none:`Null ~some:(fun s -> `String s) route.summary );
+        ( "description",
+          Option.fold ~none:`Null ~some:(fun s -> `String s) route.description
+        );
       ]
   in
   `Assoc
@@ -147,6 +154,8 @@ let of_json json =
         | _ -> fail "returns");
       status = Dream.int_to_status (to_int (member "status" json));
       guards = List.map to_string (to_list (member "guards" json));
+      summary = to_string_option (member "summary" json);
+      description = to_string_option (member "description" json);
     }
   in
   match

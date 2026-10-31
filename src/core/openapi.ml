@@ -26,6 +26,7 @@ let document ~title ~version specs =
                 (List.filter (( <> ) "") (String.split_on_char '/' spec.prefix))
              ^ "_" ^ route.name) );
          ("tags", `List [ `String spec.prefix ]);
+         ("summary", `String (Option.value route.summary ~default:route.name));
          ( "parameters",
            `List
              (List.map
@@ -92,6 +93,9 @@ let document ~title ~version specs =
                    ] );
              ] );
        ]
+      @ Option.fold ~none:[]
+          ~some:(fun description -> [ ("description", `String description) ])
+          route.description
       @ Option.fold ~none:[]
           ~some:(fun body ->
             [

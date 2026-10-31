@@ -425,6 +425,8 @@ let spec =
                              ] );
                          ("status", `Int 200);
                          ("guards", `List []);
+                         ("summary", `Null);
+                         ("description", `Null);
                        ];
                    ] );
              ])
@@ -462,6 +464,8 @@ let spec =
                          };
                      status = `OK;
                      guards = [];
+                     summary = None;
+                     description = None;
                    };
                  ];
              }));

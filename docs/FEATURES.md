@@ -89,7 +89,7 @@
 
 | Nest | Spring | Forge | Статус |
 | --- | --- | --- | --- |
-| Swagger | springdoc | `--emit-openapi`, `forge openapi` (3.1, валидируется) | ✅ |
+| Swagger, `@ApiOperation` | springdoc, `@Operation` | `--emit-openapi`, `forge openapi` (3.1, валидируется); `[@@summary]`, `[@@description]` | ✅ |
 | — | — | типизированный клиент `forge client` (Melange + native) | ✅ |
 | — | — | типизированный роутер страниц, `[%path]`, `params`, `search` | ✅ |
 | `nest new`, `nest g resource` | Spring Initializr | `forge new`, `forge generate` | ✅ |
