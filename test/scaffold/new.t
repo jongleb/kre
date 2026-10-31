@@ -15,9 +15,8 @@ forge new writes a project that builds and passes its own test.
   created demo/test/test_health.ml
   $ cd demo
   $ dune build 2>&1
-  $ dune test 2>&1 | grep -E "OK|FAIL|Successful|Expected|Received"
+  $ dune test 2>&1 | grep -E "OK|FAIL|Expected|Received"
     [OK]          health          0   GET /health.
-  Test Successful in 0.001s. 1 test run.
 
 A generated resource builds and its CRUD test passes.
 
@@ -30,10 +29,9 @@ A generated resource builds and its CRUD test passes.
   created ./server/cats_service.ml
   created ./server/cats_service.mli
   $ dune build 2>&1
-  $ dune test 2>&1 | grep -E "OK|FAIL|Successful|Expected|Received"
+  $ dune test 2>&1 | grep -E "OK|FAIL|Expected|Received"
     [OK]          crud          0   create, read, remove.
     [OK]          crud          1   invalid body is 422.
-  Test Successful in 0.001s. 2 tests run.
 
 Generating over existing files writes nothing.
 
