@@ -30,6 +30,13 @@ let signed_in : unit Forge.Guard.t =
        ~none:(Error (Forge.Error.unauthorized "sign in first"))
        ~some:(fun _ -> Ok ())
        (Dream.header request "X-User"))
+
+let user : string Forge.Guard.t =
+ fun request ->
+  Lwt.return
+    (Option.to_result
+       ~none:(Forge.Error.unauthorized "sign in first")
+       (Dream.header request "X-User"))
 ```
 
 <!-- $MDX file=examples/admin_controller.ml -->
@@ -44,3 +51,22 @@ let purge (module Cats : Cats_service.S)
 ```
 
 `purge` нельзя вызвать без `Roles.Admin.t`, а создать его может только `Roles`. Порядок: `[@@@guards]` → `[@@guards]` → параметры `[@guard]` слева направо; первая ошибка становится ответом (401, затем 403).
+
+Проверка, которой нужны разобранные параметры (владелец ли пользователь этой записи), — `[@@authorize]`: замыкание получает аргументы хендлера по меткам и выполняется до тела.
+
+<!-- $MDX file=examples/notes_controller.ml -->
+```ocaml
+[@@@controller "notes"]
+
+let owners = [ (1, "ann"); (2, "bob") ]
+
+let owns ~user ~id =
+  Lwt.return
+    (match List.assoc_opt id owners with
+    | Some owner when String.equal owner user -> Ok ()
+    | Some _ | None -> Error (Forge.Error.forbidden "not your note"))
+
+let read ~(user : (string[@guard Roles.user])) ~(id : int) : string Lwt.t =
+  Lwt.return (Printf.sprintf "note %d for %s" id user)
+[@@get ":id"] [@@authorize fun ~user ~id -> owns ~user ~id]
+```

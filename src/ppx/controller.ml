@@ -47,6 +47,8 @@ type handler = {
   outcome : outcome;
   headers : expression list;  (** [[@@header (name, value)]], repeatable. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
+  authorize : expression option;
+      (** [[@@authorize f]], applied to the handler's own arguments. *)
   transaction : longident option;
       (** [[@@transactional]]: the [Forge.Db.S] module read by [[@from M.tx]].
       *)
@@ -489,6 +491,59 @@ let transform structure =
                            (\"Cache-Control\", \"no-store\")]"
                     | _ -> None)
                   binding.pvb_attributes;
+              authorize =
+                Option.map
+                  (fun (attribute : attribute) ->
+                    let check =
+                      match attribute.attr_payload with
+                      | PStr [ { pstr_desc = Pstr_eval (check, _); _ } ] ->
+                          check
+                      | _ ->
+                          Location.raise_errorf ~loc:attribute.attr_loc
+                            "[@@@@authorize] expects a function, e.g. \
+                             [@@@@authorize fun ~user ~id -> …]"
+                    in
+                    let labels =
+                      match check.pexp_desc with
+                      | Pexp_function (params, _, _) ->
+                          List.map
+                            (fun (param : function_param) ->
+                              match param.pparam_desc with
+                              | Pparam_val (Labelled label, None, _) -> label
+                              | _ ->
+                                  Location.raise_errorf ~loc:param.pparam_loc
+                                    "[@@@@authorize] takes only labelled \
+                                     arguments named like the handler's")
+                            params
+                      | _ ->
+                          Location.raise_errorf ~loc:check.pexp_loc
+                            "[@@@@authorize] expects a function, e.g. \
+                             [@@@@authorize fun ~user ~id -> …]"
+                    in
+                    pexp_apply ~loc check
+                      (List.map
+                         (fun label ->
+                           match
+                             List.find_map
+                               (fun argument ->
+                                 match (argument.label, argument.source) with
+                                 | ( (Labelled known | Optional known),
+                                     (Path _ | Query _ | Body _ | Extracted _) )
+                                   when String.equal known label ->
+                                     Some argument
+                                 | _ -> None)
+                               arguments
+                           with
+                           | Some _ ->
+                               ( Labelled label,
+                                 evar ~loc ("__forge_arg_" ^ label) )
+                           | None ->
+                               Location.raise_errorf ~loc:check.pexp_loc
+                                 "[@@@@authorize] uses ~%s, which %s does not \
+                                  take"
+                                 label name)
+                         labels))
+                  (attribute_of binding "authorize");
               transaction =
                 (match
                    ( attribute_of binding "transactional",
@@ -551,6 +606,7 @@ let transform structure =
               "redirect";
               "timeout";
               "transactional";
+              "authorize";
             ]
             @ List.map fst verbs
           in
@@ -731,22 +787,30 @@ let transform structure =
               | Plain -> [%expr Forge.Route.ok [%e call]]
               | Fallible -> call
             in
+            let steps =
+              List.map
+                (fun (name, expression) -> (pvar ~loc name, expression))
+                extractions
+              @ Option.fold ~none:[]
+                  ~some:(fun check -> [ ([%pat? ()], check) ])
+                  handler.authorize
+            in
             let body =
-              match extractions with
+              match steps with
               | [] -> result
               | _ ->
                   [%expr
                     let open Forge.Route.Syntax in
                     [%e
                       List.fold_right
-                        (fun (name, expression) rest ->
+                        (fun (pattern, expression) rest ->
                           pexp_letop ~loc
                             (letop
                                ~let_:
                                  (binding_op ~loc ~op:{ txt = "let*"; loc }
-                                    ~pat:(pvar ~loc name) ~exp:expression)
+                                    ~pat:pattern ~exp:expression)
                                ~ands:[] ~body:rest))
-                        extractions result]]
+                        steps result]]
             in
             let shape =
               match handler.shape with

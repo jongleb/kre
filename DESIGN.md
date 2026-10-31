@@ -1341,16 +1341,18 @@ Nest задаёт структуру; из Spring берём пять вещей
 
 ### `[@@authorize]`
 
-Замыкание вызывается после извлечения всех параметров (path, query, body, `[@from]`) и до тела. Лейблы — подмножество лейблов хендлера; лишний или с неверным типом — ошибка компиляции. Возврат — `bool Lwt.t` (false → 403) или `(unit, Error.t) result Lwt.t`.
+Реализовано в фазе 2. Замыкание вызывается после разбора всех параметров (path, query, body, `[@from]`) и до тела; ему передаются аргументы хендлера с теми же метками.
 
 ```ocaml
-let update (module Cats : Cats_service.S)
-    ~(user : User.t [@guard Auth.current]) ~(id : int) ~(body : Update_cat_dto.t) : Cat.t Lwt.t = …
-[@@put ":id"]
-[@@authorize fun ~user ~id -> let%lwt owner = Cats.owner_of id in Lwt.return (Auth.is_admin user || owner = user.id)]
+let read ~(user : string [@guard Roles.user]) ~(id : int) : string Lwt.t = …
+[@@get ":id"] [@@authorize fun ~user ~id -> owns ~user ~id]
 ```
 
-Отличие от `[@@guards]`: guard видит только запрос, `authorize` — типизированные параметры. Это закрывает SpEL-кейсы без строк.
+- Payload — буквальная функция `fun ~a ~b -> …`: по меткам ppx решает, что передать. Метка, которой нет у хендлера, — ошибка компиляции; тип проверяет компилятор.
+- Результат — только `(unit, Forge.Error.t) result Lwt.t`; вариант с `bool Lwt.t` из первой версии убран (булева слепота). `Error e` становится ответом (обычно 403).
+- Зависимости хендлера доступны замыканию по имени: оно генерируется внутри `register`, где модули уже связаны.
+
+Отличие от `[@@guards]`: guard видит только запрос, `authorize` — типизированные параметры. Пример — `docs/examples/notes_controller.ml`.
 
 ### `[@@transactional]`
 

@@ -79,6 +79,22 @@ let () =
                 (Some "/cats", Some "no-store")
                 ( header "/legacy/cats" "Location",
                   header "/legacy/fresh" "Cache-Control" ));
+          Alcotest.test_case "[@@authorize] sees typed arguments" `Quick
+            (fun () ->
+              let notes = app [ Notes_controller.register () ] in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [ (200, "note 1 for ann"); (403, ""); (401, "") ]
+                (List.map
+                   (fun (headers, target) ->
+                     match call ~headers notes `GET target with
+                     | ((403 | 401) as status), _ -> (status, "")
+                     | response -> response)
+                   [
+                     ([ ("X-User", "ann") ], "/notes/1");
+                     ([ ("X-User", "ann") ], "/notes/2");
+                     ([], "/notes/1");
+                   ]));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

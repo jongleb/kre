@@ -22,3 +22,10 @@ let signed_in : unit Forge.Guard.t =
        ~none:(Error (Forge.Error.unauthorized "sign in first"))
        ~some:(fun _ -> Ok ())
        (Dream.header request "X-User"))
+
+let user : string Forge.Guard.t =
+ fun request ->
+  Lwt.return
+    (Option.to_result
+       ~none:(Forge.Error.unauthorized "sign in first")
+       (Dream.header request "X-User"))

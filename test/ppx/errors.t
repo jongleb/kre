@@ -336,3 +336,17 @@ Timeout takes seconds as a float.
   Error: [@from Db.tx] reads the open transaction; add [@@transactional] to f
   [1]
 
+[@@authorize] takes a literal function over the handler's labels.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f ~(id : int) : unit Lwt.t = ignore id; Lwt.return_unit
+  > [@@get ":id"] [@@authorize fun ~id ~owner -> check id owner]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 3, characters 27-59:
+  3 | [@@get ":id"] [@@authorize fun ~id ~owner -> check id owner]
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Error: [@@authorize] uses ~owner, which f does not take
+  [1]
+
