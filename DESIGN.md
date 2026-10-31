@@ -1517,6 +1517,7 @@ open http://localhost:8080/cats/1
 - ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
+- ✅ WebSocket: `Forge.Gateway` (кадры `{event, data}` как в Nest, `on`/`notify` с явными модулями тела и ответа, `send`/`broadcast`, ошибки — событие `error` с Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` видит шлюзы; проверено живым WebSocket из node 22
 - ✅ Actuator: `Forge.Actuator.make` (`/health`, `/info`, `/env`, `/routes`, `/openapi.json`, `/metrics`), `[@@health]` в провайдерах, `Config.pairs` из деривера (`docs/actuator.md`)
 - ✅ кэш: `[@@cache ttl]` (ответ GET по URL, `X-Cache`), `Forge.Cache.memoize` (`find`/`evict`/`clear`) (`docs/caching.md`)
 - ✅ расписание: `[@@cron]` (`Forge_shared.Cron` разбирается в ppx при сборке, `next` без `Unix` — работает и в Melange), `[@@interval]`, `[@@after]`; `Forge.Schedule`, запуск/остановка через `Forge.Wiring` (`docs/task-scheduling.md`)
@@ -1594,6 +1595,7 @@ open http://localhost:8080/cats/1
 - [ ] Имя: `Forge` — рабочее; проверить коллизии в opam перед публикацией.
 - [ ] `.mlx` против reason-синтаксиса для JSX: `.mlx` по умолчанию, пока не упрёмся в ограничения.
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
+- [ ] WebSocket: при закрытии со стороны клиента сервер получает `None` и вызывает `Dream.close_websocket`, но клиент (node 22) не получает подтверждения закрытия в течение 3 с. Сообщения ходят. Проверить на примере `k-websocket` Dream 1.0 и, если это там же, — в Dream.
 - [ ] `--emit-spec` запускает composition root (`main.ml`), а он сначала грузит конфиг, поэтому сборка требует переменных окружения (в cats dune-правило ставит `SESSION_SECRET=unused`). `spec` статичен; вариант — `forge` сам собирает маленький бинарь, который печатает `Cats_controller.spec`, без запуска `main`.
 - [ ] `ssl 0.8.0`, собранный против OpenSSL 4, падает при инициализации `conduit-lwt-unix` (минимум SSL3 больше не поддерживается), а с ним и native-клиент на cohttp. Локальный switch пересобран против `openssl@3` (`PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig opam reinstall ssl`); на ubuntu в CI OpenSSL 3. Чинить в ssl или уйти с conduit в native-клиенте.
 - [x] Атрибуты контроллера, отложенные из фазы 1: сделаны в фазе 2, кроме `[@@sse]` (своя строка); `[@@@inject]` и `[@codec e]` не нужны (см. раздел ppx: controller).

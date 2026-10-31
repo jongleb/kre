@@ -8,6 +8,8 @@
 
 **Fundamentals:** [Custom providers](custom-providers.md) · [Async providers и dynamic modules](dynamic-modules.md) · [Injection scopes](injection-scopes.md) · [Execution context](execution-context.md) · [Lifecycle events](lifecycle-events.md) · [Testing](testing.md) · [Что не нужно и почему](not-needed.md)
 
+**WebSockets:** [Gateways](websockets.md)
+
 **Security:** [Authentication и Authorization](authentication.md) · [Helmet, CORS, rate limiting](security.md)
 
 **Techniques:** [Configuration](configuration.md) · [Events](events.md) · [Task scheduling](task-scheduling.md) · [Caching](caching.md) · [Actuator и health](actuator.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md)

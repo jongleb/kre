@@ -3,6 +3,7 @@ let () =
     ~preprocess_impl:Dto.structure ~preprocess_intf:Dto.signature;
   Ppxlib.Driver.register_transformation "forge.controller"
     ~impl:Controller.transform;
+  Ppxlib.Driver.register_transformation "forge.gateway" ~impl:Gateway.transform;
   Ppxlib.Driver.register_transformation "forge.path"
     ~rules:
       [

@@ -97,7 +97,7 @@
 | `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]` (проверка при сборке), `[@@interval]`, `[@@after]` | ✅ |
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable`, `@CacheEvict` | `[@@cache ttl]` на GET; `Forge.Cache.memoize` → `{ find; evict; clear }` | ✅ |
 | Terminus | Actuator | `Forge.Actuator`: health (`[@@health]` через `[%wire]`), info, env (секреты скрыты), routes, openapi, Prometheus metrics | ✅ |
-| `@WebSocketGateway`, `@SubscribeMessage` | `@MessageMapping` | `[@@@gateway]`, `[@@subscribe]` | 🔜 |
+| `@WebSocketGateway`, `@SubscribeMessage`, `@MessageBody`, `@ConnectedSocket` | `@MessageMapping` | `[@@@gateway "chat"]`, `[@@subscribe "say"]`, `~(body : T.t)`, `(socket : Forge.Gateway.socket)`, `broadcast` | ✅ |
 | — | — | live loaders (IHP Auto Refresh) | 🔜 |
 | queues, microservices, GraphQL | `@Async`, Spring Cloud | | ⏳ |
 

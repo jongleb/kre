@@ -46,6 +46,14 @@ let write_only keys (schema : Jsonkit.Jsonschema.t) : Jsonkit.Jsonschema.t =
            members)
   | other -> other
 
+module Ignored = struct
+  type t = unit
+
+  let of_json (_ : Jsonkit.t) = ()
+  let to_json () = Jsonkit.declassify `Null
+  let t_jsonschema = `Assoc []
+end
+
 module List (J : S) = struct
   type t = J.t list
 

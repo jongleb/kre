@@ -12,6 +12,8 @@ let controllers =
     Ticks_controller.register ();
     Files_controller.register ();
     Tenant_controller.register ();
+    Stats_controller.register ();
+    Chat_gateway.register ();
   ]
 
 let () =

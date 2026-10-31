@@ -246,6 +246,53 @@ let () =
                 "responses"
                 [ ("computed 1 times", "miss"); ("computed 1 times", "hit") ]
                 [ first; second ]);
+          Alcotest.test_case "websocket gateway" `Quick (fun () ->
+              let chat = Chat_gateway.gateway () in
+              let inbox = ref [] in
+              let client name =
+                fst
+                  (Forge.Gateway.connect chat ~send:(fun frame ->
+                       inbox := (name ^ " " ^ frame) :: !inbox;
+                       Lwt.return_unit))
+              in
+              let ann = client "ann" in
+              let _bob = client "bob" in
+              Lwt_main.run
+                (let open Lwt.Syntax in
+                 let* () = ann {|{"event":"ping"}|} in
+                 let* () =
+                   ann {|{"event":"say","data":{"author":"ann","text":"hi"}}|}
+                 in
+                 let* () = ann {|{"event":"say","data":{"author":"ann"}}|} in
+                 ann {|{"event":"dance"}|});
+              Alcotest.(check (list string))
+                "frames"
+                [
+                  {|ann {"event":"ping","data":"pong"}|};
+                  {|bob {"event":"said","data":{"author":"ann","text":"hi"}}|};
+                  {|ann {"event":"said","data":{"author":"ann","text":"hi"}}|};
+                  {|ann {"event":"say","data":{"author":"ann","text":"ack: hi"}}|};
+                  "ann error 422";
+                  "ann error 404";
+                ]
+                (List.map
+                   (fun line ->
+                     match String.index_opt line ' ' with
+                     | None -> line
+                     | Some space -> (
+                         let name = String.sub line 0 space in
+                         let frame =
+                           Yojson.Basic.from_string
+                             (String.sub line (space + 1)
+                                (String.length line - space - 1))
+                         in
+                         match Yojson.Basic.Util.member "event" frame with
+                         | `String "error" ->
+                             Printf.sprintf "%s error %d" name
+                               Yojson.Basic.Util.(
+                                 to_int (member "status" (member "data" frame)))
+                         | _ -> line))
+                   (List.rev !inbox)));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

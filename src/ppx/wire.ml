@@ -173,7 +173,10 @@ let scan path =
     | first :: _ -> first.pstr_loc
     | [] -> Location.in_file path
   in
-  match floating "controller" with
+  match
+    Option.fold ~none:(floating "gateway") ~some:Option.some
+      (floating "controller")
+  with
   | Some attribute ->
       Controller
         {
@@ -200,6 +203,7 @@ let scan path =
                                        "head";
                                        "options";
                                        "all";
+                                       "subscribe";
                                      ])
                                  binding.pvb_attributes ->
                             List.fold_left

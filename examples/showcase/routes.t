@@ -30,3 +30,4 @@ Every route of the showcase, straight from the controllers' specs.
   HEAD    /files/echo                      echo 200
   OPTIONS /files/echo                      echo 200
   GET     /tenant                          whoami 200
+  GET     /stats                           summary 200
