@@ -1,0 +1,6 @@
+(library
+ (name server)
+ (wrapped false)
+ (libraries shared forge forge.shared dream lwt routes)
+ (preprocess
+  (pps lwt_ppx forge-ppx)))

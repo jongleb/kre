@@ -1,0 +1,27 @@
+module type S = sig
+  val add : Create_{{singular}}_dto.t -> {{Singular}}.t Lwt.t
+  val find_all : unit -> {{Singular}}.t list Lwt.t
+  val find : int -> {{Singular}}.t option Lwt.t
+  val remove : int -> unit Lwt.t
+end
+
+let {{plural}} : (int, {{Singular}}.t) Hashtbl.t = Hashtbl.create 16
+let last_id = ref 0
+
+let add ({ name } : Create_{{singular}}_dto.t) =
+  incr last_id;
+  let {{singular}} = { {{Singular}}.id = !last_id; name } in
+  Hashtbl.replace {{plural}} {{singular}}.id {{singular}};
+  Lwt.return {{singular}}
+
+let find_all () =
+  Lwt.return
+    (List.sort
+       (fun (left : {{Singular}}.t) (right : {{Singular}}.t) -> Int.compare left.id right.id)
+       (List.of_seq (Hashtbl.to_seq_values {{plural}})))
+
+let find id = Lwt.return (Hashtbl.find_opt {{plural}} id)
+
+let remove id =
+  Hashtbl.remove {{plural}} id;
+  Lwt.return_unit

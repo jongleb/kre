@@ -1,0 +1,35 @@
+let () =
+  let app =
+    Dream.test
+      (Forge.App.handler
+         [ {{Plural}}_controller.register (module {{Plural}}_service) ])
+  in
+  let call ?(body = "") method_ target =
+    let response = app (Dream.request ~method_ ~target body) in
+    ( Dream.status_to_int (Dream.status response),
+      Lwt_main.run (Dream.body response) )
+  in
+  Alcotest.run "{{plural}}"
+    [
+      ( "crud",
+        [
+          Alcotest.test_case "create, read, remove" `Quick (fun () ->
+              let created = call ~body:{|{"name":"first"}|} `POST "/{{plural}}" in
+              let found = call `GET "/{{plural}}/1" in
+              let removed = call `DELETE "/{{plural}}/1" in
+              let gone = fst (call `GET "/{{plural}}/1") in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [
+                  (201, {|{"id":1,"name":"first"}|});
+                  (200, {|{"id":1,"name":"first"}|});
+                  (204, "");
+                  (404, "");
+                ]
+                [ created; found; removed; (gone, "") ]);
+          Alcotest.test_case "invalid body is 422" `Quick (fun () ->
+              Alcotest.(check int)
+                "status" 422
+                (fst (call ~body:{|{"name":""}|} `POST "/{{plural}}")));
+        ] );
+    ]

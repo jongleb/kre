@@ -158,9 +158,40 @@ let migrate =
           $ Arg.(required & pos 0 (some string) None & info [] ~docv:"NAME"));
     ]
 
+let scaffold =
+  let name = Arg.(required & pos 0 (some string) None & info [] ~docv:"NAME") in
+  let report written =
+    Result.map
+      (fun files ->
+        List.iter (fun file -> print_endline ("created " ^ file)) files)
+      written
+  in
+  let generate kind doc =
+    Cmd.v
+      (Cmd.info
+         (match kind with
+         | Scaffold.Controller -> "controller"
+         | Scaffold.Service -> "service"
+         | Scaffold.Dto -> "dto")
+         ~doc)
+      Term.(const (fun name -> report (Scaffold.generate kind name)) $ name)
+  in
+  ( Cmd.v
+      (Cmd.info "new" ~doc:"Create a project: shared, server, bin and a test.")
+      Term.(const (fun name -> report (Scaffold.project name)) $ name),
+    Cmd.group
+      (Cmd.info "generate" ~doc:"Add a resource, service or DTO to a project.")
+      [
+        generate Scaffold.Controller
+          "A CRUD resource: shared type and DTO, in-memory service, \
+           controller, test.";
+        generate Scaffold.Service "A service with its module type S.";
+        generate Scaffold.Dto "A DTO in shared/.";
+      ] )
+
 let () =
   exit
     (Cmd.eval_result
        (Cmd.group
           (Cmd.info "forge" ~doc:"NestJS-style tooling for Forge")
-          [ client; openapi; routes; migrate ]))
+          [ fst scaffold; snd scaffold; client; openapi; routes; migrate ]))

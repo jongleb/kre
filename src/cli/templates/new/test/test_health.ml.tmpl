@@ -1,0 +1,15 @@
+let () =
+  let app = Dream.test (Forge.App.handler [ Health_controller.register () ]) in
+  Alcotest.run "{{name}}"
+    [
+      ( "health",
+        [
+          Alcotest.test_case "GET /health" `Quick (fun () ->
+              let response = app (Dream.request ~target:"/health" "") in
+              Alcotest.(check (pair int string))
+                "up"
+                (200, {|{"status":"up","service":"{{name}}"}|})
+                ( Dream.status_to_int (Dream.status response),
+                  Lwt_main.run (Dream.body response) ));
+        ] );
+    ]

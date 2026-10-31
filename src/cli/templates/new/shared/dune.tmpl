@@ -1,0 +1,8 @@
+; Types shared by server and client; ./melange builds the same files for JS.
+
+(library
+ (name shared)
+ (wrapped false)
+ (libraries forge forge.shared jsonkit)
+ (preprocess
+  (pps jsonkit.ppx forge-ppx)))

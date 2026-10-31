@@ -1,0 +1,5 @@
+[@@@controller "health"]
+
+let status () : Health.t Lwt.t =
+  Lwt.return { Health.status = "up"; service = "{{name}}" }
+[@@get]

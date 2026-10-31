@@ -1,0 +1,9 @@
+(** The {{plural}} provider. *)
+module type S = sig
+  val add : Create_{{singular}}_dto.t -> {{Singular}}.t Lwt.t
+  val find_all : unit -> {{Singular}}.t list Lwt.t
+  val find : int -> {{Singular}}.t option Lwt.t
+  val remove : int -> unit Lwt.t
+end
+
+include S

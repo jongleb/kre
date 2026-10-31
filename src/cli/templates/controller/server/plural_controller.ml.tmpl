@@ -1,0 +1,19 @@
+[@@@controller "{{plural}}"]
+
+let find_all (module {{Plural}} : {{Plural}}_service.S) () : {{Singular}}.t list Lwt.t =
+  {{Plural}}.find_all ()
+[@@get]
+
+let find_one (module {{Plural}} : {{Plural}}_service.S) ~(id : int) :
+    {{Singular}}.t option Lwt.t =
+  {{Plural}}.find id
+[@@get ":id"]
+
+let create (module {{Plural}} : {{Plural}}_service.S) ~(body : Create_{{singular}}_dto.t) :
+    {{Singular}}.t Lwt.t =
+  {{Plural}}.add body
+[@@post] [@@status 201]
+
+let remove (module {{Plural}} : {{Plural}}_service.S) ~(id : int) () : unit Lwt.t =
+  {{Plural}}.remove id
+[@@delete ":id"]

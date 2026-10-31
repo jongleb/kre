@@ -1,5 +1,17 @@
+(data_only_dirs templates)
+
+(rule
+ (targets templates.ml)
+ (deps
+  (source_tree templates))
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:embed/embed.exe} templates))))
+
 (executable
  (name main)
  (public_name forge)
+ (modules main generate scaffold templates)
  (package forge-cli)
  (libraries forge forge-db-mariadb cmdliner yojson dream lwt))

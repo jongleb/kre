@@ -1,0 +1,6 @@
+(cram
+ (deps
+  (package forge)
+  (package forge-ppx)
+  (package forge-client)
+  (package forge-cli)))

@@ -1,0 +1,10 @@
+(library
+ (name shared_js)
+ (wrapped false)
+ (modes melange)
+ (libraries forge-client.shared jsonkit-melange)
+ (preprocess
+  (pps melange.ppx jsonkit-melange.ppx forge-ppx -- -melange)))
+
+(copy_files#
+ (files ../*.ml))

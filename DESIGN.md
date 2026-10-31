@@ -1302,7 +1302,7 @@ let test_404 () =
 | `forge routes` | таблица маршрутов из spec | — |
 | `forge start [--watch]` | `dune build -w` + перезапуск `main.exe`; melange-пересборка — через dune же | `nest start --watch` |
 
-`forge routes` и `forge openapi` — обёртки над флагами серверного бинаря, чтобы не дублировать `spec`-сериализацию. Шаблоны — файлы в `src/cli/templates/`, не строки в коде.
+`forge routes`, `forge openapi` и `forge client` читают `spec.json`, который пишет серверный бинарь (`--emit-spec`), поэтому сериализация `spec` одна. Шаблоны — файлы `src/cli/templates/<new|controller|service|dto>/…/*.tmpl` (`data_only_dirs`); при сборке `embed.exe` встраивает их в бинарь. Подстановки — `{{name}}`, `{{plural}}`, `{{Plural}}`, `{{singular}}`, `{{Singular}}`, в путях — слова `plural`/`singular`; единственное число — без конечной `s`. `forge new` пока без клиента и без БД: `shared/` (native + melange), `server/` с health-контроллером, `bin/main.ml`, тест; `generate controller` — ресурс как `nest g resource` (тип и DTO в `shared/`, сервис в памяти, контроллер, тест в `test/<plural>/`), регистрацию в `main.ml` разработчик добавляет сам. Перезаписи нет: если хоть один файл существует, не пишется ничего.
 
 ## Заимствования из Spring
 
@@ -1440,7 +1440,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | ✅ `Forge_client.Router` + `[%path]`, `search`, `params` | node: `href`, матчинг, `search` с дефолтом и ошибкой, SSR `link` и `View`; cram: `link` с неверными params не компилируется |
 | ✅ `Forge.Db` (пул, транзакции) + `Forge_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запросы против сгенерированного `schema.sql` компилируются и выполняются на MariaDB 11.8 (алиас `@db`, отдельная CI-задача) |
 | ✅ `forge migrate up/down/status/new` (+ `Forge.Migration`) | e2e на MariaDB: пустая база → up → down, программно и через CLI |
-| `forge new`, `forge generate controller/service/dto` | сгенерированный проект собирается и проходит свой e2e |
+| ✅ `forge new`, `forge generate controller/service/dto` | cram (`test/scaffold/new.t`) с установленными пакетами: проект собирается и проходит свой тест; ресурс из `generate controller` собирается и проходит CRUD-тест; существующие файлы не перезаписываются |
 | Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data | каждая глава содержит порт Nest-примера, который компилируется в `docs/` как mdx-тест |
 
 **Критерий фазы 1:** `examples/cats` — порт Nest-примера — собирается (`dune build @all`), `dune test` зелёный, `forge client` регенерирует клиент без диффа, страница `/cats/1` в браузере показывает кота из БД.
