@@ -30,14 +30,19 @@ let document ~title ~version specs =
            `List
              (List.map
                 (fun (param : Spec.param) ->
-                  let location, required, schema =
+                  let location, presence =
                     match param.location with
-                    | Path -> ("path", true, schema param.value)
-                    | Query Required -> ("query", true, schema param.value)
-                    | Query Optional -> ("query", false, schema param.value)
-                    | Query Repeated ->
-                        ( "query",
-                          false,
+                    | Path -> ("path", Spec.Required)
+                    | Query presence -> ("query", presence)
+                    | Header presence -> ("header", presence)
+                    | Cookie presence -> ("cookie", presence)
+                  in
+                  let required, schema =
+                    match presence with
+                    | Required -> (true, schema param.value)
+                    | Optional -> (false, schema param.value)
+                    | Repeated ->
+                        ( false,
                           `Assoc
                             [
                               ("type", `String "array");

@@ -36,3 +36,52 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 - `[@@status 201]` — код успеха (`@HttpCode`); `[@@header ("Cache-Control", "no-store")]` — `@Header`; `[@@redirect "/cats"]` — `@Redirect`; `[@@timeout 5.0]` — 504, если хендлер не успел; `[@@@error_handler h]` — фильтр исключений на весь контроллер.
 
 Пути доступны и коду: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. Сгенерированный код целиком — `test/ppx/controller.t`.
+
+## Декораторы параметров
+
+Атрибут на типе параметра говорит, откуда взять значение; тип решает, как его разобрать и обязательно ли оно (`option` — нет, `list` — повторяемое).
+
+| Nest | Spring | Forge |
+| --- | --- | --- |
+| `@Req()` | `HttpServletRequest` | `(req : Dream.request)` или `[@req]` |
+| `@Param('id')` | `@PathVariable` | `~(id : int)` при `:id` в пути; другое имя — `[@param "id"]` |
+| `@Query('page')`, `@Query()` | `@RequestParam` | `~(page : int)`; другое имя — `[@query "page-size"]`; все — `[@query]` |
+| `@Body()`, `@Body('name')` | `@RequestBody` | `~(body : T.t)` или `[@body]` на любой метке; поле — `[@body "name"]` |
+| `@Headers('x')`, `@Headers()` | `@RequestHeader` | `[@header "X-Client-Name"]`; все — `[@headers]` |
+| `@Cookies('x')`, `@SignedCookies('x')` | `@CookieValue` | `[@cookie "theme"]`, `[@signed_cookie "sid"]`; все — `[@cookies]` |
+| `@Session()` | `@SessionAttribute` | `[@session "user_id"]` |
+| `@Ip()` | `request.getRemoteAddr()` | `[@ip]` |
+| `@HostParam()` | — | `[@host]` |
+| свой декоратор | `HandlerMethodArgumentResolver` | `[@from guard]` с любым `'a Forge.Guard.t` |
+| `@Res()`, `@Next()` | `HttpServletResponse` | не нужны: ответ — возвращаемое значение, `next` — middleware |
+
+<!-- $MDX file=examples/entities_controller.ml -->
+```ocaml
+[@@@controller "entities"]
+
+let update ~(id : int) ~(entity : (Profile.t[@body]))
+    ~(client_name : (string[@header "X-Client-Name"]))
+    ~(trace : (string option[@header "X-Trace"]))
+    ~(theme : (string option[@cookie "theme"]))
+    ~(page_size : (int[@query "page-size"])) (ip : (string[@ip])) () :
+    string Lwt.t =
+  Lwt.return
+    (String.concat " "
+       [
+         string_of_int id;
+         entity.display_name;
+         client_name;
+         Option.value trace ~default:"-";
+         Option.value theme ~default:"-";
+         string_of_int page_size;
+         ip;
+       ])
+[@@put ":id"]
+
+let rename ~(cat_id : (int[@param "id"])) ~(name : (Cat.Name.t[@body "name"])) :
+    string Lwt.t =
+  Lwt.return (Printf.sprintf "%d is now %s" cat_id (Cat.Name.to_repr name))
+[@@patch ":id"]
+```
+
+Заголовки и cookies попадают в `spec` и OpenAPI (`in: header`, `in: cookie`); заголовки — ещё и в сгенерированный клиент: `update ~id ~client_name ?trace ~page_size ~body`.

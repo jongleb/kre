@@ -76,6 +76,7 @@ A controller with every kind of parameter.
            params =
              [{
                 Forge.Spec.name = "limit";
+                label = "limit";
                 location = (Forge.Spec.Query Forge.Spec.Optional);
                 value =
                   {
@@ -88,6 +89,7 @@ A controller with every kind of parameter.
               };
              {
                Forge.Spec.name = "q";
+               label = "q";
                location = (Forge.Spec.Query Forge.Spec.Optional);
                value =
                  {
@@ -100,6 +102,7 @@ A controller with every kind of parameter.
              };
              {
                Forge.Spec.name = "tags";
+               label = "tags";
                location = (Forge.Spec.Query Forge.Spec.Repeated);
                value =
                  {
@@ -129,24 +132,26 @@ A controller with every kind of parameter.
           name = "show";
           params =
             [{
-               Forge.Spec.name = "breed";
+               Forge.Spec.name = "id";
+               label = "id";
                location = Forge.Spec.Path;
                value =
                  {
-                   Forge.Spec.type_ = "Breed.t";
-                   module_ = "Breed";
-                   schema = ((let module M = Breed in M.t_jsonschema))
+                   Forge.Spec.type_ = "int";
+                   module_ = "Forge_shared.Scalar.Int";
+                   schema =
+                     ((let module M = Forge_shared.Scalar.Int in M.t_jsonschema))
                  }
              };
             {
-              Forge.Spec.name = "id";
+              Forge.Spec.name = "breed";
+              label = "breed";
               location = Forge.Spec.Path;
               value =
                 {
-                  Forge.Spec.type_ = "int";
-                  module_ = "Forge_shared.Scalar.Int";
-                  schema =
-                    ((let module M = Forge_shared.Scalar.Int in M.t_jsonschema))
+                  Forge.Spec.type_ = "Breed.t";
+                  module_ = "Breed";
+                  schema = ((let module M = Breed in M.t_jsonschema))
                 }
             }];
           body = None;
@@ -189,6 +194,7 @@ A controller with every kind of parameter.
           params =
             [{
                Forge.Spec.name = "id";
+               label = "id";
                location = Forge.Spec.Path;
                value =
                  {

@@ -1,8 +1,21 @@
 type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
 type presence = Required | Optional | Repeated
-type location = Path | Query of presence
+
+type location =
+  | Path
+  | Query of presence
+  | Header of presence
+  | Cookie of presence
+
 type value = { type_ : string; module_ : string; schema : Jsonkit.Jsonschema.t }
-type param = { name : string; location : location; value : value }
+
+type param = {
+  name : string;
+  label : string;
+  location : location;
+  value : value;
+}
+
 type returns = Unit | Text | Json of value | Events of value | Raw
 
 type route = {
@@ -34,10 +47,17 @@ let to_json spec =
       | Query Required -> ("query", "required")
       | Query Optional -> ("query", "optional")
       | Query Repeated -> ("query", "repeated")
+      | Header Required -> ("header", "required")
+      | Header Optional -> ("header", "optional")
+      | Header Repeated -> ("header", "repeated")
+      | Cookie Required -> ("cookie", "required")
+      | Cookie Optional -> ("cookie", "optional")
+      | Cookie Repeated -> ("cookie", "repeated")
     in
     `Assoc
       [
         ("name", `String param.name);
+        ("label", `String param.label);
         ("in", `String location);
         ("presence", `String presence);
         ("value", value_to_json param.value);
@@ -82,6 +102,7 @@ let of_json json =
   let param json =
     {
       name = to_string (member "name" json);
+      label = to_string (member "label" json);
       location =
         (match
            (to_string (member "in" json), to_string (member "presence" json))
@@ -90,6 +111,12 @@ let of_json json =
         | "query", "required" -> Query Required
         | "query", "optional" -> Query Optional
         | "query", "repeated" -> Query Repeated
+        | "header", "required" -> Header Required
+        | "header", "optional" -> Header Optional
+        | "header", "repeated" -> Header Repeated
+        | "cookie", "required" -> Cookie Required
+        | "cookie", "optional" -> Cookie Optional
+        | "cookie", "repeated" -> Cookie Repeated
         | location, presence -> fail (location ^ "/" ^ presence));
       value = value (member "value" json);
     }

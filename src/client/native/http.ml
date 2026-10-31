@@ -1,7 +1,7 @@
 let base_url = ref ""
 let headers = ref []
 
-let request verb ~path ?(query = []) ?body returns =
+let request verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
   Lwt.catch
     (fun () ->
       let open Lwt.Syntax in
@@ -9,7 +9,8 @@ let request verb ~path ?(query = []) ?body returns =
         Cohttp_lwt_unix.Client.call
           ~headers:
             (Cohttp.Header.of_list
-               ((("Accept", "application/json") :: !headers)
+               (("Accept", "application/json")
+                :: (!headers @ List.concat extra)
                @ Option.fold ~none:[]
                    ~some:(fun _ -> [ ("Content-Type", "application/json") ])
                    body))

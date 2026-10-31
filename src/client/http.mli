@@ -5,6 +5,7 @@ val request :
   Wire.verb ->
   path:string list ->
   ?query:(string * string) list list ->
+  ?headers:(string * string) list list ->
   ?body:string ->
   'a Wire.returns ->
   ('a, Error.t) result Js.Promise.t

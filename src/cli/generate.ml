@@ -5,12 +5,12 @@ let client (spec : Forge.Spec.t) =
         (fun segment -> segment <> "")
         (String.split_on_char '/' route.path)
     in
-    let path_value name =
+    let path_param name =
       List.find_map
         (fun (param : Forge.Spec.param) ->
           match param.location with
-          | Path when String.equal param.name name -> Some param.value
-          | Path | Query _ -> None)
+          | Path when String.equal param.name name -> Some param
+          | Path | Query _ | Header _ | Cookie _ -> None)
         route.params
     in
     let path =
@@ -20,34 +20,36 @@ let client (spec : Forge.Spec.t) =
           | [ ""; name ], _ ->
               Option.fold
                 ~none:(Printf.sprintf "%S" segment)
-                ~some:(fun (value : Forge.Spec.value) ->
+                ~some:(fun (param : Forge.Spec.param) ->
                   Printf.sprintf "Forge_client.Wire.segment (module %s) %s"
-                    value.module_ name)
-                (path_value name)
+                    param.value.module_ param.label)
+                (path_param name)
           | _, literal -> Printf.sprintf "%S" literal)
         segments
     in
-    let queries =
+    let sent kind =
       List.filter_map
         (fun (param : Forge.Spec.param) ->
-          match param.location with
-          | Path -> None
-          | Query presence -> Some (param, presence))
+          match (param.location, kind) with
+          | Query presence, `Query | Header presence, `Header ->
+              Some (param, presence)
+          | (Path | Query _ | Header _ | Cookie _), _ -> None)
         route.params
     in
+    let queries = sent `Query and headers = sent `Header in
     let arguments =
       List.filter_map
         (fun (param : Forge.Spec.param) ->
           match param.location with
-          | Path -> Some ("~" ^ param.name)
-          | Query _ -> None)
+          | Path -> Some ("~" ^ param.label)
+          | Query _ | Header _ | Cookie _ -> None)
         route.params
       @ List.map
           (fun ((param : Forge.Spec.param), (presence : Forge.Spec.presence)) ->
             match presence with
-            | Optional -> "?" ^ param.name
-            | Required | Repeated -> "~" ^ param.name)
-          queries
+            | Optional -> "?" ^ param.label
+            | Required | Repeated -> "~" ^ param.label)
+          (queries @ headers)
       @ Option.fold ~none:[] ~some:(fun _ -> [ "~body" ]) route.body
     in
     let unit =
@@ -58,10 +60,30 @@ let client (spec : Forge.Spec.t) =
               match presence with
               | Optional -> true
               | Required | Repeated -> false)
-            queries )
+            (queries @ headers) )
       with
       | [], _ | _, Some _ -> [ "()" ]
       | _ :: _, None -> []
+    in
+    let pairs argument sent =
+      match sent with
+      | [] -> ""
+      | _ ->
+          Printf.sprintf "    ~%s:\n      [\n%s      ]\n" argument
+            (String.concat ""
+               (List.map
+                  (fun ( (param : Forge.Spec.param),
+                         (presence : Forge.Spec.presence) ) ->
+                    Printf.sprintf
+                      "        Forge_client.Wire.query (module %s) \
+                       Forge_shared.Presence.%s %S %s;\n"
+                      param.value.module_
+                      (match presence with
+                      | Required -> "Required"
+                      | Optional -> "Optional"
+                      | Repeated -> "Repeated")
+                      param.name param.label)
+                  sent))
     in
     String.concat ""
       [
@@ -70,24 +92,8 @@ let client (spec : Forge.Spec.t) =
         Printf.sprintf "  Forge_client.Http.request `%s\n"
           (Dream.method_to_string route.verb);
         Printf.sprintf "    ~path:[ %s ]\n" (String.concat "; " path);
-        (match queries with
-        | [] -> ""
-        | _ ->
-            Printf.sprintf "    ~query:\n      [\n%s      ]\n"
-              (String.concat ""
-                 (List.map
-                    (fun ( (param : Forge.Spec.param),
-                           (presence : Forge.Spec.presence) ) ->
-                      Printf.sprintf
-                        "        Forge_client.Wire.query (module %s) \
-                         Forge_shared.Presence.%s %S %s;\n"
-                        param.value.module_
-                        (match presence with
-                        | Required -> "Required"
-                        | Optional -> "Optional"
-                        | Repeated -> "Repeated")
-                        param.name param.name)
-                    queries)));
+        pairs "query" queries;
+        pairs "headers" headers;
         Option.fold ~none:""
           ~some:(fun (body : Forge.Spec.value) ->
             Printf.sprintf

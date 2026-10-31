@@ -402,6 +402,7 @@ let spec =
                                `Assoc
                                  [
                                    ("name", `String "id");
+                                   ("label", `String "id");
                                    ("in", `String "path");
                                    ("presence", `String "required");
                                    ( "value",
@@ -441,6 +442,7 @@ let spec =
                        [
                          {
                            name = "id";
+                           label = "id";
                            location = Path;
                            value =
                              {

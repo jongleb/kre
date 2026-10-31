@@ -1,6 +1,6 @@
-let call ?(headers = []) handler method_ target =
+let call ?(headers = []) ?(body = "") handler method_ target =
   let response =
-    Dream.test handler (Dream.request ~method_ ~target ~headers "")
+    Dream.test handler (Dream.request ~method_ ~target ~headers body)
   in
   ( Dream.status_to_int (Dream.status response),
     Lwt_main.run (Dream.body response) )
@@ -123,6 +123,32 @@ let () =
                   "data: {\"n\":0}\n\ndata: {\"n\":1}\n\ndata: {\"n\":2}\n\n" )
                 ( Dream.header response "Content-Type",
                   Lwt_main.run (Dream.body response) ));
+          Alcotest.test_case "parameter decorators" `Quick (fun () ->
+              let entities = app [ Entities_controller.register () ] in
+              let update headers =
+                call ~headers ~body:{|{"displayName":"Ann"}|} entities `PUT
+                  "/entities/7?page-size=20"
+              in
+              Alcotest.(check (list (pair int string)))
+                "responses"
+                [
+                  (200, "7 Ann web - dark 20 127.0.0.1");
+                  (400, "missing");
+                  (200, "3 is now tom");
+                  (422, "invalid");
+                ]
+                [
+                  update [ ("X-Client-Name", "web"); ("Cookie", "theme=dark") ];
+                  (match update [] with
+                  | 400, _ -> (400, "missing")
+                  | other -> other);
+                  call ~body:{|{"name":"tom"}|} entities `PATCH "/entities/3";
+                  (match
+                     call ~body:{|{"name":""}|} entities `PATCH "/entities/3"
+                   with
+                  | 422, _ -> (422, "invalid")
+                  | other -> other);
+                ]);
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

@@ -229,7 +229,7 @@ Optional query parameter without a default.
   File "input.ml", line 2, characters 6-19:
   2 | let f ?(page : int) () : unit Lwt.t = ignore page; Lwt.return_unit [@@get]
             ^^^^^^^^^^^^^
-  Error: optional query parameter page needs a default or an option type: ?(page : int = 0) or ?(page : int option)
+  Error: optional parameter page needs a default or an option type: ?(page : int = 0) or ?(page : int option)
   [1]
 
 A dependency with two signatures.

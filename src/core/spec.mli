@@ -5,7 +5,11 @@ type presence =
   | Optional  (** May be absent; a default, if any, is in the schema. *)
   | Repeated  (** [?x=a&x=b]. *)
 
-type location = Path | Query of presence
+type location =
+  | Path
+  | Query of presence
+  | Header of presence
+  | Cookie of presence
 
 type value = {
   type_ : string;  (** The OCaml type as written, e.g. ["Cat.t list"]. *)
@@ -16,7 +20,13 @@ type value = {
 }
 (** A value crossing the wire, described for code generators. *)
 
-type param = { name : string; location : location; value : value }
+type param = {
+  name : string;  (** On the wire: segment, query key, header or cookie name. *)
+  label : string;  (** The handler's label, e.g. [client_name]. *)
+  location : location;
+  value : value;
+}
+
 type returns = Unit | Text | Json of value | Events of value | Raw
 
 type route = {

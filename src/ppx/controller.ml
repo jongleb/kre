@@ -8,11 +8,20 @@ type value = { type_ : core_type; module_ : module_expr }
 
 type presence = Required | Optional | Repeated
 
+(** Where a decorated parameter is read from. *)
+type carrier = Header | Cookie | Signed_cookie | Session
+
 (** Where one argument of a handler comes from. *)
 type source =
   | Dependency of { name : string; pattern : pattern; package : core_type }
-  | Path of value
+  | Path of { segment : string; value : value }
   | Query of { name : string; presence : presence; value : value }
+  | Located of {
+      carrier : carrier;
+      name : string;
+      presence : presence;
+      value : value;
+    }  (** [[@header]], [[@cookie]], [[@signed_cookie]], [[@session]]. *)
   | Body of value
   | Extracted of expression  (** [[@guard e]] or [[@from e]]. *)
   | Request
@@ -198,6 +207,106 @@ let transform structure =
   in
   let classify ~names (param : function_param) =
     let loc = param.pparam_loc in
+    let presence ~label ~(arg_label : arg_label) ~(default : expression option)
+        (type_ : core_type) =
+      match (type_.ptyp_desc, arg_label, default) with
+      | _, Optional _, Some _ -> (Optional, type_)
+      | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), _, _ ->
+          (Optional, element)
+      | ( Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]),
+          (Labelled _ | Nolabel),
+          _ ) ->
+          (Repeated, element)
+      | _, (Labelled _ | Nolabel), _ -> (Required, type_)
+      | _ ->
+          Location.raise_errorf ~loc
+            "optional parameter %s needs a default or an option type: ?(%s : \
+             int = 0) or ?(%s : int option)"
+            label label label
+    in
+    let decorated ~label ~(arg_label : arg_label) ~(default : expression option)
+        (type_ : core_type) =
+      List.find_map
+        (fun (attribute : attribute) ->
+          let named () =
+            match attribute.attr_payload with
+            | PStr
+                [
+                  {
+                    pstr_desc =
+                      Pstr_eval
+                        ( {
+                            pexp_desc =
+                              Pexp_constant (Pconst_string (name, _, _));
+                            _;
+                          },
+                          _ );
+                    _;
+                  };
+                ] ->
+                Some name
+            | PStr [] -> None
+            | _ ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@%s] takes nothing or a name: [@@%s \"x-request-id\"]"
+                  attribute.attr_name.txt attribute.attr_name.txt
+          in
+          let required what =
+            match named () with
+            | Some name -> name
+            | None ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@%s] needs the %s name: [@@%s \"…\"]"
+                  attribute.attr_name.txt what attribute.attr_name.txt
+          in
+          let extractor name =
+            Extracted (evar ~loc ("Forge.Extract." ^ name))
+          in
+          let located carrier what =
+            let presence, element = presence ~label ~arg_label ~default type_ in
+            Located
+              {
+                carrier;
+                name = required what;
+                presence;
+                value = scalar ~loc element;
+              }
+          in
+          match attribute.attr_name.txt with
+          | "param" -> (
+              let segment = required "path segment" in
+              match List.find_opt (String.equal segment) names with
+              | Some _ -> Some (Path { segment; value = scalar ~loc type_ })
+              | None ->
+                  Location.raise_errorf ~loc:attribute.attr_loc
+                    "[@@param %S]: the path has no :%s segment" segment segment)
+          | "query" -> (
+              match named () with
+              | Some name ->
+                  let presence, element =
+                    presence ~label ~arg_label ~default type_
+                  in
+                  Some (Query { name; presence; value = scalar ~loc element })
+              | None -> Some (extractor "queries"))
+          | "body" -> (
+              match named () with
+              | Some field ->
+                  Some
+                    (Extracted
+                       [%expr
+                         Forge.Extract.body_field
+                           [%e pexp_pack ~loc (json ~loc type_).module_]
+                           [%e estring ~loc field]])
+              | None -> Some (Body (json ~loc type_)))
+          | "header" -> Some (located Header "header")
+          | "cookie" -> Some (located Cookie "cookie")
+          | "signed_cookie" -> Some (located Signed_cookie "cookie")
+          | "session" -> Some (located Session "session field")
+          | ("headers" | "cookies" | "ip" | "host" | "req") as name ->
+              Some (extractor name)
+          | _ -> None)
+        type_.ptyp_attributes
+    in
     match param.pparam_desc with
     | Pparam_newtype _ ->
         Location.raise_errorf ~loc
@@ -211,13 +320,20 @@ let transform structure =
               Dependency { name; pattern; package }
           | Ppat_construct ({ txt = Lident "()"; _ }, None) -> Unit
           | Ppat_constraint (_, type_) -> (
-              match (extraction type_, type_.ptyp_desc) with
-              | Some guard, _ -> Extracted guard
+              match
+                ( decorated ~label:"positional" ~arg_label:Nolabel ~default:None
+                    type_,
+                  extraction type_,
+                  type_.ptyp_desc )
+              with
+              | Some decorated, _, _ -> decorated
+              | None, Some guard, _ -> Extracted guard
               | ( None,
+                  None,
                   Ptyp_constr ({ txt = Ldot (Lident "Dream", "request"); _ }, [])
                 ) ->
                   Request
-              | None, _ -> positional_error loc)
+              | None, None, _ -> positional_error loc)
           | _ -> positional_error loc
         in
         { label = Nolabel; source; loc }
@@ -232,42 +348,37 @@ let transform structure =
         in
         let source =
           match
-            ( List.find_opt (String.equal label) names,
-              label,
-              Option.bind
-                (match pattern.ppat_desc with
-                | Ppat_constraint (_, type_) -> Some type_
-                | _ -> None)
-                extraction,
-              arg_label )
+            Option.bind
+              (match pattern.ppat_desc with
+              | Ppat_constraint (_, type_) -> Some type_
+              | _ -> None)
+              (decorated ~label ~arg_label ~default)
           with
-          | Some _, _, _, Optional _ ->
-              Location.raise_errorf ~loc
-                "path parameter %s cannot be optional; use ~(%s : …)" label
-                label
-          | Some _, _, _, _ -> Path (scalar ~loc (annotated ()))
-          | None, "body", None, _ -> Body (json ~loc (annotated ()))
-          | None, _, Some guard, _ -> Extracted guard
-          | None, _, None, _ ->
-              let type_ = annotated () in
-              let presence, element =
-                match (type_.ptyp_desc, arg_label, default) with
-                | _, Optional _, Some _ -> (Optional, type_)
-                | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), _, _
-                  ->
-                    (Optional, element)
-                | ( Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]),
-                    Labelled _,
-                    _ ) ->
-                    (Repeated, element)
-                | _, Labelled _, _ -> (Required, type_)
-                | _ ->
-                    Location.raise_errorf ~loc
-                      "optional query parameter %s needs a default or an \
-                       option type: ?(%s : int = 0) or ?(%s : int option)"
-                      label label label
-              in
-              Query { name = label; presence; value = scalar ~loc element }
+          | Some decorated -> decorated
+          | None -> (
+              match
+                ( List.find_opt (String.equal label) names,
+                  label,
+                  Option.bind
+                    (match pattern.ppat_desc with
+                    | Ppat_constraint (_, type_) -> Some type_
+                    | _ -> None)
+                    extraction,
+                  arg_label )
+              with
+              | Some _, _, _, Optional _ ->
+                  Location.raise_errorf ~loc
+                    "path parameter %s cannot be optional; use ~(%s : …)" label
+                    label
+              | Some _, _, _, _ ->
+                  Path { segment = label; value = scalar ~loc (annotated ()) }
+              | None, "body", None, _ -> Body (json ~loc (annotated ()))
+              | None, _, Some guard, _ -> Extracted guard
+              | None, _, None, _ ->
+                  let presence, element =
+                    presence ~label ~arg_label ~default (annotated ())
+                  in
+                  Query { name = label; presence; value = scalar ~loc element })
         in
         { label = arg_label; source; loc }
   in
@@ -461,11 +572,9 @@ let transform structure =
                               (match
                                  List.find_map
                                    (fun argument ->
-                                     match
-                                       (argument.label, argument.source)
-                                     with
-                                     | Labelled label, Path value
-                                       when label = name ->
+                                     match argument.source with
+                                     | Path { segment; value }
+                                       when String.equal segment name ->
                                          Some value
                                      | _ -> None)
                                    arguments
@@ -554,12 +663,16 @@ let transform structure =
                                (fun argument ->
                                  match (argument.label, argument.source) with
                                  | ( (Labelled known | Optional known),
-                                     (Path _ | Query _ | Body _ | Extracted _) )
+                                     ( Path _ | Query _ | Body _ | Extracted _
+                                     | Located _ ) )
                                    when String.equal known label ->
                                      Some argument
                                  | _ -> None)
                                arguments
                            with
+                           | Some { source = Path { segment; _ }; _ } ->
+                               ( Labelled label,
+                                 evar ~loc ("__forge_arg_" ^ segment) )
                            | Some _ ->
                                ( Labelled label,
                                  evar ~loc ("__forge_arg_" ^ label) )
@@ -792,6 +905,29 @@ let transform structure =
                            ( bound index argument,
                              [%expr [%e guard] __forge_request] );
                          ]
+                     | Located { carrier; name; presence; value } ->
+                         [
+                           ( bound index argument,
+                             [%expr
+                               [%e
+                                 evar ~loc
+                                   (match carrier with
+                                   | Header -> "Forge.Extract.header"
+                                   | Cookie -> "Forge.Extract.cookie"
+                                   | Signed_cookie ->
+                                       "Forge.Extract.signed_cookie"
+                                   | Session -> "Forge.Extract.session")]
+                                 [%e pexp_pack ~loc value.module_]
+                                 [%e
+                                   match presence with
+                                   | Required ->
+                                       [%expr Forge_shared.Presence.Required]
+                                   | Optional ->
+                                       [%expr Forge_shared.Presence.Optional]
+                                   | Repeated ->
+                                       [%expr Forge_shared.Presence.Repeated]]
+                                 [%e estring ~loc name] __forge_request] );
+                         ]
                      | Dependency _ | Path _ | Request | Unit -> [])
                    handler.arguments)
             in
@@ -805,7 +941,8 @@ let transform structure =
                            pexp_pack ~loc (ident ~loc name)
                        | Request -> [%expr __forge_request]
                        | Unit -> [%expr ()]
-                       | Path _ | Query _ | Body _ | Extracted _ ->
+                       | Path { segment; _ } -> evar ~loc (variable segment)
+                       | Query _ | Body _ | Extracted _ | Located _ ->
                            evar ~loc (bound index argument) ))
                    handler.arguments)
             in
@@ -953,43 +1090,65 @@ let transform structure =
                 name = [%e estring ~loc handler.name];
                 params =
                   [%e
+                    let presence_expression = function
+                      | Required -> [%expr Forge.Spec.Required]
+                      | Optional -> [%expr Forge.Spec.Optional]
+                      | Repeated -> [%expr Forge.Spec.Repeated]
+                    in
                     elist ~loc
-                      (List.concat_map
-                         (fun segment ->
-                           match segment with
-                           | Literal _ -> []
-                           | Param { name; value } ->
-                               [
-                                 [%expr
-                                   {
-                                     Forge.Spec.name = [%e estring ~loc name];
-                                     location = Forge.Spec.Path;
-                                     value = [%e spec_value value];
-                                   }];
-                               ])
-                         handler.segments
-                      @ List.filter_map
-                          (fun argument ->
-                            match argument.source with
-                            | Query { name; presence; value } ->
-                                Some
-                                  [%expr
-                                    {
-                                      Forge.Spec.name = [%e estring ~loc name];
-                                      location =
-                                        Forge.Spec.Query
-                                          [%e
-                                            match presence with
-                                            | Required ->
-                                                [%expr Forge.Spec.Required]
-                                            | Optional ->
-                                                [%expr Forge.Spec.Optional]
-                                            | Repeated ->
-                                                [%expr Forge.Spec.Repeated]];
-                                      value = [%e spec_value value];
-                                    }]
-                            | _ -> None)
-                          handler.arguments)];
+                      (List.filter_map
+                         (fun argument ->
+                           Option.map
+                             (fun (name, location, value) ->
+                               [%expr
+                                 {
+                                   Forge.Spec.name = [%e estring ~loc name];
+                                   label =
+                                     [%e
+                                       estring ~loc
+                                         (match argument.label with
+                                         | Labelled label | Optional label ->
+                                             label
+                                         | Nolabel -> name)];
+                                   location = [%e location];
+                                   value = [%e spec_value value];
+                                 }])
+                             (match argument.source with
+                             | Path { segment; value } ->
+                                 Some (segment, [%expr Forge.Spec.Path], value)
+                             | Query { name; presence; value } ->
+                                 Some
+                                   ( name,
+                                     [%expr
+                                       Forge.Spec.Query
+                                         [%e presence_expression presence]],
+                                     value )
+                             | Located
+                                 { carrier = Header; name; presence; value } ->
+                                 Some
+                                   ( name,
+                                     [%expr
+                                       Forge.Spec.Header
+                                         [%e presence_expression presence]],
+                                     value )
+                             | Located
+                                 {
+                                   carrier = Cookie | Signed_cookie;
+                                   name;
+                                   presence;
+                                   value;
+                                 } ->
+                                 Some
+                                   ( name,
+                                     [%expr
+                                       Forge.Spec.Cookie
+                                         [%e presence_expression presence]],
+                                     value )
+                             | Located { carrier = Session; _ }
+                             | Dependency _ | Body _ | Extracted _ | Request
+                             | Unit ->
+                                 None))
+                         handler.arguments)];
                 body =
                   [%e
                     Option.fold ~none:[%expr None]
