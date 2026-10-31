@@ -15,3 +15,9 @@ let fresh () : string Lwt.t = Lwt.return "fresh"
 let gone () : (unit, Forge.Error.t) result Lwt.t =
   Lwt.return_error (Forge.Error.not_found "gone")
 [@@get "gone"]
+
+let status () : string Lwt.t = Lwt.return "v2" [@@get "status"] [@@version 2]
+
+let plain () : (unit, Forge.Error.t) result Lwt.t =
+  Lwt.return_error (Forge.Error.not_found "plain")
+[@@get "plain"] [@@error_handler Forge.Error.to_response]

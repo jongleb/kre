@@ -61,6 +61,8 @@ type handler = {
   outcome : outcome;
   headers : expression list;  (** [[@@header (name, value)]], repeatable. *)
   interceptors : expression list;  (** [[@@@intercept]] then [[@@intercept]]. *)
+  error_handler : expression option;
+      (** [[@@error_handler h]] on the handler. *)
   timeout : expression option;  (** [[@@timeout seconds]]. *)
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
@@ -527,7 +529,9 @@ let transform structure =
             let raw_segments =
               Option.fold ~none:[]
                 ~some:(fun version -> [ "v" ^ string_of_int version ])
-                version
+                (Option.fold ~none:version
+                   ~some:(fun attribute -> Some (int_payload attribute))
+                   (attribute_of binding "version"))
               @ prefix
               @ segments (string_payload attribute)
             in
@@ -677,6 +681,16 @@ let transform structure =
               arguments;
               shape;
               outcome;
+              error_handler =
+                Option.map
+                  (fun (attribute : attribute) ->
+                    match attribute.attr_payload with
+                    | PStr [ { pstr_desc = Pstr_eval (handler, _); _ } ] ->
+                        handler
+                    | _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@error_handler] expects a Forge.Error.handler")
+                  (attribute_of binding "error_handler");
               interceptors =
                 controller_interceptors
                 @ Option.fold ~none:[] ~some:list_payload
@@ -817,6 +831,8 @@ let transform structure =
               "sse";
               "intercept";
               "cache";
+              "version";
+              "error_handler";
             ]
             @ List.map fst verbs
           in
@@ -1127,10 +1143,13 @@ let transform structure =
                 handler.segments handle
             in
             pexp_apply ~loc [%expr Forge.Route.v]
-              ((match handler.middleware with
-                 | [] -> []
-                 | middleware ->
-                     [ (Labelled "middleware", elist ~loc middleware) ])
+              (Option.fold ~none:[]
+                 ~some:(fun handler -> [ (Labelled "error_handler", handler) ])
+                 handler.error_handler
+              @ (match handler.middleware with
+                | [] -> []
+                | middleware ->
+                    [ (Labelled "middleware", elist ~loc middleware) ])
               @ [
                   (Nolabel, verb_tag method_);
                   ( Nolabel,

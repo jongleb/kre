@@ -10,6 +10,8 @@ type t = private {
   middleware : Dream.middleware list;
       (** Handler-level, inside the controller's. *)
   target : handler Routes.route;
+  error_handler : Error.handler option;
+      (** [[@@error_handler]], before the controller's and the app's. *)
 }
 
 (** How a handler's value becomes a response. *)
@@ -24,7 +26,11 @@ type 'a returns =
       (** [Location] with the route's status. *)
 
 val v :
-  ?middleware:Dream.middleware list -> Spec.verb -> handler Routes.route -> t
+  ?middleware:Dream.middleware list ->
+  ?error_handler:Error.handler ->
+  Spec.verb ->
+  handler Routes.route ->
+  t
 
 val handle :
   status:Dream.status ->

@@ -6,6 +6,7 @@ type t = {
   matching : matching;
   middleware : Dream.middleware list;
   target : handler Routes.route;
+  error_handler : Error.handler option;
 }
 
 type 'a returns =
@@ -16,11 +17,12 @@ type 'a returns =
   | Raw : Dream.response returns
   | Redirect : string -> unit returns
 
-let v ?(middleware = []) verb target =
+let v ?(middleware = []) ?error_handler verb target =
   {
     verb;
     middleware;
     target;
+    error_handler;
     matching =
       (if String.ends_with ~suffix:":wildcard" (Routes.string_of_route target)
        then Rest

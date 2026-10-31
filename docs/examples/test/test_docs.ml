@@ -293,6 +293,17 @@ let () =
                                  to_int (member "status" (member "data" frame)))
                          | _ -> line))
                    (List.rev !inbox)));
+          Alcotest.test_case "handler-level version and error handler" `Quick
+            (fun () ->
+              let legacy = app [ Legacy_controller.register () ] in
+              let plain =
+                Dream.test legacy (Dream.request ~target:"/legacy/plain" "")
+              in
+              Alcotest.(check (pair (pair int string) (option string)))
+                "responses"
+                ((200, "v2"), Some "application/problem+json")
+                ( call legacy `GET "/v2/legacy/status",
+                  Dream.header plain "Content-Type" ));
           Alcotest.test_case "fake provider" `Quick (fun () ->
               Alcotest.(check int)
                 "found" 200

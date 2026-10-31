@@ -13,8 +13,11 @@ let handler ?(middleware = []) ?(error_handler = Error.to_response) controllers
               Lwt.bind (handle request)
                 (Result.fold ~ok:Lwt.return
                    ~error:
-                     (Option.value controller.error_handler
-                        ~default:error_handler request))))
+                     (Option.value route.error_handler
+                        ~default:
+                          (Option.value controller.error_handler
+                             ~default:error_handler)
+                        request))))
         route.target )
   in
   let routers controllers =
