@@ -2,7 +2,7 @@ type socket
 (** A connected client of one gateway. *)
 
 type handler
-(** Answers one event name; Nest [@SubscribeMessage]. *)
+(** Answers one event name. *)
 
 val on :
   string ->

@@ -20,15 +20,6 @@ const sqlPipeline = [
   { title: 'sqlgg', sub: 'Checks queries against the schema', code: 'queries.sql', tone: 'violet' },
   { title: 'OCaml functions', sub: 'Typed parameters and rows', code: 'Shelter_sql.Make', tone: 'mint' }
 ]
-
-const compare = [
-  { topic: 'Unit of code', elsewhere: 'A class with decorators', kre: 'A module; the .mli is its exports' },
-  { topic: 'Application assembly', elsewhere: '@Module graph built at startup', kre: '[%wire] applies functors at compile time' },
-  { topic: 'Route table', elsewhere: 'Reflection over metadata', kre: 'Generated from handler signatures' },
-  { topic: 'Frontend contract', elsewhere: 'OpenAPI generator, run by hand', kre: 'kre client from spec.json in a dune rule' },
-  { topic: 'SQL', elsewhere: 'ORM entities and runtime queries', kre: 'sqlgg checks SQL against the schema the types print' },
-  { topic: 'Shared types', elsewhere: 'Duplicated in TypeScript, or a codegen step', kre: 'The same .ml files compiled twice' }
-]
 </script>
 
 # Architecture
@@ -159,9 +150,5 @@ graph LR
 The order of functor application is the start order, and a cycle cannot be written: it is a compile error. The same graph is served at `/actuator/beans` and `/actuator/beans.mmd`. [Dependency injection](/guide/dependency-injection) covers the rules in full.
 
 ::: info Why no container
-NestJS needs `@Module`, a DI container, injection tokens and `forwardRef` because TypeScript has no module system that can express "a service parameterised by a database". OCaml does: functors. So a provider with dependencies is a functor, an interface is a module type, and assembling the app is applying functors in order. The ppx only writes that code for you.
+Kre needs no DI container, injection tokens or forward references, because OCaml's module system already expresses "a service parameterised by a database" with functors. A provider with dependencies is a functor, an interface is a module type, and assembling the app is applying functors in order. The ppx only writes that code for you.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring" right="Kre" />

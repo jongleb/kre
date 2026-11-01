@@ -15,15 +15,6 @@ const stats = [
   { value: "0", label: "strings to mistype", note: "transitions are real patterns" },
   { value: "2", label: "targets", note: "native and Melange" }
 ]
-const compare = [
-  { topic: "Declaring states", elsewhere: "Symfony: places in YAML or PHP config. AASM: state :paid. Spring Statemachine: an enum plus a configurer", kre: "A variant: type t = Cart | Paid | Shipped | Cancelled" },
-  { topic: "Declaring transitions", elsewhere: "Strings or symbols naming the states (from: cart, to: paid)", kre: "[@@transitions { pay = (function Cart -> Paid) }]" },
-  { topic: "A typo in a state", elsewhere: "Found at runtime, often on the first request that hits it", kre: "A compile error pointing at the typo" },
-  { topic: "A forbidden step", elsewhere: "An exception (Symfony NotEnabledTransitionException, AASM InvalidTransition)", kre: "A value: Error (`Not_allowed (transition, state))" },
-  { topic: "Guards on a transition", elsewhere: "Guard expressions, events or callbacks", kre: "None by design; rights and data checks live in the service" },
-  { topic: "Diagram", elsewhere: "Symfony: workflow:dump to Graphviz", kre: "workflow_mermaid, a string at compile time" },
-  { topic: "In the browser", elsewhere: "Re-implement the rules in JavaScript", kre: "The same type compiles with Melange" }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -101,7 +92,7 @@ No runtime, no registry: a handful of functions you could have written by hand, 
 
 ## A typo is a compile error
 
-In Symfony, AASM or Spring Statemachine, states are strings, symbols or enum names wired up in configuration, and a misspelt one is found when the code runs. Here the ppx knows the constructors of `t`:
+States are not strings: the ppx knows the constructors of `t`, so a misspelt one stops the build:
 
 ```ocaml
 type t = Cart | Paid
@@ -165,7 +156,3 @@ List.map
 ```
 
 The rules are written once, and the server and the browser cannot disagree about them.
-
-## How it compares
-
-<Compare :rows="compare" left="Symfony / AASM / Spring" right="Kre" />

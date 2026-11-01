@@ -1,16 +1,16 @@
 # Introduction
 
-<p class="lead">Kre is a full-stack web framework for OCaml. It gives you the shape of NestJS — controllers, providers, guards, DTOs — and the batteries of Spring, Rails and Symfony, but every piece is a function, a module, a functor or a ppx rewrite. The compiler sees your whole application: routes, dependencies, SQL, the wire format and the frontend.</p>
+<p class="lead">kre is a full-stack web framework for OCaml. Controllers, services, guards and DTOs are ordinary functions, modules, functors and ppx attributes, so the compiler sees your whole application: the routes, the dependencies, the SQL, the wire format and the frontend.</p>
 
 <StatGrid :stats="[
   { value: '0', label: 'classes or reflection', note: 'modules and functors only' },
-  { value: '1', label: 'source of truth', note: 'the OCaml type in shared/' },
+  { value: '1', label: 'source of truth', note: 'the record in shared/' },
   { value: '2', label: 'targets', note: 'native server, Melange browser' }
 ]" />
 
-## The idea in one picture
+## A handler is a function
 
-A request handler in Kre is an ordinary function. Its labelled arguments say where each value comes from, its module arguments say which services it needs, and its return type decides the response. Attributes next to it add the cross-cutting behaviour that other frameworks get from annotations and proxies.
+Its labelled arguments say where each value comes from, its module arguments name the services it needs, and its return type decides the response. Attributes next to it add behaviour that applies around it.
 
 <<< @/../examples/shelter/server/adoptions_controller.ml
 
@@ -18,12 +18,12 @@ Everything around that function — route matching, parsing, guards, the transac
 
 <RequestPipeline />
 
-## Three rules Kre never breaks
+## Three rules
 
 <Flow :steps="[
-  { title: 'Types are the truth', sub: 'Tables, JSON, OpenAPI and clients are derived from records. Nothing is written twice.', tone: 'ember' },
-  { title: 'Wiring is compiled', sub: 'Providers are functors. [%wire] applies them at build time; a missing one is a compile error.', tone: 'amber' },
-  { title: 'Parse, don’t validate', sub: 'Input becomes a refined type at the edge. After that, the core never re-checks.', tone: 'mint' }
+  { title: 'Types are the truth', sub: 'Tables, JSON, OpenAPI and clients are derived from records.' },
+  { title: 'Wiring is compiled', sub: 'Providers are functors that [%wire] applies at build time.' },
+  { title: 'Parse at the edge', sub: 'Input becomes a refined type once; the core never re-checks.' }
 ]" />
 
 ### Types are the truth
@@ -36,11 +36,11 @@ A record in `shared/` is compiled twice: natively for the server and to JavaScri
 
 There is no container to configure. A service that needs a database is a functor over a database module; a controller that needs the service takes it as a module argument. `[%wire]` in `main.ml` scans the application, sorts the functors by dependency and applies them. A missing provider, two candidates for one interface or a cycle stop the build with the location of the problem.
 
-### Parse, don't validate
+### Parse at the edge
 
 `Cat.Name.t` is not a string with a check somewhere — it is a type you can only get by parsing. Request bodies, path segments, query strings and command-line options all go through the same parsers, and failures come back as RFC 9457 Problem Details with the path of every bad field.
 
-## Where mistakes are caught
+## What the build checks
 
 <CompileVsRuntime />
 
@@ -48,7 +48,7 @@ There is no container to configure. A service that needs a database is a functor
 
 <Layers />
 
-## What next
+## Next
 
 ::: tip Start building
 [Getting started](/guide/getting-started) creates a project with `kre new`, adds a resource with `kre generate` and runs it.

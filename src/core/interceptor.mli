@@ -5,7 +5,7 @@ type t = {
     (unit -> ('a, Error.t) result Lwt.t) ->
     ('a, Error.t) result Lwt.t;
 }
-(** Wraps a handler's typed result after guards; Nest interceptors. *)
+(** Wraps a handler's typed result after guards. *)
 
 val logging : t
 val timeout : float -> t

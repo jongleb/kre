@@ -16,14 +16,6 @@ const stats = [
   { value: '1', label: 'client', note: 'the same generated module as the frontend' },
   { value: '6', label: 'levels', note: 'from ppx output to node' }
 ]
-const compare = [
-  { topic: 'Replacing a dependency', elsewhere: 'Test.createTestingModule(...).overrideProvider(...) (Nest); @MockBean (Spring)', kre: 'Pass another module to register' },
-  { topic: 'Fresh state per test', elsewhere: 'A new testing module per suite', kre: 'A generative functor: Cats_service.Make ()' },
-  { topic: 'Calling a route', elsewhere: 'supertest (Nest); MockMvc (Spring); request specs (Rails)', kre: 'Dream.test handler (Dream.request ...)' },
-  { topic: 'Typed HTTP calls', elsewhere: 'Strings: paths, JSON bodies, expectations', kre: 'The generated client via Kre_testing.use; typos do not compile' },
-  { topic: 'Database tests', elsewhere: 'Test containers or a test profile', kre: 'dune aliases with a DATABASE_URL from the environment' },
-  { topic: 'Testing code generation', elsewhere: 'Not applicable: decorators are runtime metadata', kre: 'Expect tests on the ppx output and its error messages' }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -48,7 +40,7 @@ When a test needs every controller with its real dependencies, use `[%wire]` in 
 
 ## Typed tests with the generated client
 
-Nest tests HTTP with supertest and Spring with MockMvc; both build requests out of strings. A Kre test can call the very client the frontend uses. `Kre_testing.use` (library `kre-client.testing`) points the native client's requests straight at the app's handler — no port, no socket:
+A Kre test can call the very client the frontend uses. `Kre_testing.use` (library `kre-client.testing`) points the native client's requests straight at the app's handler — no port, no socket:
 
 ```ocaml
 val use : ?middleware:Dream.middleware list -> Kre.Controller.t list -> unit
@@ -154,7 +146,3 @@ Error: [@@retry] repeats a call; put it on a function: let f x = … [@@retry 3]
 ```
 
 Change the ppx and `dune test` shows the diff; `dune promote` accepts it.
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring / Rails" right="Kre" />

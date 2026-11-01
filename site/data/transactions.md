@@ -1,6 +1,6 @@
 # Transactions
 
-<p class="lead">Put <code>[@@transactional]</code> on a handler and every service it calls writes into one transaction — without passing a connection around. <code>Ok</code> commits, <code>Error</code> or an exception rolls back, and live events and background jobs only see what was committed. It is Spring's <code>@Transactional</code>, built from an Lwt key instead of a proxy.</p>
+<p class="lead">Put <code>[@@transactional]</code> on a handler and every service it calls writes into one transaction — without passing a connection around. <code>Ok</code> commits, <code>Error</code> or an exception rolls back, and live events and background jobs only see what was committed. The connection is bound to the Lwt context, so everything inside the transaction uses it.</p>
 
 <script setup>
 const outcome = [
@@ -14,14 +14,6 @@ const stats = [
   { value: "1", label: "attribute", note: "[@@transactional] on the handler" },
   { value: "0", label: "~conn arguments", note: "services join the open transaction" },
   { value: "409", label: "on a broken rule", note: "and nothing of the request is kept" }
-]
-const compare = [
-  { topic: "Declaring a transaction", elsewhere: "Spring: @Transactional on a method. Nest: nothing built in; dataSource.transaction(...) or @nestjs-cls/transactional", kre: "[@@transactional] on the handler" },
-  { topic: "How services join it", elsewhere: "Spring: TransactionSynchronizationManager, a ThreadLocal. Nest: pass the EntityManager or use CLS", kre: "An Lwt key; Db.with_conn and nested Db.transaction reuse it" },
-  { topic: "Commit and rollback", elsewhere: "Spring: commit on return, roll back on RuntimeException", kre: "Ok commits, Error or an exception rolls back" },
-  { topic: "Nested transactions", elsewhere: "Spring: propagation REQUIRED by default", kre: "Always joins the outer one, like REQUIRED" },
-  { topic: "Getting the connection", elsewhere: "Inject EntityManager or QueryRunner", kre: "~(conn : (… [@from Db.tx]))" },
-  { topic: "Mistakes", elsewhere: "A self-invocation silently skips the proxy", kre: "No proxy: a handler without a Kre.Db.S dependency does not compile" }
 ]
 </script>
 
@@ -49,10 +41,10 @@ Db.transaction (fun conn ->
 
 ## Joining: no `~conn` in your services
 
-The interesting part is what happens *inside*. `transaction` puts its connection into an Lwt key — the Lwt version of the `ThreadLocal` behind Spring's `TransactionSynchronizationManager`. Everything that runs inside sees it:
+The interesting part is what happens *inside*. `transaction` puts its connection into an Lwt key. Everything that runs inside sees it:
 
 - `Db.with_conn` in any service returns the transaction's connection instead of borrowing a new one from the pool;
-- a nested `Db.transaction` joins the outer one (Spring's `REQUIRED`): the outer one decides commit or rollback.
+- a nested `Db.transaction` joins the outer one: the outer one decides commit or rollback.
 
 So a service is written the same way whether or not it runs in a transaction:
 
@@ -135,9 +127,5 @@ sequenceDiagram
 ```
 
 The shelter's tests check each consequence: the statuses are `201, 201, 409`; the third cat is still listed as available; `/adoptions/mine` returns two adoptions; and exactly two congratulation letters are sent.
-
-## How it compares
-
-<Compare :rows="compare" left="Spring / Nest" right="Kre" />
 
 Isolation levels and `read_only` are not exposed yet; they will be added when an application needs them.

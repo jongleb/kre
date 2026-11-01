@@ -1,4 +1,4 @@
-(** When a job runs; [After] is Nest's [@Timeout]. *)
+(** When a job runs: every few seconds, once after start, or on a cron line. *)
 type timing = Every of float | After of float | Cron of Kre_shared.Cron.t
 
 type job

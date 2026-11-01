@@ -13,16 +13,6 @@ const classify = [
   { title: '[@guard] / [@from]', sub: 'A value computed from the request', tone: 'magma' },
   { title: 'anything else', sub: 'Query parameter; option and list allowed', tone: 'mint' }
 ]
-
-const compare = [
-  { topic: 'Declaring a controller', elsewhere: '@Controller("cats") on a class', kre: '[@@@controller "cats"] as the first line of a file' },
-  { topic: 'A route', elsewhere: '@Get(":id") on a method', kre: '[@@get ":id"] on a let' },
-  { topic: 'Path and query values', elsewhere: '@Param, @Query, pipes like ParseIntPipe', kre: 'Labelled arguments; the type is the parser' },
-  { topic: 'Injecting a service', elsewhere: 'Constructor injection by the container', kre: '(module Cats : Cats_service.S) on the handler' },
-  { topic: 'Response shape', elsewhere: 'Whatever the method returns, at runtime', kre: 'The return type, checked at compile time' },
-  { topic: 'Not found', elsewhere: 'throw new NotFoundException()', kre: 'Return None, or [@load] the entity' },
-  { topic: 'Load the entity from the path', elsewhere: 'Symfony #[MapEntity], Rails before_action', kre: '~(cat : (Cat.t[@load Cats.find]))' }
-]
 </script>
 
 # Controllers
@@ -33,7 +23,7 @@ const compare = [
 
 ## A first controller
 
-This is the controller from the small `cats` example. It is the NestJS `CatsController`, line for line:
+This is the controller from the small `cats` example:
 
 <<< @/../examples/cats/server/cats_controller.ml
 
@@ -63,7 +53,7 @@ Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"
 | `[@@get]`, `[@@get ":id"]` | GET; HEAD falls back to it with no body |
 | `[@@post]`, `[@@put]`, `[@@patch]`, `[@@delete]` | the usual |
 | `[@@head]`, `[@@options]` | explicit HEAD and OPTIONS |
-| `[@@all "echo"]` | every method (`@All` in Nest) |
+| `[@@all "echo"]` | every method |
 | `[@@get "*"]` | a wildcard; the rest of the path goes to a `[@wildcard]` parameter |
 
 The path is relative to the controller prefix. A segment `:name` must have a labelled parameter of the same name, and the parameter's type parses the segment. A segment that does not parse is not a match, so `/cats/abc` with `~(id : int)` is a plain 404.
@@ -89,20 +79,20 @@ A parameter type is `int`, `int64`, `float`, `bool`, `string` or `T.t` where `T`
 
 When the default rules are not enough, an attribute on the parameter's type names the source. The type still decides how the value is parsed and whether it is required.
 
-| You want | Kre | Nest | Spring |
-| --- | --- | --- | --- |
-| a differently named path segment | `[@param "id"]` | `@Param('id')` | `@PathVariable` |
-| a differently named query key | `[@query "page-size"]` | `@Query('page')` | `@RequestParam` |
-| the whole query string as a record | `[@search]` | `@Query() dto` | `@ModelAttribute` |
-| one field of the body | `[@body "name"]` | `@Body('name')` | — |
-| a header | `[@header "X-Client-Name"]` | `@Headers('x')` | `@RequestHeader` |
-| a cookie | `[@cookie "theme"]`, `[@signed_cookie "sid"]` | `@Cookies('x')` | `@CookieValue` |
-| a session value | `[@session "user_id"]` | `@Session()` | `@SessionAttribute` |
-| client address, host | `[@ip]`, `[@host]`, `[@host_param "account"]` | `@Ip()`, `@HostParam()` | — |
-| an uploaded file, a form field | `[@file "avatar"]`, `[@files "photos"]`, `[@form "title"]` | `@UploadedFile` | `@RequestPart` |
-| the entity behind a path id | `[@load Cats.find]` | — | `DomainClassConverter` |
-| anything computed from the request | `[@from guard]` | `createParamDecorator` | `HandlerMethodArgumentResolver` |
-| the raw request | `(req : Dream.request)` | `@Req()` | `HttpServletRequest` |
+| You want | Kre |
+| --- | --- |
+| a differently named path segment | `[@param "id"]` |
+| a differently named query key | `[@query "page-size"]` |
+| the whole query string as a record | `[@search]` |
+| one field of the body | `[@body "name"]` |
+| a header | `[@header "X-Client-Name"]` |
+| a cookie | `[@cookie "theme"]`, `[@signed_cookie "sid"]` |
+| a session value | `[@session "user_id"]` |
+| client address, host | `[@ip]`, `[@host]`, `[@host_param "account"]` |
+| an uploaded file, a form field | `[@file "avatar"]`, `[@files "photos"]`, `[@form "title"]` |
+| the entity behind a path id | `[@load Cats.find]` |
+| anything computed from the request | `[@from guard]` |
+| the raw request | `(req : Dream.request)` |
 
 A handler that uses most of them:
 
@@ -124,7 +114,7 @@ A custom parameter decorator is any value of type `'a Kre.Guard.t`, that is `Dre
 
 <<< @/../examples/cats/shared/cat_search.ml
 
-`[@load f]` is Symfony's `#[MapEntity]`, Spring's `DomainClassConverter` and Rails' `before_action :set_cat`. With `[@@get ":cat"]`, the segment is parsed as `Cat.Id.t`, `f` is called with it and must return `Cat.t option Lwt.t`; `None` is a 404. Your handler and any `[@@authorize]` check receive the loaded record, while the client and OpenAPI see an ordinary id. The shelter's cats controller uses both:
+`[@load f]` loads the entity behind a path id. With `[@@get ":cat"]`, the segment is parsed as `Cat.Id.t`, `f` is called with it and must return `Cat.t option Lwt.t`; `None` is a 404. Your handler and any `[@@authorize]` check receive the loaded record, while the client and OpenAPI see an ordinary id. The shelter's cats controller uses both:
 
 <<< @/../examples/shelter/server/cats_controller.ml{7-10,12-16}
 
@@ -162,16 +152,16 @@ Each ppx error points at the offending node and says what to do. The full list i
 
 ## Status, headers, redirects and more
 
-| Attribute | Effect | Nest |
-| --- | --- | --- |
-| `[@@status 201]` | success status (100–599, checked at compile time) | `@HttpCode` |
-| `[@@header "Cache-Control", "no-store"]` | a header on success; repeatable | `@Header` |
-| `[@@redirect "/cats"]` | redirect (302 by default); the handler returns `unit Lwt.t` | `@Redirect` |
-| `[@@timeout 5.0]` | `504` if the handler takes longer | — |
-| `[@@version 2]`, `[@@@version 2]` | a `/v2` prefix for one handler or the whole file | `@Version` |
-| `[@@@host ":account.example.com"]` | the controller answers only on matching hosts | `@Controller({ host })` |
-| `[@@@error_handler h]`, `[@@error_handler h]` | an exception filter for the file or one handler | `@UseFilters` |
-| `[@@summary "…"]`, `[@@description "…"]` | OpenAPI text | `@ApiOperation` |
+| Attribute | Effect |
+| --- | --- |
+| `[@@status 201]` | success status (100–599, checked at compile time) |
+| `[@@header "Cache-Control", "no-store"]` | a header on success; repeatable |
+| `[@@redirect "/cats"]` | redirect (302 by default); the handler returns `unit Lwt.t` |
+| `[@@timeout 5.0]` | `504` if the handler takes longer |
+| `[@@version 2]`, `[@@@version 2]` | a `/v2` prefix for one handler or the whole file |
+| `[@@@host ":account.example.com"]` | the controller answers only on matching hosts |
+| `[@@@error_handler h]`, `[@@error_handler h]` | an exception filter for the file or one handler |
+| `[@@summary "…"]`, `[@@description "…"]` | OpenAPI text |
 
 <<< @/../docs/examples/legacy_controller.ml
 
@@ -187,7 +177,7 @@ A stream without `[@@sse]`, or `[@@sse]` without a stream, is a compile error.
 
 ## WebSocket gateways
 
-A gateway is a controller for WebSocket events, NestJS's `@WebSocketGateway`. Frames are `{"event": "say", "data": …}`, as with Nest's adapter:
+A gateway is a controller for WebSocket events. Frames are `{"event": "say", "data": …}`:
 
 <<< @/../docs/examples/chat_gateway.ml
 
@@ -197,7 +187,3 @@ A gateway is a controller for WebSocket events, NestJS's `@WebSocketGateway`. Fr
 - Parse and handler errors come back as an `error` event carrying Problem Details.
 
 The ppx generates `gateway`, which tests can drive with `Kre.Gateway.connect`, and `register`, which plugs it into `Kre.App` like any controller.
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring / Symfony" right="Kre" />

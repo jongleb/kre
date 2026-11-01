@@ -1,6 +1,5 @@
 type 'a t = Dream.request -> ('a, Error.t) result Lwt.t
-(** Extracts a value from the request or rejects it; Nest guards and param
-    decorators. *)
+(** Extracts a value from the request or rejects it. *)
 
 val field : 'a Dream.field -> missing:Error.t -> 'a t
 val header : string -> string t

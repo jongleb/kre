@@ -15,13 +15,6 @@ const stats = [
   { value: "4", label: "CLI commands", note: "up, down, status, new" },
   { value: "1", label: "bookkeeping table", note: "kre_migrations (version, applied_at)" }
 ]
-const compare = [
-  { topic: "Format", elsewhere: "Flyway: V1__init.sql. Rails: Ruby DSL. TypeORM: a class with up() and down()", kre: "NNNN_name.sql with -- migrate:up and -- migrate:down" },
-  { topic: "Applying on start", elsewhere: "Spring Boot runs Flyway automatically. TypeORM: migrationsRun: true", kre: "Kre.Migration.up in a provider's on_start" },
-  { topic: "Shipping the files", elsewhere: "On the classpath or next to the app", kre: "Embedded in the binary by [%embed_dir]" },
-  { topic: "Keeping in sync with the model", elsewhere: "typeorm migration:generate, rails db:schema:dump", kre: "A dune diff rule: dune test fails, dune promote fixes it" },
-  { topic: "Command line", elsewhere: "flyway migrate, rails db:migrate, typeorm migration:run", kre: "kre migrate up | down | status | new" }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -130,7 +123,3 @@ Kre.Migration.up (module Kre_db_postgresql.Driver) conn migrations
 ```
 
 Write the SQL in the Postgres dialect — `SERIAL` instead of `AUTO_INCREMENT`, a separate `CREATE INDEX` — or print it with `Kre.Table.schema Postgresql`. The `kre migrate` CLI connects through the MariaDB driver; on Postgres, apply migrations from the application's `on_start`.
-
-## How it compares
-
-<Compare :rows="compare" left="Flyway / Rails / TypeORM" right="Kre" />

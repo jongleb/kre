@@ -1,75 +1,88 @@
 <script setup lang="ts">
 const layers = [
-  { name: 'client/', runs: 'Browser · Melange + React', items: ['Typed page router', 'Generated API clients', 'Pages in .mlx', 'Live updates over SSE'], tone: 'violet' },
-  { name: 'shared/', runs: 'Native and Melange, same sources', items: ['Records with [@@deriving dto]', 'Refined & opaque types', 'Search records, pages, time', 'Workflows'], tone: 'ember' },
-  { name: 'server/', runs: 'Native · Dream + Lwt', items: ['Controllers', 'Providers wired by [%wire]', 'sqlgg queries, jobs, mail', 'MariaDB or PostgreSQL'], tone: 'sky' },
-  { name: 'build time', runs: 'kre-ppx · sqlgg · kre CLI', items: ['Routes, specs, OpenAPI', 'Dependency graph', 'SQL checked against schema', 'Migrations checked against types'], tone: 'mint' }
+  { name: 'client/', runs: 'Melange · React', items: ['Typed page router', 'Generated API clients', 'Pages in .mlx', 'Live updates over SSE'] },
+  { name: 'shared/', runs: 'native and Melange', items: ['Records with [@@deriving dto]', 'Refined and opaque types', 'Search records, pages, time', 'Workflows'] },
+  { name: 'server/', runs: 'Dream · Lwt', items: ['Controllers', 'Providers wired by [%wire]', 'sqlgg queries, jobs, mail', 'MariaDB or PostgreSQL'] },
+  { name: 'build', runs: 'kre-ppx · sqlgg · kre CLI', items: ['Routes, specs, OpenAPI', 'Dependency graph', 'SQL checked against the schema', 'Migrations checked against types'] }
 ]
 </script>
 
 <template>
-  <div class="layers">
-    <div v-for="(layer, index) in layers" :key="layer.name" class="layer" :class="layer.tone" :style="{ '--i': index }">
+  <figure class="layers">
+    <div v-for="(layer, index) in layers" :key="layer.name" class="layer">
       <div class="left">
-        <div class="name">{{ layer.name }}</div>
-        <div class="runs">{{ layer.runs }}</div>
+        <span class="i">L{{ layers.length - index }}</span>
+        <div>
+          <div class="name">{{ layer.name }}</div>
+          <div class="runs">{{ layer.runs }}</div>
+        </div>
       </div>
-      <div class="items">
-        <span v-for="item in layer.items" :key="item">{{ item }}</span>
-      </div>
+      <ul>
+        <li v-for="item in layer.items" :key="item">{{ item }}</li>
+      </ul>
     </div>
-  </div>
+  </figure>
 </template>
 
 <style scoped>
 .layers {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 24px 0;
-  perspective: 900px;
+  margin: 28px 0;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+  overflow: hidden;
+  background: var(--k-bg);
 }
 .layer {
-  --tone: var(--kre-ember);
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 16px;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
   align-items: center;
-  padding: 16px 20px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 18%, transparent), var(--vp-c-bg-soft) 70%);
-  margin-left: calc(var(--i) * 14px);
-  margin-right: calc((3 - var(--i)) * 14px);
-  transition: transform 0.2s ease;
+  padding: 18px 20px;
 }
-.layer:hover { transform: translateX(6px); }
-.layer.violet { --tone: var(--kre-violet); }
-.layer.sky { --tone: var(--kre-sky); }
-.layer.mint { --tone: var(--kre-mint); }
+.layer + .layer { border-top: 1px solid var(--k-border); }
+.left {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.i {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  color: var(--k-text-3);
+  border: 1px solid var(--k-border-strong);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
 .name {
-  font: 800 18px var(--vp-font-family-mono);
-  color: var(--tone);
+  font-family: var(--vp-font-family-mono);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--k-text);
 }
 .runs {
   font-size: 12.5px;
-  color: var(--vp-c-text-2);
+  color: var(--k-text-3);
   margin-top: 2px;
 }
-.items {
+ul {
+  list-style: none;
+  margin: 0 !important;
+  padding: 0 !important;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
-.items span {
-  font-size: 12.5px;
+li {
+  margin: 0 !important;
+  font-size: 13px;
+  line-height: 1.4 !important;
   padding: 5px 10px;
-  border-radius: 999px;
-  color: var(--vp-c-text-1);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--kre-line);
+  border-radius: 6px;
+  color: var(--k-text-2);
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
 }
 @media (max-width: 760px) {
-  .layer { grid-template-columns: 1fr; margin: 0; }
+  .layer { grid-template-columns: 1fr; }
 }
 </style>

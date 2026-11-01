@@ -13,17 +13,6 @@ const wireSteps = [
   { title: 'Apply', sub: 'let module X = X.Make (Deps) in …', tone: 'ember' },
   { title: 'Return', sub: 'Kre.Wiring.t: controllers, hooks, health, beans', tone: 'mint' }
 ]
-
-const compare = [
-  { topic: 'Declare a provider', elsewhere: '@Injectable() / @Service', kre: 'A module with module type S, or a Make functor' },
-  { topic: 'Declare dependencies', elsewhere: 'Constructor parameters, resolved at startup', kre: 'Functor parameters, resolved at compile time' },
-  { topic: 'Find components', elsewhere: '@Module({ providers }) / @ComponentScan', kre: '[%wire] scans the directories' },
-  { topic: 'Two implementations', elsewhere: '@Primary, @Qualifier, custom tokens', kre: '[@@@primary], or the parameter name' },
-  { topic: 'Default implementation', elsewhere: '@ConditionalOnMissingBean, @Optional', kre: '[@@@fallback]' },
-  { topic: 'Missing dependency', elsewhere: 'Error when the app starts', kre: 'Error when the app compiles' },
-  { topic: 'Circular dependency', elsewhere: 'forwardRef or @Lazy', kre: 'Not expressible; a build error names the cycle' },
-  { topic: 'Inspect the graph', elsewhere: '/actuator/beans, Nest Devtools', kre: '/actuator/beans and beans.mmd, built at compile time' }
-]
 </script>
 
 # Dependency injection
@@ -34,17 +23,17 @@ const compare = [
 
 ## Why there is no container
 
-NestJS has `@Module`, a DI container, injection tokens and `forwardRef`. Spring has component scanning, bean definitions and proxies. Both exist to make up for a language that cannot say "a cats service, given some database". OCaml can: that is a functor. So Kre maps every DI concept onto what the language already has:
+A DI container, injection tokens and runtime reflection exist to say "a cats service, given some database". OCaml says it directly: that is a functor. So Kre maps every DI concept onto what the language already has:
 
-| Concept | NestJS / Spring | Kre |
-| --- | --- | --- |
-| interface, injection token | abstract class, `@Qualifier` | `module type S` |
-| singleton provider | `@Injectable()`, `@Service` | a module whose `.mli` includes `S` |
-| provider with dependencies | constructor injection, `@Autowired` | `module Make (Db : Kre.Db.S) = …` |
-| exports | `exports: [...]` | the `.mli` |
-| imports | `imports: [...]` | the functor parameters and dune `(libraries …)` |
-| the application module | `AppModule`, `@SpringBootApplication` | `bin/main.ml` with `[%wire]` |
-| consumer | a controller's constructor | `(module Cats : Cats_service.S)` on a handler |
+| Concept | Kre |
+| --- | --- |
+| interface, injection token | `module type S` |
+| singleton provider | a module whose `.mli` includes `S` |
+| provider with dependencies | `module Make (Db : Kre.Db.S) = …` |
+| exports | the `.mli` |
+| imports | the functor parameters and dune `(libraries …)` |
+| the application module | `bin/main.ml` with `[%wire]` |
+| consumer | `(module Cats : Cats_service.S)` on a handler |
 
 ## Three shapes of provider
 
@@ -58,7 +47,7 @@ A module that defines `module type S` and implements it at the top level is a si
 
 ### A fresh instance: `Make ()`
 
-A generative functor with an empty argument creates new state every time it is applied, like `new CatsService()`. `include Make ()` gives the module a default instance, and tests can make their own:
+A generative functor with an empty argument creates new state every time it is applied. `include Make ()` gives the module a default instance, and tests can make their own:
 
 <<< @/../examples/cats/server/cats_service.mli
 
@@ -69,7 +58,7 @@ Dream.test (Kre.App.handler [ Cats_controller.register (module Fresh) ])
 
 ### With dependencies: `Make (Db : …)`
 
-A functor's parameters are its constructor injection. The connection pool needs the settings:
+A functor's parameters are its dependencies. The connection pool needs the settings:
 
 <<< @/../examples/shelter/server/database.mli
 
@@ -99,16 +88,16 @@ The composition root is one line:
 
 <Flow :steps="wireSteps" caption="What [%wire] does during the build" />
 
-Like `@SpringBootApplication`, `[%wire]` scans the application directory — the parent of the directory holding `main.ml` — recursively. It skips `test`, `tests`, `_build`, `node_modules` and hidden directories. Copies of one module made by `copy_files#` for Melange are merged by name. To scan only some directories, list them: `[%wire "server"; "db"]`.
+`[%wire]` scans the application directory — the parent of the directory holding `main.ml` — recursively. It skips `test`, `tests`, `_build`, `node_modules` and hidden directories. Copies of one module made by `copy_files#` for Melange are merged by name. To scan only some directories, list them: `[%wire "server"; "db"]`.
 
-| In the file | Role | Nest / Spring |
-| --- | --- | --- |
-| `module type S` with a top-level implementation | singleton provider | `@Service` |
-| `module Make () = …` | provider, new instance | `@Injectable`, `@Scope(PROTOTYPE)` |
-| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | provider with dependencies | `@Autowired` constructor |
-| `[@@@controller "…"]` | consumer: handlers' module parameters go to `register` | `@Controller` |
-| `[@@@gateway "…"]` | consumer, for WebSockets | `@WebSocketGateway` |
-| anything else | left alone | — |
+| In the file | Role |
+| --- | --- |
+| `module type S` with a top-level implementation | singleton provider |
+| `module Make () = …` | provider, new instance |
+| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | provider with dependencies |
+| `[@@@controller "…"]` | consumer: handlers' module parameters go to `register` |
+| `[@@@gateway "…"]` | consumer, for WebSockets |
+| anything else | left alone |
 
 Two things are needed in dune: the ppx on `main.ml`, and a dependency on the sources it reads so the app is re-wired when they change. The modules it finds must be visible from `main`, so the libraries are `(wrapped false)`:
 
@@ -161,18 +150,18 @@ flowchart TD
   NM -->|"no"| E2["Build error: ambiguous"]
 ```
 
-**`[@@@primary]`** is Spring's `@Primary`. The `cats` example has an in-memory `Cats_service` and a database-backed `Cats_db_service`; the database one wins:
+**`[@@@primary]`** marks the preferred provider. The `cats` example has an in-memory `Cats_service` and a database-backed `Cats_db_service`; the database one wins:
 
 <<< @/../examples/cats/db/cats_db_service.ml{1-4}
 
-**`[@@@fallback]`** is `@ConditionalOnMissingBean`: the provider is created and used only when nothing else implements the interface. A frozen clock for development, replaced automatically once a real one exists:
+**`[@@@fallback]`** marks a default: the provider is created and used only when nothing else implements the interface. A frozen clock for development, replaced automatically once a real one exists:
 
 ```ocaml
 [@@@fallback]
 module Make () : Clock.S = struct let now () = 0. end
 ```
 
-**The parameter name** settles the rest, as Spring falls back to the bean name. `Make (Clock : Clock.S)` picks the provider called `Clock`; `Make (C : Clock.S)` does not pick anything.
+**The parameter name** settles the rest. `Make (Clock : Clock.S)` picks the provider called `Clock`; `Make (C : Clock.S)` does not pick anything.
 
 ## Errors at build time
 
@@ -203,7 +192,7 @@ The same checks cover other things `[%wire]` collects: an `[@@on_event]` listene
 
 ## Lifecycle hooks
 
-A provider that defines `on_start` or `on_shutdown` (and exposes it in its signature) gets them called: `on_start` in dependency order before the server accepts requests, `on_shutdown` in reverse order after SIGINT or SIGTERM. They are `@PostConstruct` and `@PreDestroy`, or `onModuleInit` and `onApplicationShutdown`.
+A provider that defines `on_start` or `on_shutdown` (and exposes it in its signature) gets them called: `on_start` in dependency order before the server accepts requests, `on_shutdown` in reverse order after SIGINT or SIGTERM.
 
 The shelter's database runs its migrations on start and reports its health:
 
@@ -247,23 +236,19 @@ graph TD
   Cats_controller --> Cats_service
 ```
 
-It is Spring's `/actuator/beans` and the Nest Devtools module graph, except that it was computed by the compiler, so it is exactly what was applied. See [Actuator & profiler](/tooling/observability).
+The graph is computed by the compiler, so it is exactly what was applied. See [Actuator & profiler](/tooling/observability).
 
 ## Scopes and substitutes
 
-| Nest | Kre |
+| You need | Kre |
 | --- | --- |
-| `Scope.DEFAULT` | a module or an applied functor |
-| `Scope.TRANSIENT` | a plain function |
-| `Scope.REQUEST` | a `Dream.field` set by middleware and read by a `[@guard]`; services take it as a function argument, so nothing "bubbles" |
-| `useValue`, `useClass` | another module with the same signature |
-| `useFactory`, async providers | ordinary code in `main.ml` before `Kre.App.run`, or an `on_start` hook |
-| `forRoot(config)` | a functor over a config module: `Kre.Db.Make (Driver) (struct let url = … let size = 4 end)` |
+| one shared instance | a module or an applied functor |
+| a new value on every use | a plain function |
+| per-request state | a `Dream.field` set by middleware and read by a `[@guard]`; services take it as a function argument, so nothing "bubbles" |
+| a substitute implementation | another module with the same signature |
+| a value built at startup, possibly async | ordinary code in `main.ml` before `Kre.App.run`, or an `on_start` hook |
+| a configurable module | a functor over a config module: `Kre.Db.Make (Driver) (struct let url = … let size = 4 end)` |
 
 Substituting by hand is just passing a different module:
 
 <<< @/../docs/examples/composition.ml
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring" right="Kre" />

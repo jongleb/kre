@@ -29,14 +29,6 @@ const clientFlow = [
   { title: "pages.mlx", sub: "React components over shared types", tone: "sky" }
 ]
 
-const compare = [
-  { topic: "Password storage", elsewhere: "A password_hash column on the User entity, hidden by @Exclude or a serializer", kre: "A separate credentials table in a server-only library; User.t has no hash to leak" },
-  { topic: "Admin check", elsewhere: "@Roles(\"admin\") metadata and a guard returning true", kre: "Auth.admin returns Auth.Admin.t; create cannot be called without it" },
-  { topic: "Adoption limit", elsewhere: "@Transactional service method behind a proxy", kre: "[@@transactional] on the handler; Error rolls the cat back" },
-  { topic: "Owner check", elsewhere: "@PreAuthorize with a SpEL expression", kre: "[@@authorize fun ~user ~cat -> ...] over the loaded Cat.t" },
-  { topic: "Live list", elsewhere: "A websocket channel and manual cache invalidation", kre: "[@@live [\"cats\"]] and Router.child ~live" },
-  { topic: "Letter", elsewhere: "after_create callback or an event listener", kre: "A typed job enqueued in the same transaction" }
-]
 </script>
 
 # Shelter: a full app
@@ -143,7 +135,7 @@ One record becomes the table, the JSON codec, the OpenAPI schema and the client 
 
 ## Credentials never reach shared types
 
-The password hash is not a field of `User.t`. It lives in its own table, in the `schema/` library, which the Melange build never sees. There is nothing to hide with an `@Exclude` because the type sent to the browser cannot contain a hash at all.
+The password hash is not a field of `User.t`. It lives in its own table, in the `schema/` library, which the Melange build never sees. The type sent to the browser cannot contain a hash at all.
 
 <<< @/../examples/shelter/schema/credential.mli
 
@@ -279,9 +271,9 @@ On the client, the same tables come with the generated client as `Cats_client.Li
 
 Renaming a cat combines three borrowed patterns in one handler:
 
-1. `~(cat : (Cat.t[@load Cats.find]))` parses `:cat` as a `Cat.Id.t` and loads the record — `None` is a 404 (Symfony's `#[MapEntity]`).
-2. `[@@authorize fun ~user ~cat -> Auth.owner_or_admin ~user cat]` receives the parsed user and the loaded cat (Spring's `@PreAuthorize`, but typed).
-3. The body carries the `version` the client read. The generated update only matches that version (Rails' `lock_version`, JPA's `@Version`).
+1. `~(cat : (Cat.t[@load Cats.find]))` parses `:cat` as a `Cat.Id.t` and loads the record — `None` is a 404.
+2. `[@@authorize fun ~user ~cat -> Auth.owner_or_admin ~user cat]` receives the parsed user and the loaded cat.
+3. The body carries the `version` the client read. The generated update only matches that version.
 
 ```sql
 UPDATE cats SET name = @name, age = @age, status = @status,
@@ -404,10 +396,6 @@ login <form><input type="email" value=""/><input type="password" value=""/><butt
 
 <<< @/../examples/shelter/client/scenario.mlx
 
-## How it compares
-
-<Compare :rows="compare" left="A typical Nest or Spring app" right="The shelter" />
-
 ::: info Where each piece is explained
-[Guards & auth](/guide/guards-auth) · [Transactions](/data/transactions) · [Live loaders](/data/live) · [Background jobs](/background/jobs) · [Mail](/background/mail) · [Commands](/background/commands) · [Typed client & router](/client/client-router) · [Testing](/tooling/testing) · [What we borrowed](/reference/borrowed)
+[Guards & auth](/guide/guards-auth) · [Transactions](/data/transactions) · [Live loaders](/data/live) · [Background jobs](/background/jobs) · [Mail](/background/mail) · [Commands](/background/commands) · [Typed client & router](/client/client-router) · [Testing](/tooling/testing)
 :::

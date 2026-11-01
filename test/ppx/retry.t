@@ -1,4 +1,4 @@
-[@@retry n] on any function, like Spring's @Retryable: the body runs again
+[@@retry n] on any function: the body runs again
 when it raises, up to n times; [@@backoff s] is the first pause, doubled each
 time.
 

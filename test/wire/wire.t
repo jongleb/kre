@@ -65,8 +65,7 @@ Two providers of one interface: a build error until one is [@@@primary].
   $ ../ppx/pp.exe -impl main.ml | grep 'Report.Make'
         let module Report = ((Report.Make)(Repo))(Fake_clock) in
 
-Without [@@@primary], naming the parameter after a provider picks it, as
-Spring falls back to the bean name.
+Without [@@@primary], naming the parameter after a provider picks it.
 
   $ sed -i.bak '/primary/d' app/fake_clock.ml && rm app/fake_clock.ml.bak
   $ sed -i.bak 's/(C : Clock.S)/(Clock : Clock.S)/' app/report.ml && rm app/report.ml.bak
@@ -108,7 +107,7 @@ A cron expression is checked at build time.
   Error: [@cron "61 * * * *"]: minute 61 is outside 0-59
   [1]
 A [@@@fallback] provider stands in only when nothing else gives the
-interface (Spring @ConditionalOnMissingBean, Nest @Optional).
+interface.
 
   $ cat > app/clock.ml <<'ML'
   > module type S = sig val now : unit -> float end

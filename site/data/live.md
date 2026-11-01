@@ -1,6 +1,6 @@
 # Live loaders
 
-<p class="lead">A page reloads its data when someone changes a table it reads — with no subscription code in your app. Mark a GET handler with <code>[@@live ["cats"]]</code>, pass the generated table list to the router, and the drivers do the rest. This is IHP's Auto Refresh, without database triggers, so it works on MariaDB too.</p>
+<p class="lead">A page reloads its data when someone changes a table it reads — with no subscription code in your app. Mark a GET handler with <code>[@@live ["cats"]]</code>, pass the generated table list to the router, and the drivers do the rest. It needs no database triggers, so it works on MariaDB too.</p>
 
 <script setup>
 const path = [
@@ -14,13 +14,6 @@ const stats = [
   { value: "1", label: "attribute", note: "[@@live [ \"cats\" ]] on a GET" },
   { value: "0", label: "lines of subscription code", note: "the router reloads for you" },
   { value: "0", label: "database triggers", note: "drivers see the SQL they run" }
-]
-const compare = [
-  { topic: "Turning it on", elsewhere: "IHP: AutoRefresh on an action. Nest/Spring: write a WebSocket or SSE channel by hand", kre: "[@@live [\"cats\"]] on the GET handler" },
-  { topic: "Detecting changes", elsewhere: "IHP: Postgres triggers and LISTEN/NOTIFY", kre: "Drivers report the SQL they run; no triggers, works on MariaDB" },
-  { topic: "Which tables a page reads", elsewhere: "IHP: tracked at render time", kre: "Declared on the handler, checked by the test profile" },
-  { topic: "Rolled-back writes", elsewhere: "Hand-written channels often publish too early", kre: "Published only after the commit; dropped on rollback" },
-  { topic: "Client side", elsewhere: "Subscribe and refetch in each component", kre: "Router.child ~live:Cats_client.Live.available" }
 ]
 </script>
 
@@ -141,7 +134,3 @@ Listing more tables than a route reads is allowed: the page just reloads a littl
 - **One process.** The event bus lives in memory. Two server processes behind a load balancer do not see each other's writes yet.
 - **Tables come from SQL text.** The parser looks at `FROM`, `JOIN`, `INTO` and `UPDATE`. `FROM a, b` sees only `a`.
 - **Only the app's writes.** A change made by another program or by hand in a SQL console is not published.
-
-## How it compares
-
-<Compare :rows="compare" left="IHP / Nest / Spring" right="Kre" />

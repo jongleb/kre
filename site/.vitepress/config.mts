@@ -5,7 +5,7 @@ export default withMermaid(
   defineConfig({
     title: 'Kre',
     description:
-      'A typed full-stack framework for OCaml: Nest structure, Spring power, Rails speed — checked by the compiler.',
+      'Kre is a typed full-stack web framework for OCaml: one type for the table, the JSON, the API docs and the browser.',
     appearance: 'dark',
     cleanUrls: true,
     lastUpdated: false,
@@ -17,22 +17,21 @@ export default withMermaid(
         'link',
         {
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap'
+          href: 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap'
         }
       ]
     ],
     markdown: {
-      theme: { light: 'github-light', dark: 'one-dark-pro' },
+      theme: { light: 'vitesse-light', dark: 'vitesse-dark' },
       languageAlias: { ml: 'ocaml', mli: 'ocaml', mlx: 'ocaml', dune: 'scheme' }
     },
     themeConfig: {
-      logo: '/logo.svg',
-      siteTitle: 'Kre',
+      logo: { light: '/logo-light.svg', dark: '/logo-dark.svg' },
+      siteTitle: 'kre',
       nav: [
         { text: 'Guide', link: '/guide/introduction' },
         { text: 'Data', link: '/data/database' },
         { text: 'Client', link: '/client/client-router' },
-        { text: 'Borrowed', link: '/reference/borrowed' },
         { text: 'Shelter tour', link: '/reference/shelter' }
       ],
       sidebar: [
@@ -92,7 +91,6 @@ export default withMermaid(
         {
           text: 'Reference',
           items: [
-            { text: 'What we borrowed', link: '/reference/borrowed' },
             { text: 'Shelter: a full app', link: '/reference/shelter' }
           ]
         }
@@ -111,28 +109,40 @@ export default withMermaid(
       theme: 'base',
       themeVariables: {
         darkMode: true,
-        background: '#151922',
-        fontFamily: 'Inter, ui-sans-serif, system-ui',
-        primaryColor: '#1f2533',
-        primaryTextColor: '#e9edf5',
-        primaryBorderColor: '#ff7a18',
-        secondaryColor: '#241b2f',
-        secondaryBorderColor: '#9b5de5',
-        tertiaryColor: '#14231d',
-        tertiaryBorderColor: '#3ddc97',
-        lineColor: '#ff9a3c',
-        textColor: '#c9d1e0',
-        noteBkgColor: '#2a2216',
-        noteTextColor: '#ffd9a8',
-        noteBorderColor: '#ffc24b',
-        actorBkg: '#1f2533',
-        actorBorder: '#ff7a18',
-        actorTextColor: '#e9edf5',
-        signalColor: '#ff9a3c',
-        signalTextColor: '#e9edf5',
-        labelBoxBkgColor: '#1f2533',
-        labelTextColor: '#e9edf5',
-        edgeLabelBackground: '#151922'
+        background: '#0f0f11',
+        fontFamily: 'Geist, ui-sans-serif, system-ui',
+        fontSize: '14px',
+        primaryColor: '#17171a',
+        primaryTextColor: '#ededef',
+        primaryBorderColor: '#3a3a40',
+        secondaryColor: '#17171a',
+        secondaryBorderColor: '#3a3a40',
+        tertiaryColor: '#121214',
+        tertiaryBorderColor: '#2a2a2e',
+        lineColor: '#6b6b73',
+        textColor: '#a1a1aa',
+        mainBkg: '#17171a',
+        clusterBkg: '#121214',
+        clusterBorder: '#2a2a2e',
+        nodeBorder: '#3a3a40',
+        noteBkgColor: '#1d1612',
+        noteTextColor: '#ffb4a1',
+        noteBorderColor: '#ff6b4a',
+        actorBkg: '#17171a',
+        actorBorder: '#3a3a40',
+        actorTextColor: '#ededef',
+        actorLineColor: '#3a3a40',
+        signalColor: '#a1a1aa',
+        signalTextColor: '#ededef',
+        labelBoxBkgColor: '#17171a',
+        labelBoxBorderColor: '#3a3a40',
+        labelTextColor: '#ededef',
+        loopTextColor: '#a1a1aa',
+        activationBkgColor: '#26262b',
+        activationBorderColor: '#ff6b4a',
+        edgeLabelBackground: '#0f0f11',
+        attributeBackgroundColorOdd: '#17171a',
+        attributeBackgroundColorEven: '#121214'
       }
     }
   }

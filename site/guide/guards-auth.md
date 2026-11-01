@@ -11,23 +11,13 @@ const order = [
   { title: 'Authorize', sub: 'A closure over the typed arguments', code: '[@@authorize]', tone: 'sky' },
   { title: 'Handler', sub: 'Runs with proof in hand', tone: 'mint' }
 ]
-const stats = [
-  { value: '1', label: 'type for every guard', note: "'a Kre.Guard.t" },
-  { value: '401 / 403', label: 'unauthorized / forbidden', note: 'as Problem Details' },
-  { value: '0', label: 'runtime role strings', note: 'roles are types' }
-]
-const compare = [
-  { topic: 'A guard', elsewhere: 'A class implementing CanActivate that returns a boolean', kre: "A function Dream.request -> ('a, Kre.Error.t) result Lwt.t" },
-  { topic: 'Getting the user', elsewhere: 'req.user, filled by Passport, typed as any', kre: 'A parameter ~(user : (User.t [@guard Auth.current]))' },
-  { topic: 'Roles', elsewhere: '@Roles("admin") metadata and a RolesGuard (Nest); @PreAuthorize("hasRole(...)") (Spring)', kre: 'An abstract evidence type, Auth.Admin.t' },
-  { topic: 'Ownership checks', elsewhere: 'Voters (Symfony), @PreAuthorize with SpEL (Spring), policies (Laravel)', kre: '[@@authorize fun ~user ~cat -> ...], type-checked' },
-  { topic: 'Loading the entity', elsewhere: 'ParamConverter / route model binding', kre: '~(cat : (Cat.t [@load Cats.find])), 404 if missing' },
-  { topic: 'JWT', elsewhere: '@nestjs/jwt + passport-jwt', kre: 'Kre.Jwt.sign, verify and bearer, HS256 built in' },
-  { topic: 'Security headers, CORS, throttling', elsewhere: 'helmet, enableCors, @nestjs/throttler', kre: 'Secure_headers, Cors, Rate_limit middleware' }
-]
 </script>
 
-<StatGrid :stats="stats" />
+| At a glance | |
+| --- | --- |
+| Type of every guard | `'a Kre.Guard.t` |
+| Unauthorized / forbidden | 401 / 403, as Problem Details |
+| Runtime role strings | none: roles are types |
 
 ## A guard is a function
 
@@ -162,18 +152,14 @@ Headers, CORS and rate limiting are not guards: they act on every response, incl
 
 <<< @/../docs/examples/hardened.ml
 
-| Module | Does | Borrowed from |
-| --- | --- | --- |
-| `Kre.Secure_headers` | Sets `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`. HSTS only with `~transport:(Https_only { max_age })`. A header the handler set is kept. | helmet |
-| `Kre.Cors` | `~origins` is `Any` or `Only [ … ]`; `~credentials:Include` for cookies; preflight `OPTIONS` answers 204 without reaching a handler | `app.enableCors` |
-| `Kre.Rate_limit` | A fixed window per key (the client IP by default, or `~key`); over the limit is a 429 Problem Details with `Retry-After` | `@nestjs/throttler` |
+| Module | Does |
+| --- | --- |
+| `Kre.Secure_headers` | Sets `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`. HSTS only with `~transport:(Https_only { max_age })`. A header the handler set is kept. |
+| `Kre.Cors` | `~origins` is `Any` or `Only [ … ]`; `~credentials:Include` for cookies; preflight `OPTIONS` answers 204 without reaching a handler |
+| `Kre.Rate_limit` | A fixed window per key (the client IP by default, or `~key`); over the limit is a 429 Problem Details with `Retry-After` |
 
 ::: warning One process
 `Rate_limit` keeps its counters in memory. Behind several processes, each one counts on its own.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring / Symfony" right="Kre" />
 
 Errors from guards, `[@@authorize]` and parsing all travel as `Kre.Error.t`. [Errors & interceptors](/guide/errors) shows how to render them and how to wrap handlers.

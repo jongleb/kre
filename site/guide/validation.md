@@ -15,15 +15,6 @@ const stats = [
   { value: '2', label: 'targets', note: 'the same type compiles native and to JS' },
   { value: '422', label: 'on bad input', note: 'Problem Details with a path per field' }
 ]
-const compare = [
-  { topic: 'Declaring a DTO', elsewhere: 'A class with class-validator decorators (Nest) or Bean Validation annotations (Spring)', kre: 'A record with [@@deriving dto]' },
-  { topic: 'Where rules run', elsewhere: 'A ValidationPipe or @Valid inspects an already built object', kre: 'Inside of_json; an invalid value is never built' },
-  { topic: 'Reusable constraints', elsewhere: 'Custom decorator classes', kre: 'Refined.String / Int / Enum / Email or Refined.Make' },
-  { topic: 'Unknown fields', elsewhere: 'forbidNonWhitelisted: true', kre: '[@@deriving dto ~strict]' },
-  { topic: 'Partial and picked DTOs', elsewhere: 'PartialType, PickType, OmitType (Nest mapped types)', kre: '~partial_of, ~pick_of, ~omit_of, checked at compile time' },
-  { topic: 'Hiding a field', elsewhere: '@Exclude (class-transformer), @JsonIgnore (Jackson)', kre: '[@exclude]: accepted on input, never sent back' },
-  { topic: 'Error format', elsewhere: 'A framework-specific envelope', kre: 'RFC 9457 Problem Details, same as Spring 6' }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -130,15 +121,15 @@ Note the path: `"fullName"`, the JSON key, not the OCaml field name. Errors alwa
 
 ### Field and type options
 
-| Attribute | Effect | Borrowed from |
-| --- | --- | --- |
-| `[@key "displayName"]` | The name of the field in JSON and in the schema | `@Expose({ name })`, `@JsonProperty` |
-| `[@default e]` | The field may be absent; `e` is used instead | `@IsOptional` with a default |
-| `[@validate r1; r2]` | Rules, all checked, errors collected | class-validator |
-| `[@validate.custom f]` | A function as a rule named `custom` | `@Validate(...)` |
-| `~strict` | Unknown fields are a 422; the schema says `additionalProperties: false` | `forbidNonWhitelisted` |
+| Attribute | Effect |
+| --- | --- |
+| `[@key "displayName"]` | The name of the field in JSON and in the schema |
+| `[@default e]` | The field may be absent; `e` is used instead |
+| `[@validate r1; r2]` | Rules, all checked, errors collected |
+| `[@validate.custom f]` | A function as a rule named `custom` |
+| `~strict` | Unknown fields are a 422; the schema says `additionalProperties: false` |
 
-Nested DTOs need no `@ValidateNested`: a field of type `Other.t` is decoded by `Other.of_json`, which runs its own rules.
+Nested DTOs need nothing extra: a field of type `Other.t` is decoded by `Other.of_json`, which runs its own rules.
 
 ::: warning A rule needs an expression
 `[@validate]` with no payload stops the build: `Error: [@validate] expects an expression, e.g. [@validate max_length 16]`.
@@ -200,7 +191,7 @@ let respond profile = Kre.Response.json ~status:`OK (module Profile) profile
 
 ## Mapped types
 
-The last two lines of `account.ml` are mapped types, Kre's version of Nest's `PickType`, `OmitType` and `PartialType`. The new type is abstract in the source; the ppx expands it from a record declared in the same file.
+The last two lines of `account.ml` are mapped types. The new type is abstract in the source; the ppx expands it from a record declared in the same file.
 
 | Option | The new type | Generated helper |
 | --- | --- | --- |
@@ -216,7 +207,7 @@ flowchart LR
   U -->|"update_apply patch account"| T
 ```
 
-With the account above, `Account.summary_of_t ann` serializes to `{"id":1,"displayName":"Ann"}`, and applying the patch `{"email":"new@x.io"}` with `update_apply` changes the email and keeps the password. Instead of runtime serialization groups (`@Expose({ groups })`), you declare one projection type per audience, and the compiler knows which one each handler returns.
+With the account above, `Account.summary_of_t ann` serializes to `{"id":1,"displayName":"Ann"}`, and applying the patch `{"email":"new@x.io"}` with `update_apply` changes the email and keeps the password. You declare one projection type per audience, and the compiler knows which one each handler returns.
 
 ::: warning Same file only
 `~partial_of:B` where `B` is not a record of this file fails with `expected a record type of this file, e.g. ~partial_of:t`.
@@ -259,9 +250,5 @@ sequenceDiagram
 ```
 
 The browser side speaks the same format. `Kre_client.Error` parses a Problem Details answer into `Problem { status; type_; title; detail; errors }`, so a form can show each message next to the field its `path` names. See [Typed client & router](/client/client-router).
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring" right="Kre" />
 
 Next, [Guards & auth](/guide/guards-auth) shows the same idea applied to identity: a guard does not answer yes or no, it returns the evidence.

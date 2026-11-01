@@ -1,13 +1,8 @@
 # Errors & interceptors
 
-<p class="lead">Every failure in Kre is one value, <code>Kre.Error.t</code>, and it always leaves the server as RFC 9457 Problem Details. Handlers return errors as data, filters turn them into responses, and interceptors wrap the typed result of a handler — the same jobs as Nest's exception filters and interceptors, without a class in sight.</p>
+<p class="lead">Every failure in Kre is one value, <code>Kre.Error.t</code>, and it always leaves the server as RFC 9457 Problem Details. Handlers return errors as data, filters turn them into responses, and interceptors wrap the typed result of a handler.</p>
 
 <script setup>
-const stats = [
-  { value: '1', label: 'error type', note: 'Kre.Error.t, 4xx and 5xx only' },
-  { value: 'RFC 9457', label: 'wire format', note: 'application/problem+json' },
-  { value: '3', label: 'levels of error handler', note: 'route, controller, app' }
-]
 const lifecycle = [
   { title: 'Guards', sub: '[@@@guards], [@@guards]', tone: 'ember' },
   { title: 'Interceptors', sub: 'around: parameters and handler', code: '[@@intercept]', tone: 'violet' },
@@ -15,18 +10,13 @@ const lifecycle = [
   { title: 'Handler', sub: "Ok value, Error e, or an exception", tone: 'mint' },
   { title: 'Error handler', sub: 'Route, then controller, then app', code: '~error_handler', tone: 'sky' }
 ]
-const compare = [
-  { topic: 'Throwing an HTTP error', elsewhere: 'throw new NotFoundException() (Nest); ResponseStatusException (Spring)', kre: "Return Error (Kre.Error.not_found \"cat\") or call Kre.Error.fail" },
-  { topic: 'Error body', elsewhere: 'A framework-specific JSON envelope (Nest); ProblemDetail (Spring 6)', kre: 'RFC 9457 Problem Details, always' },
-  { topic: 'Global filter', elsewhere: 'app.useGlobalFilters (Nest); @ControllerAdvice (Spring)', kre: 'Kre.App.run ~error_handler' },
-  { topic: 'Per controller / per route', elsewhere: '@UseFilters on a class or method; @ExceptionHandler', kre: '[@@@error_handler h], [@@error_handler h]' },
-  { topic: 'Interceptors', elsewhere: 'NestInterceptor with RxJS; HandlerInterceptor, AOP @Around', kre: 'Kre.Interceptor.t, a record with one polymorphic function' },
-  { topic: 'Retries', elsewhere: '@Retryable(maxAttempts = 3, backoff = @Backoff(100)) (Spring Retry)', kre: '[@@retry 3] [@@backoff 0.1] on any function' },
-  { topic: 'Timeouts', elsewhere: 'A timeout interceptor written by hand', kre: '[@@timeout 5.0], or Interceptor.timeout' }
-]
 </script>
 
-<StatGrid :stats="stats" />
+| At a glance | |
+| --- | --- |
+| Error type | `Kre.Error.t`, 4xx and 5xx only |
+| Wire format | RFC 9457, `application/problem+json` |
+| Error handler levels | route, controller, app |
 
 ## `Kre.Error.t`
 
@@ -105,7 +95,7 @@ The app level also handles requests that match no route at all: they arrive as `
 
 ## Interceptors
 
-An interceptor wraps the handler's **typed** result. It runs after the unit guards and around parameter parsing and the handler, just like in Nest:
+An interceptor wraps the handler's **typed** result. It runs after the unit guards and around parameter parsing and the handler:
 
 <<< @/../src/core/interceptor.mli
 
@@ -115,7 +105,7 @@ The `'a.` in `around` makes it polymorphic: one interceptor works for every hand
 | --- | --- |
 | `logging` | Logs method, path, outcome and duration |
 | `timeout s` | Answers 504 when the handler does not finish in `s` seconds |
-| `map_error f` | Rewrites the error, like Nest's exception mapping |
+| `map_error f` | Rewrites the error |
 | `tap f` | Runs `f request` before the handler; for counters and auditing |
 | `chain [ a; b ]` | One interceptor from many; `a` is the outermost |
 
@@ -135,7 +125,7 @@ This middleware adds a `Server-Timing` header to every response, which no interc
 
 ## Retries: `[@@retry n]` on any function
 
-Spring Retry puts `@Retryable` on service methods. In Kre, `[@@retry n]` goes on any function — a service, a client call, a handler. The ppx wraps the body in `Kre.Retry.run`:
+`[@@retry n]` goes on any function — a service, a client call, a handler. The ppx wraps the body in `Kre.Retry.run`:
 
 ```ocaml
 let fetch ~city () : string Lwt.t = Weather.get city
@@ -172,9 +162,5 @@ Only exceptions are retried. An `Error` in a `result` is a real answer — a 404
 - `[@@retry "three"]` fails: `[@@retry] takes the number of attempts: [@@retry 3]`.
 - `[@@backoff 0.1]` alone fails: `[@@backoff] sets the pause between retries; add [@@retry 3]`.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="NestJS / Spring" right="Kre" />
 
 To see these errors from the other side, read [Testing](/tooling/testing): `Kre_client.Error` decodes the same Problem Details in typed tests and in the browser.

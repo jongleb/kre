@@ -1,160 +1,141 @@
 <script setup lang="ts">
 const left = [
-  { title: 'CREATE TABLE', sub: 'Kre.Table.schema prints the DDL and the migration', tone: 'amber' },
-  { title: 'Checked SQL', sub: 'sqlgg types every query against that schema', tone: 'ember' },
-  { title: 'CRUD + finders', sub: 'insert, update, by_email, page, count', tone: 'magma' }
+  { kind: 'schema', title: 'CREATE TABLE', sub: 'DDL and the first migration, printed from the record' },
+  { kind: 'sql', title: 'Checked queries', sub: 'sqlgg types every query against that schema' },
+  { kind: 'crud', title: 'CRUD and finders', sub: 'insert, update, by_status, page, count' }
 ]
 const right = [
-  { title: 'JSON + validation', sub: 'parse, don’t validate: 422 with field paths', tone: 'mint' },
-  { title: 'OpenAPI 3.1', sub: 'schemas and parameters from the same type', tone: 'sky' },
-  { title: 'Typed client & router', sub: 'Melange in the browser, the very same record', tone: 'violet' }
+  { kind: 'json', title: 'JSON with validation', sub: 'parsed at the edge, 422 with field paths' },
+  { kind: 'openapi', title: 'OpenAPI 3.1', sub: 'schemas and parameters, no annotations' },
+  { kind: 'client', title: 'Browser client', sub: 'the same record, compiled with Melange' }
 ]
 </script>
 
 <template>
-  <div class="fanout">
+  <figure class="fanout">
     <div class="side left">
-      <div v-for="item in left" :key="item.title" class="out" :class="item.tone">
+      <div v-for="item in left" :key="item.title" class="out">
+        <span class="kind">{{ item.kind }}</span>
         <div class="t">{{ item.title }}</div>
         <div class="s">{{ item.sub }}</div>
+        <i class="wire" />
       </div>
     </div>
     <div class="core">
-      <div class="glow" />
-      <div class="card">
-        <div class="file">shared/cat.ml</div>
-<pre><span class="k">type</span> t = {
-  id : <span class="m">Id</span>.t; <span class="a">[@primary] [@auto]</span>
-  name : <span class="m">Name</span>.t;
-  status : <span class="m">Status</span>.t; <span class="a">[@index]</span>
-  owner_id : <span class="m">User.Id</span>.t option;
-  version : int; <span class="a">[@version]</span>
+      <div class="file"><span>shared/cat.ml</span><span class="tag">source of truth</span></div>
+<pre><span class="kw">type</span> t = {
+  id : <span class="ty">Id</span>.t; <span class="at">[@primary] [@auto]</span>
+  name : <span class="ty">Name</span>.t;
+  status : <span class="ty">Status</span>.t; <span class="at">[@index]</span>
+  owner_id : <span class="ty">User.Id</span>.t option;
+  version : int; <span class="at">[@version]</span>
 }
-<span class="a">[@@deriving table, dto]</span></pre>
-        <div class="one">one type</div>
-      </div>
+<span class="at">[@@deriving table, dto]</span></pre>
     </div>
     <div class="side right">
-      <div v-for="item in right" :key="item.title" class="out" :class="item.tone">
+      <div v-for="item in right" :key="item.title" class="out">
+        <span class="kind">{{ item.kind }}</span>
         <div class="t">{{ item.title }}</div>
         <div class="s">{{ item.sub }}</div>
+        <i class="wire" />
       </div>
     </div>
-  </div>
+  </figure>
 </template>
 
 <style scoped>
 .fanout {
   display: grid;
-  grid-template-columns: 1fr 1.25fr 1fr;
-  gap: 34px;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 44px;
   align-items: center;
-  margin: 10px 0 20px;
+  margin: 28px 0;
 }
 .side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .out {
-  --tone: var(--kre-ember);
   position: relative;
   padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--tone) 14%, transparent), rgba(255, 255, 255, 0.01));
-  transition: transform 0.2s ease;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+  background: var(--k-bg);
+  transition: border-color 0.15s;
 }
-.out:hover { transform: scale(1.03); }
-.out.amber { --tone: var(--kre-amber); }
-.out.magma { --tone: var(--kre-magma); }
-.out.mint { --tone: var(--kre-mint); }
-.out.sky { --tone: var(--kre-sky); }
-.out.violet { --tone: var(--kre-violet); }
-.out::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 34px;
-  height: 2px;
-  background-size: 200% 100%;
-  animation: flow 1.4s linear infinite;
-}
-.left .out::after {
-  right: -35px;
-  background-image: linear-gradient(270deg, var(--tone), transparent, var(--tone));
-}
-.right .out::after {
-  left: -35px;
-  background-image: linear-gradient(90deg, var(--tone), transparent, var(--tone));
-}
-@keyframes flow {
-  from { background-position: 0 0; }
-  to { background-position: 200% 0; }
+.out:hover { border-color: var(--k-text-3); }
+.kind {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  color: var(--k-text-3);
 }
 .t {
-  font-weight: 800;
-  color: var(--vp-c-text-1);
-  font-size: 15px;
+  margin-top: 4px;
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+  color: var(--k-text);
 }
 .s {
-  margin-top: 4px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--vp-c-text-2);
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--k-text-2);
 }
-.core {
-  position: relative;
-}
-.glow {
+.wire {
   position: absolute;
-  inset: -30px;
-  background: radial-gradient(circle, rgba(255, 122, 24, 0.35), transparent 65%);
-  filter: blur(20px);
-  animation: pulse 3.2s ease-in-out infinite;
+  top: 50%;
+  width: 44px;
+  height: 1px;
+  background: var(--k-border-strong);
 }
-@keyframes pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+.wire::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--k-bg);
+  border: 1px solid var(--k-text-3);
 }
-.card {
-  position: relative;
-  border-radius: 18px;
-  padding: 16px 18px 14px;
-  border: 1px solid rgba(255, 122, 24, 0.55);
-  background: #0e1118;
-  box-shadow: 0 30px 60px -30px rgba(255, 122, 24, 0.6);
+.left .wire { right: -45px; }
+.left .wire::after { right: -4px; }
+.right .wire { left: -45px; }
+.right .wire::after { left: -4px; }
+.core {
+  border: 1px solid var(--k-text);
+  border-radius: 12px;
+  background: var(--k-surface);
+  overflow: hidden;
 }
 .file {
-  font: 600 11px var(--vp-font-family-mono);
-  color: var(--vp-c-text-3);
-  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--k-border);
+  font-family: var(--vp-font-family-mono);
+  font-size: 11.5px;
+  color: var(--k-text-3);
 }
+.tag { color: var(--k-accent); }
 pre {
   margin: 0;
-  font: 13px/1.6 var(--vp-font-family-mono);
-  color: #d8dee9;
-  white-space: pre;
+  padding: 16px 16px 18px;
+  font: 12.5px/1.75 var(--vp-font-family-mono);
+  color: var(--k-text);
   overflow-x: auto;
 }
-.k { color: #c678dd; }
-.m { color: #61afef; }
-.a { color: #ffb86b; }
-.one {
-  position: absolute;
-  top: -12px;
-  right: 16px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font: 800 11px var(--vp-font-family-base);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #0b0d12;
-  background: var(--kre-gradient);
-}
-@media (max-width: 860px) {
-  .fanout { grid-template-columns: 1fr; gap: 18px; }
-  .out::after { display: none; }
+.kw { color: #c2410c; }
+.ty { color: #2563eb; }
+.at { color: var(--k-text-3); }
+:global(.dark) .kw { color: #ff8f73; }
+:global(.dark) .ty { color: #7cb3ff; }
+@media (max-width: 900px) {
+  .fanout { grid-template-columns: 1fr; gap: 14px; }
   .core { order: -1; }
+  .wire { display: none; }
 }
 </style>

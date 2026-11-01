@@ -12,18 +12,10 @@ const stats = [
 const flow = [
   { title: 'Declare', sub: 'val user : login:string -> User.t with [@@get]', tone: 'ember' },
   { title: 'Expand', sub: 'kre-ppx writes a functor over url and headers', code: 'Config -> sig … end', tone: 'amber' },
-  { title: 'Configure', sub: 'Apply it once, like forRoot in NestJS', code: 'Api (struct … end)', tone: 'mint' },
+  { title: 'Configure', sub: 'Apply it once with the base URL and headers', code: 'Api (struct … end)', tone: 'mint' },
   { title: 'Call', sub: 'A typed result: your value or a Kre_client.Error.t', code: '(T, Error.t) result', tone: 'sky' }
 ]
 
-const compare = [
-  { topic: 'Declaring calls', elsewhere: 'Spring: an interface with @HttpExchange; Nest: HttpService calls with string URLs; Symfony: HttpClient requests by hand', kre: 'A signature inside [%http_client: …], one verb attribute per value' },
-  { topic: 'Path and query', elsewhere: 'Annotations on each parameter (@PathVariable, @RequestParam) or string building', kre: 'Inferred from labels: :segment, ~body, other labels are query, ?x is optional' },
-  { topic: 'Mistakes', elsewhere: 'A missing path variable fails on the first request', kre: 'A :segment without its label is a compile error at the declaration' },
-  { topic: 'Response type', elsewhere: 'A generic or an Observable, cast or mapped by hand', kre: 'Decoded with the dto codec of the declared type; a mismatch is Error (Decode …)' },
-  { topic: 'Errors', elsewhere: 'Exceptions (WebClientResponseException, AxiosError)', kre: 'A result value: Problem, Network or Decode' },
-  { topic: 'Testing', elsewhere: 'A mock server or a stubbed HTTP module', kre: 'Kre_testing.use routes calls into the app handler, no socket' }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -204,10 +196,6 @@ sequenceDiagram
 ::: tip Global headers
 `Kre_client.Http.headers` is a ref sent with every request, before the client's own `Config.headers`. The test above uses it to act as a user (`X-User: ann`); in the browser you would put a session token there.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="Spring / Nest / Symfony" right="Kre" />
 
 ## Related
 

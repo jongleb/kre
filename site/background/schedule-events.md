@@ -1,24 +1,9 @@
 <script setup>
-const timings = [
-  { value: '[@@cron]', label: 'cron expression', note: 'five fields, UTC, checked at build time' },
-  { value: '[@@interval]', label: 'every N seconds', note: 'Nest @Interval, Spring fixedRate' },
-  { value: '[@@after]', label: 'once after start', note: 'Nest @Timeout, Spring initialDelay' }
-]
-
 const lifecycle = [
   { title: '[%wire]', sub: 'Collects every scheduled function and every listener', code: 'Kre.Schedule.job', tone: 'ember' },
   { title: 'on_start', sub: 'Provider hooks run, then the schedules start', code: 'Schedule.start', tone: 'amber' },
   { title: 'Running', sub: 'Each task sleeps until it is due; a failure is logged and the schedule goes on', tone: 'mint' },
   { title: 'on_shutdown', sub: 'Schedules are cancelled first, then provider hooks run in reverse', tone: 'violet' }
-]
-
-const rows = [
-  { topic: 'Cron task', elsewhere: "@Cron('0 3 * * *') (Nest), @Scheduled(cron = ...) (Spring)", kre: '[@@cron "0 3 * * *"] on a provider function' },
-  { topic: 'Bad cron string', elsewhere: 'Throws when the scheduler boots', kre: 'Compile error with the field that is wrong' },
-  { topic: 'Event name', elsewhere: "A string: @OnEvent('user.created')", kre: 'A typed topic value: Signup.t Kre.Events.topic' },
-  { topic: 'Wrong payload', elsewhere: 'Any object can be emitted on any name', kre: 'publish of another type does not compile' },
-  { topic: 'Listener discovery', elsewhere: 'Reflection over decorated methods at startup', kre: '[%wire] subscribes [@@on_event] functions at build time' },
-  { topic: 'No event bus', elsewhere: 'Listeners silently never fire', kre: 'Compile error: needs Kre.Events.S' }
 ]
 </script>
 
@@ -26,9 +11,7 @@ const rows = [
 
 <p class="lead">Two kinds of in-process background work, both declared with an attribute on a provider function. Schedules run a function on a cron expression, an interval or once after start. Events deliver a typed value from the code that publishes it to every function that listens. <code>[%wire]</code> connects both at build time.</p>
 
-<StatGrid :stats="timings" />
-
-These are the NestJS `@nestjs/schedule` and `@nestjs/event-emitter` modules, or Spring's `@Scheduled` and `@EventListener`, rebuilt without reflection. They run inside the server process and do not survive a restart. For work that must not be lost, use [background jobs](/background/jobs), which live in the database.
+Both work without reflection. They run inside the server process and do not survive a restart. For work that must not be lost, use [background jobs](/background/jobs), which live in the database.
 
 ## Scheduled tasks
 
@@ -150,10 +133,6 @@ The controller never mentions the mailer when it publishes. The only link betwee
 | Joins the transaction | No, listeners run when you publish | Yes, rollback removes the job |
 | Retries | No, failures are logged | Yes, with doubling pauses |
 | Best for | Fan-out inside the app, caches, metrics | Mail, webhooks, anything that must happen |
-
-## How it compares
-
-<Compare :rows="rows" left="Nest, Spring" right="Kre" />
 
 ::: tip Related
 - [Dependency injection](/guide/dependency-injection) explains providers and `[%wire]`.

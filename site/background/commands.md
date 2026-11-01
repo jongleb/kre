@@ -17,14 +17,6 @@ const stats = [
   { value: '0', label: 'argument parsers', note: 'options reuse the query scalars' },
   { value: '2', label: 'exit code', note: 'on any bad option, all errors at once' }
 ]
-
-const rows = [
-  { topic: 'Declaring a command', elsewhere: 'Symfony #[AsCommand] class, Rails rake task, Spring CommandLineRunner bean', kre: 'A function with [@@command "description"]' },
-  { topic: 'Getting services', elsewhere: 'Constructor injection from the container, or booting the whole app', kre: 'Module parameters, passed by [%wire] at compile time' },
-  { topic: 'Options', elsewhere: 'configure() with addOption, ENV variables, string parsing by hand', kre: 'Labelled arguments, parsed by the same scalars as query strings' },
-  { topic: 'Bad input', elsewhere: 'The first error, or an exception inside the task', kre: 'Every bad option reported before anything runs, exit code 2' },
-  { topic: 'Binary', elsewhere: 'bin/console, rails, a separate jar entry point', kre: 'The server binary itself: main.exe seed --count 2' }
-]
 </script>
 
 # Commands
@@ -33,7 +25,7 @@ const rows = [
 
 <StatGrid :stats="stats" />
 
-Every framework has this. Symfony has `#[AsCommand]`, Rails has rake tasks and `rails runner`, Spring has `CommandLineRunner`, IHP has scripts. The hard part is always the same: getting the database, the configuration and the services without starting a web server. In Kre the wiring is already compiled, so a command just asks for what it needs.
+The hard part of a command is getting the database, the configuration and the services without starting a web server. In Kre the wiring is already compiled, so a command just asks for what it needs.
 
 <Flow :steps="flow" caption="From a function to main.exe seed" />
 
@@ -180,10 +172,6 @@ run [ "signup"; "--email"; "dan@shelter.test"; "--password"; "whiskers1" ]
 `Kre.Command.invoke` returns one of four cases:
 
 <<< @/../src/core/command.mli{7-12}
-
-## How it compares
-
-<Compare :rows="rows" left="Symfony, Rails, Spring" right="Kre" />
 
 ::: tip Related
 - [Dependency injection](/guide/dependency-injection) explains how `[%wire]` resolves the module parameters.

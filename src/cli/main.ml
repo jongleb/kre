@@ -197,5 +197,5 @@ let () =
   exit
     (Cmd.eval_result
        (Cmd.group
-          (Cmd.info "kre" ~doc:"NestJS-style tooling for Kre")
+          (Cmd.info "kre" ~doc:"Tooling for Kre applications")
           [ fst scaffold; snd scaffold; client; openapi; routes; migrate ]))

@@ -15,14 +15,6 @@ const stats = [
   { value: '3', label: 'arguments per page', note: 'data, params, search' },
   { value: '1', label: 'formatter', note: 'ocamlformat-mlx through dune fmt' }
 ]
-const rows = [
-  { topic: 'Markup', elsewhere: 'TSX in React, templates in Angular or Vue', kre: 'JSX inside OCaml, in .mlx files' },
-  { topic: 'Props', elsewhere: 'TypeScript interfaces, optional at runtime', kre: 'Labelled arguments of make, checked by the compiler' },
-  { topic: 'Page data', elsewhere: 'useQuery or a loader returning any JSON', kre: 'The typed result of a generated client call' },
-  { topic: 'Errors from the API', elsewhere: 'Catch and inspect an unknown error object', kre: 'Result.fold over Kre_client.Error.t' },
-  { topic: 'Variants in the UI', elsewhere: 'A switch on a string union, easy to miss a case', kre: 'match on Cat.status; a missing case is a build error' },
-  { topic: 'Rendering in tests', elsewhere: 'jsdom and a test runner', kre: 'ReactDOMServer.renderToStaticMarkup in plain node' }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -193,13 +185,9 @@ login <form><input type="email" value=""/><input type="password" value=""/><butt
 
 `Router.View` renders the same way when you give it a `server_url`. In `examples/cats/client_js/router_check.mlx`, `/cats/3` renders the `pending` element (the loader has not resolved yet) and `/dogs` renders "Not found".
 
-::: info Why not jsdom
+::: info Why static markup
 Static markup is enough to check what a component draws for given props, and node runs it in milliseconds. Behaviour that needs a server — loaders, live updates, Problem Details — is covered by the scenario, which talks to a real Kre process over HTTP. See [Testing](/tooling/testing).
 :::
-
-## How it compares
-
-<Compare :rows="rows" left="React + TypeScript" right="Kre mlx" />
 
 ## What next
 

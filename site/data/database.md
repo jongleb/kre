@@ -16,15 +16,6 @@ const stats = [
   { value: "2", label: "databases", note: "MariaDB and PostgreSQL" },
   { value: "409", label: "on a stale write", note: "optimistic locking via [@version]" }
 ]
-const compare = [
-  { topic: "Where the schema lives", elsewhere: "Entity classes (TypeORM, JPA) or a migration DSL (Rails)", kre: "An OCaml record with [@@deriving table]" },
-  { topic: "Query language", elsewhere: "QueryBuilder, JPQL, Arel", kre: "Plain SQL, typed by sqlgg against schema.sql" },
-  { topic: "Basic CRUD", elsewhere: "Repository<T>, JpaRepository, ActiveRecord", kre: "Kre.Table.crud prints the SQL, sqlgg types it" },
-  { topic: "Finders", elsewhere: "findByStatus parsed from a method name at runtime", kre: "by_status printed from an [@index] column; a typo does not compile" },
-  { topic: "Timestamps and locking", elsewhere: "@CreatedDate, @Version, t.timestamps, lock_version", kre: "[@created_at], [@updated_at], [@version]" },
-  { topic: "Paging", elsewhere: "Pageable and Page<T>, kaminari", kre: "Kre_shared.Page.Request.t and 'a Kre_shared.Page.t" },
-  { topic: "Mapping rows", elsewhere: "Reflection and lazy proxies", kre: "of_row, generated, in the shape of a sqlgg callback" }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -149,7 +140,7 @@ SELECT COUNT(*) FROM cats;
 | `by_<col>`, one row | the column is `[@unique]` | `Users.Single.by_email conn ~email User.of_row` |
 | `by_<col>`, a list | the column is `[@index]` or `[@references M]` | `Cats.List.by_status conn ~status Cat.of_row` |
 
-These are Spring Data's derived queries and Rails' `find_by`, except that the names come from columns, not from parsing a method name. Ask for `by_colour` and the build fails.
+The finder names come from columns, so asking for `by_colour` when there is no `colour` column fails the build.
 
 ### `of_row`, `for_insert`, `for_update`
 
@@ -175,7 +166,7 @@ The controller never sees SQL; it depends on `Cats_service.S`, and `[%wire]` app
 
 ## Timestamps and optimistic locking
 
-Rails has `t.timestamps` and `lock_version`; JPA has `@CreatedDate`, `@LastModifiedDate` and `@Version`. In Kre these are field attributes:
+Creation and update timestamps and the optimistic-locking version are field attributes:
 
 ```ocaml
 type t = {
@@ -226,7 +217,7 @@ This is `rename` in the shelter:
 
 ## Pages
 
-Spring has `Pageable` and `Page<T>`; Rails has kaminari. Kre has `Kre_shared.Page`, shared by server and browser:
+Paging uses `Kre_shared.Page`, shared by server and browser:
 
 - `Kre_shared.Page.Request.t` is a search record for `?page=2&size=20`. `page` starts at 1 and `size` is 1 to 100; anything else is a 400.
 - `'a Kre_shared.Page.t` carries `items`, `page`, `size` and `total`.
@@ -288,9 +279,5 @@ CREATE INDEX cats_breed ON cats (breed);
 ```
 Run its tests with `KRE_TEST_PG_URL=postgresql://… dune build @examples/cats/postgresql/pg`.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="Nest / Spring / Rails" right="Kre" />
 
 Next: group writes into one unit with [Transactions](/data/transactions), and keep the database in step with the record using [Migrations](/data/migrations).

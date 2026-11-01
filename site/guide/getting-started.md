@@ -12,14 +12,6 @@ const stats = [
   { value: '7', label: 'files per resource', note: 'type, DTO, service, controller, test' },
   { value: '5', label: 'field types', note: 'string, int, float, bool, time' }
 ]
-
-const compare = [
-  { topic: 'New project', elsewhere: 'nest new · rails new · spring init', kre: 'kre new demo' },
-  { topic: 'A resource', elsewhere: 'nest g resource · rails g scaffold', kre: 'kre generate controller dogs name:string' },
-  { topic: 'Registering it', elsewhere: 'Added to a module or found by scanning', kre: 'One line in bin/main.ml, or [%wire] finds it' },
-  { topic: 'First test', elsewhere: 'A spec file with mocks you fill in', kre: 'A CRUD test that already passes' },
-  { topic: 'Overwriting files', elsewhere: 'Prompts or --force', kre: 'Never: if one file exists, nothing is written' }
-]
 </script>
 
 # Getting started
@@ -184,7 +176,7 @@ curl localhost:8080/health
 
 ## Generate a resource
 
-`kre generate controller` is `rails generate scaffold` and `nest g resource` in one: a type, a creation DTO, an in-memory service, a CRUD controller and a test. Fields are `name:type`, where the type is `string`, `int`, `float`, `bool` or `time`. With no fields you get `name:string`.
+`kre generate controller` writes a whole resource: a type, a creation DTO, an in-memory service, a CRUD controller and a test. Fields are `name:type`, where the type is `string`, `int`, `float`, `bool` or `time`. With no fields you get `name:string`.
 
 ```sh
 kre generate controller dogs name:string age:int born:time good:bool
@@ -376,10 +368,6 @@ let () =
 | `kre generate controller cats [field:type …]` | type, DTO, service, controller, test |
 | `kre generate service cats` | `server/cats_service.ml` and `.mli` with `module type S` |
 | `kre generate dto signup` | `shared/signup_dto.ml` |
-
-## How it compares
-
-<Compare :rows="compare" left="Nest / Rails / Spring" right="Kre" />
 
 ## Next steps
 

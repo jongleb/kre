@@ -1,6 +1,6 @@
 # Actuator & profiler
 
-<p class="lead">Kre borrows two windows into a running app. The Actuator, from Spring Boot, answers health checks, metrics and "what is wired to what" in production. The Profiler, from Symfony, shows every request with its SQL in development and flags N+1 queries. Both are a controller and a middleware you add in <code>main.ml</code> — and the bean graph they show is the one the compiler built.</p>
+<p class="lead">Kre gives you two windows into a running app. The Actuator answers health checks, metrics and "what is wired to what" in production. The Profiler shows every request with its SQL in development and flags N+1 queries. Both are a controller and a middleware you add in <code>main.ml</code> — and the bean graph they show is the one the compiler built.</p>
 
 <script setup>
 const stats = [
@@ -13,14 +13,6 @@ const health = [
   { title: '[%wire]', sub: 'Collects every check of the app into app.health', tone: 'amber' },
   { title: 'Actuator.make', sub: '~checks:app.health', tone: 'violet' },
   { title: 'GET /actuator/health', sub: '200 up, or 503 down with the reason', tone: 'mint' }
-]
-const compare = [
-  { topic: 'Health checks', elsewhere: 'HealthIndicator beans (Spring); Terminus (Nest)', kre: '[@@health "name"] on any provider function' },
-  { topic: 'Config dump', elsewhere: '/actuator/env with sanitizing rules', kre: '/actuator/env from Config.pairs; [@secret] fields print ***' },
-  { topic: 'Metrics', elsewhere: 'Micrometer + Prometheus registry', kre: '/actuator/metrics in Prometheus text format, built in' },
-  { topic: 'Dependency graph', elsewhere: '/actuator/beans at run time (Spring); Nest Devtools graph', kre: '/actuator/beans and beans.mmd, produced by [%wire] at compile time' },
-  { topic: 'Request and SQL inspector', elsewhere: 'Symfony Web Profiler; Rails dev log', kre: '/__kre/profiler and profiler.json' },
-  { topic: 'N+1 detection', elsewhere: 'Bullet (Rails)', kre: 'The same query 3 or more times in one request is flagged' }
 ]
 </script>
 
@@ -104,7 +96,7 @@ ocaml_gc_major_collections 12
 
 ### Beans: the graph the compiler built
 
-Spring's `/actuator/beans` reports what the container did at run time. In Kre there is no container: `[%wire]` sorts and applies the functors at compile time and stores the result in `app.beans`. The endpoint shows providers in start order, then controllers, each with what it was given — exactly what was applied, because it is the same data. `/actuator/beans.mmd` renders it as Mermaid. For the shelter it is:
+There is no container at run time: `[%wire]` sorts and applies the functors at compile time and stores the result in `app.beans`. The endpoint shows providers in start order, then controllers, each with what it was given — exactly what was applied, because it is the same data. `/actuator/beans.mmd` renders it as Mermaid. For the shelter it is:
 
 ```mermaid
 graph TD
@@ -168,7 +160,7 @@ The database drivers (`kre-db-mariadb`, `kre-db-postgresql`) and `Db.query` repo
 
 ### N+1, flagged
 
-When the same SQL runs **three or more times** in one request, the profiler marks it `N+1` — like Rails' Bullet. It is almost always a loop over a service that wants to be a single `JOIN` or a `by_<column>` lookup from `Table.crud`. From code, `Kre.Profiler.repeated entry` returns those queries with their counts.
+When the same SQL runs **three or more times** in one request, the profiler marks it `N+1`. It is almost always a loop over a service that wants to be a single `JOIN` or a `by_<column>` lookup from `Table.crud`. From code, `Kre.Profiler.repeated entry` returns those queries with their counts.
 
 ::: info Development only
 The profiler is active only when `KRE_ENV` is `dev` or unset. Under any other profile the middleware does nothing and the pages answer 404, so leaving it in `main.ml` is safe.
@@ -177,7 +169,3 @@ The profiler is active only when `KRE_ENV` is `dev` or unset. Under any other pr
 ## The request log
 
 `Dream.logger` is the first middleware in the shelter's list: one line per request with method, path, status and time, plus anything the handlers log with `Dream.log` or `Dream.info`. `Kre.Interceptor.logging` adds a line per handler with its outcome — `ok` or the error code — see [Errors & interceptors](/guide/errors).
-
-## How it compares
-
-<Compare :rows="compare" left="Spring / Symfony / Rails" right="Kre" />

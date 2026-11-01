@@ -4,7 +4,7 @@ type 'a t = private {
   size : int;
   total : int;  (** Items on all pages. *)
 }
-(** One page of a longer list; Spring [Page], Rails kaminari. *)
+(** One page of a longer list. *)
 
 (** Which page a client asks for: [?page=2&size=20]; a search record. *)
 module Request : sig

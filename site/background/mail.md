@@ -16,13 +16,6 @@ const flow = [
   { title: 'Deliver', sub: 'An RFC 5322 message on the wire, or a row on /__kre/mail', tone: 'sky' }
 ]
 
-const compare = [
-  { topic: 'A letter', elsewhere: 'A mailer class with methods and instance variables (Rails), an Email object with setters (Symfony)', kre: 'An immutable record built by one function; the compiler checks every field' },
-  { topic: 'Addresses', elsewhere: 'Strings, checked when the SMTP server rejects them', kre: 'Kre_shared.Refined.Email.t, parsed before the letter exists' },
-  { topic: 'Recipient', elsewhere: 'Forgetting to set one is a runtime error', kre: 'to_ is a required argument; a letter without it does not type-check' },
-  { topic: 'Transport', elsewhere: 'A DSN string in config picks the transport at runtime', kre: 'A provider module; [%wire] picks it at build time, [@@@primary] switches it' },
-  { topic: 'Preview', elsewhere: 'ActionMailer previews, Symfony profiler mail panel', kre: 'Kre.Mail.Outbox () keeps letters and serves /__kre/mail' }
-]
 </script>
 
 <StatGrid :stats="stats" />
@@ -132,7 +125,7 @@ The SMTP provider talks plain text: no `STARTTLS`, no `AUTH`. Point it at a loca
 A generative functor: every application of it gets its own list of letters. `send` appends to that list and always succeeds. On top of `S` it gives you two things:
 
 - `sent ()` returns the letters in the order they were sent, so a test can assert on them.
-- `controller` is a ready-made `Kre.Controller.t` that serves **`GET /__kre/mail`**: a plain HTML page listing every letter with its subject, sender, recipient and body. HTML bodies are rendered in an `iframe`, text bodies as preformatted text. This is the Kre take on Rails' ActionMailer previews.
+- `controller` is a ready-made `Kre.Controller.t` that serves **`GET /__kre/mail`**: a plain HTML page listing every letter with its subject, sender, recipient and body. HTML bodies are rendered in an `iframe`, text bodies as preformatted text. Use it to preview letters while developing.
 
 ```mermaid
 sequenceDiagram
@@ -210,13 +203,9 @@ flowchart LR
 The usual setup is SMTP marked `[@@@primary]` in the production build and the outbox in tests, where you call `Mail.sent ()` directly. If you keep `mail.ml` around, the `/__kre/mail` page stays mounted but will simply be empty in production; drop `Mail.controller` from `main.ml` if you do not want it there.
 :::
 
-::: info Spring and NestJS have the same idea
-This is `@Primary` from Spring, and `{ provide: MailService, useClass: SmtpMailService }` from NestJS. The difference is that Kre resolves it while compiling: two candidates with no primary and no matching name is a build error with the file and line of the module that asked.
+::: info Resolved while compiling
+Kre picks the provider at build time: two candidates with no primary and no matching name is a build error with the file and line of the module that asked.
 :::
-
-## How it compares
-
-<Compare :rows="compare" left="Rails / Symfony / Nest" right="Kre" />
 
 ## Related
 

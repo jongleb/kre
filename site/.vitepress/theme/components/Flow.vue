@@ -1,133 +1,89 @@
 <script setup lang="ts">
-type Step = { title: string; sub?: string; code?: string; tone?: 'ember' | 'amber' | 'mint' | 'sky' | 'violet' | 'magma' }
+type Step = { title: string; sub?: string; code?: string; tone?: string }
 defineProps<{ steps: Step[]; caption?: string }>()
 </script>
 
 <template>
   <figure class="flow">
-    <div class="track">
-      <template v-for="(step, index) in steps" :key="index">
-        <div class="step" :class="step.tone ?? 'ember'">
-          <div class="index">{{ String(index + 1).padStart(2, '0') }}</div>
-          <div class="title">{{ step.title }}</div>
-          <code v-if="step.code" class="code">{{ step.code }}</code>
-          <div v-if="step.sub" class="sub">{{ step.sub }}</div>
+    <ol>
+      <li v-for="(step, index) in steps" :key="index">
+        <div class="head">
+          <span class="n">{{ String(index + 1).padStart(2, '0') }}</span>
+          <span class="line" />
         </div>
-        <div v-if="index < steps.length - 1" class="arrow"><span /></div>
-      </template>
-    </div>
+        <div class="title">{{ step.title }}</div>
+        <code v-if="step.code">{{ step.code }}</code>
+        <p v-if="step.sub">{{ step.sub }}</p>
+      </li>
+    </ol>
     <figcaption v-if="caption">{{ caption }}</figcaption>
   </figure>
 </template>
 
 <style scoped>
 .flow {
-  margin: 24px 0;
-  padding: 22px;
-  border-radius: 18px;
-  border: 1px solid var(--kre-line);
-  background:
-    radial-gradient(700px 220px at 50% 0%, rgba(255, 122, 24, 0.08), transparent 70%),
-    var(--vp-c-bg-soft);
-  overflow-x: auto;
+  margin: 28px 0;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-radius);
+  background: var(--k-bg);
 }
-.track {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  row-gap: 14px;
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 22px 18px;
 }
-.step {
-  --tone: var(--kre-ember);
-  position: relative;
-  flex: 1 1 130px;
-  min-width: 130px;
-  max-width: 230px;
-  padding: 14px 14px 16px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
-  background: linear-gradient(170deg, color-mix(in srgb, var(--tone) 16%, transparent), rgba(255, 255, 255, 0.015));
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.step:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 30px -16px var(--tone);
-}
-.step.amber { --tone: var(--kre-amber); }
-.step.mint { --tone: var(--kre-mint); }
-.step.sky { --tone: var(--kre-sky); }
-.step.violet { --tone: var(--kre-violet); }
-.step.magma { --tone: var(--kre-magma); }
-.index {
-  font: 700 11px var(--vp-font-family-mono);
-  color: var(--tone);
-  letter-spacing: 0.1em;
-}
-.title {
-  margin-top: 4px;
-  font-weight: 800;
-  font-size: 15px;
-  line-height: 1.25;
-  color: var(--vp-c-text-1);
-}
-.code {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  color: var(--tone);
-  background: rgba(0, 0, 0, 0.25);
-}
-.sub {
-  margin-top: 8px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--vp-c-text-2);
-}
-.arrow {
-  flex: 0 0 26px;
+li { margin: 0; min-width: 0; }
+.head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
 }
-.arrow span {
-  position: relative;
-  width: 22px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--kre-ember));
-  overflow: visible;
+.n {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11.5px;
+  color: var(--k-accent);
 }
-.arrow span::after {
-  content: '';
-  position: absolute;
-  right: -2px;
-  top: -4px;
-  border-left: 7px solid var(--kre-ember);
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
+.line {
+  flex: 1;
+  height: 1px;
+  background: var(--k-border-strong);
 }
-.arrow span::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--kre-amber);
-  box-shadow: 0 0 10px var(--kre-amber);
-  animation: travel 1.6s linear infinite;
+li:last-child .line { background: linear-gradient(90deg, var(--k-border-strong), transparent); }
+.title {
+  margin-top: 12px;
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+  color: var(--k-text);
 }
-@keyframes travel {
-  from { left: 0; opacity: 0; }
-  20% { opacity: 1; }
-  to { left: 18px; opacity: 0; }
+code {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 11.5px;
+  color: var(--k-text-2);
+  border: 1px solid var(--k-border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  background: var(--k-surface);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+p {
+  margin: 8px 0 0 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: var(--k-text-2);
 }
 figcaption {
-  margin-top: 14px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--vp-c-text-3);
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--k-border);
+  font-size: 12.5px;
+  color: var(--k-text-3);
 }
 </style>
