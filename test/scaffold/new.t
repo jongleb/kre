@@ -33,6 +33,47 @@ A generated resource builds and its CRUD test passes.
     [OK]          crud          0   create, read, remove.
     [OK]          crud          1   invalid body is 422.
 
+Fields are name:type; the entity is ready for a table, the test posts sample
+values.
+
+  $ forge generate controller dogs name:string age:int born:time good:bool
+  created ./server/dogs_controller.ml
+  created ./shared/create_dog_dto.ml
+  created ./shared/dog.ml
+  created ./test/dogs/dune
+  created ./test/dogs/test_dogs.ml
+  created ./server/dogs_service.ml
+  created ./server/dogs_service.mli
+  $ cat shared/dog.ml shared/create_dog_dto.ml
+  open Jsonkit.Primitives
+  
+  module Id = Forge_shared.Id.Make ()
+  
+  type t = {
+    id : Id.t; [@primary] [@auto] [@column int]
+    name : string; [@size 255] [@validate min_length 1]
+    age : int;
+    born : Forge_shared.Time.t;
+    good : bool;
+  }
+  [@@deriving table ~name:"dogs", dto]
+  open Jsonkit.Primitives
+  
+  type t = {
+    name : string; [@validate min_length 1]
+    age : int;
+    born : Forge_shared.Time.t;
+    good : bool;
+  }
+  [@@deriving dto ~strict]
+  $ dune build 2>&1
+  $ dune test 2>&1 | grep -E "OK|FAIL|Expected|Received"
+    [OK]          crud          0   create, read, remove.
+    [OK]          crud          1   invalid body is 422.
+  $ forge generate controller birds wings:triple
+  forge: wings:triple: a field is name:type with type string, int, float, bool or time
+  [123]
+
 Generating over existing files writes nothing.
 
   $ forge generate controller cats

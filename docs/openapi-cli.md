@@ -8,8 +8,10 @@ forge routes --spec spec.json
 forge openapi --spec spec.json --out openapi.json --title Cats --version 1.0.0
 forge client --spec spec.json --controller cats --out cats_client.ml
 forge migrate up --url mariadb://user:pass@localhost/db
-forge generate controller dogs
+forge generate controller dogs name:string age:int born:time good:bool
 ```
+
+`forge generate controller` — как `rails generate scaffold` и `nest g resource`: тип с `[@@deriving table, dto]` (поля из аргументов `имя:тип`, типы `string`, `int`, `float`, `bool`, `time`; по умолчанию `name:string`), DTO создания, сервис в памяти (`Make ()`, его потом заменяет сервис с базой), CRUD-контроллер и тест с примерными значениями. Всё ложится в существующие библиотеки `shared`/`server`, `[%wire]` и `forge client` подхватывают ресурс сами; сгенерированный проект собирается и проходит свой тест (`test/scaffold/new.t`).
 
 `spec` — то, что ppx сгенерировал в контроллере:
 

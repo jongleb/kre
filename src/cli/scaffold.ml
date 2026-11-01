@@ -65,18 +65,69 @@ let write ~root ~template ~substitutions =
 let project name =
   write ~root:name ~template:"new" ~substitutions:[ ("name", name) ]
 
-let generate kind plural =
+let generate kind plural ~fields =
   let singular =
     if String.ends_with ~suffix:"s" plural then
       String.sub plural 0 (String.length plural - 1)
     else plural
   in
+  let parsed =
+    List.fold_right
+      (fun field parsed ->
+        Result.bind parsed (fun parsed ->
+            match String.split_on_char ':' field with
+            | [ name; (("string" | "int" | "float" | "bool" | "time") as kind) ]
+              when name <> "" ->
+                Ok ((name, kind) :: parsed)
+            | _ ->
+                Error
+                  (Printf.sprintf
+                     "%s: a field is name:type with type string, int, float, \
+                      bool or time"
+                     field)))
+      (match fields with [] -> [ "name:string" ] | fields -> fields)
+      (Ok [])
+  in
+  Result.bind parsed @@ fun parsed ->
+  let type_of = function "time" -> "Forge_shared.Time.t" | kind -> kind in
+  let lines render = String.concat "" (List.map render parsed) in
   let substitutions =
     [
       ("plural", plural);
       ("Plural", String.capitalize_ascii plural);
       ("singular", singular);
       ("Singular", String.capitalize_ascii singular);
+      ( "open",
+        match
+          List.find_opt (fun (_, kind) -> not (String.equal kind "time")) parsed
+        with
+        | Some _ -> "open Jsonkit.Primitives\n\n"
+        | None -> "" );
+      ( "fields",
+        lines (fun (name, kind) ->
+            Printf.sprintf "  %s : %s;%s\n" name (type_of kind)
+              (match kind with
+              | "string" -> " [@size 255] [@validate min_length 1]"
+              | _ -> "")) );
+      ( "dto_fields",
+        lines (fun (name, kind) ->
+            Printf.sprintf "  %s : %s;%s\n" name (type_of kind)
+              (match kind with
+              | "string" -> " [@validate min_length 1]"
+              | _ -> "")) );
+      ("names", String.concat "; " (List.map fst parsed));
+      ( "sample",
+        String.concat ","
+          (List.map
+             (fun (name, kind) ->
+               Printf.sprintf "%S:%s" name
+                 (match kind with
+                 | "string" -> "\"first\""
+                 | "int" -> "1"
+                 | "float" -> "1.5"
+                 | "bool" -> "true"
+                 | _ -> "\"2026-01-01T00:00:00.000Z\""))
+             parsed) );
     ]
   in
   let templates =

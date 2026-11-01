@@ -13,15 +13,15 @@ let () =
       ( "crud",
         [
           Alcotest.test_case "create, read, remove" `Quick (fun () ->
-              let created = call ~body:{|{"name":"first"}|} `POST "/{{plural}}" in
+              let created = call ~body:{|{ {{sample}} }|} `POST "/{{plural}}" in
               let found = call `GET "/{{plural}}/1" in
               let removed = call `DELETE "/{{plural}}/1" in
               let gone = fst (call `GET "/{{plural}}/1") in
               Alcotest.(check (list (pair int string)))
                 "responses"
                 [
-                  (201, {|{"id":1,"name":"first"}|});
-                  (200, {|{"id":1,"name":"first"}|});
+                  (201, {|{"id":1,{{sample}}}|});
+                  (200, {|{"id":1,{{sample}}}|});
                   (204, "");
                   (404, "");
                 ]
@@ -29,6 +29,6 @@ let () =
           Alcotest.test_case "invalid body is 422" `Quick (fun () ->
               Alcotest.(check int)
                 "status" 422
-                (fst (call ~body:{|{"name":""}|} `POST "/{{plural}}")));
+                (fst (call ~body:{|{}|} `POST "/{{plural}}")));
         ] );
     ]

@@ -1,1 +1,3 @@
-type t = { name : {{Singular}}.Name.t } [@@deriving dto ~strict]
+{{open}}type t = {
+{{dto_fields}}}
+[@@deriving dto ~strict]

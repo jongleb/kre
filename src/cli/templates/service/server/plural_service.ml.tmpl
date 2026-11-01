@@ -9,10 +9,10 @@ module Make () = struct
   let {{plural}} : {{Singular}}.t list ref = ref []
   let last_id = ref None
 
-  let add ({ name } : Create_{{singular}}_dto.t) =
+  let add ({ {{names}} } : Create_{{singular}}_dto.t) =
     let id = Option.fold ~none:{{Singular}}.Id.first ~some:{{Singular}}.Id.succ !last_id in
     last_id := Some id;
-    let {{singular}} = { {{Singular}}.id; name } in
+    let {{singular}} = { {{Singular}}.id; {{names}} } in
     {{plural}} := !{{plural}} @ [ {{singular}} ];
     Lwt.return {{singular}}
 

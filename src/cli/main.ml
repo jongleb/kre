@@ -174,7 +174,15 @@ let scaffold =
          | Scaffold.Service -> "service"
          | Scaffold.Dto -> "dto")
          ~doc)
-      Term.(const (fun name -> report (Scaffold.generate kind name)) $ name)
+      Term.(
+        const (fun name fields -> report (Scaffold.generate kind name ~fields))
+        $ name
+        $ Arg.(
+            value & pos_right 0 string []
+            & info [] ~docv:"FIELD"
+                ~doc:
+                  "A field of the resource, name:type with type string, int, \
+                   float, bool or time; the default is name:string."))
   in
   ( Cmd.v
       (Cmd.info "new" ~doc:"Create a project: shared, server, bin and a test.")

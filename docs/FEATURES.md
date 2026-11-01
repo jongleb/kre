@@ -109,7 +109,7 @@
 | Swagger, `@ApiOperation` | springdoc, `@Operation` | `--emit-openapi`, `forge openapi` (3.1, валидируется); `[@@summary]`, `[@@description]` | ✅ |
 | — | — | типизированный клиент `forge client` (Melange + native) | ✅ |
 | — | — | типизированный роутер страниц, `[%path]`, `params`, `search` | ✅ |
-| `nest new`, `nest g resource` | Spring Initializr | `forge new`, `forge generate` | ✅ |
+| `nest new`, `nest g resource` | Spring Initializr; `rails g scaffold`, `make:crud` | `forge new`, `forge generate controller dogs name:string age:int born:time` | ✅ |
 | `@OnEvent`, EventEmitter | `@EventListener` | `Forge.Events` (топик с типом события), `[@@on_event]`, подписка через `[%wire]` | ✅ |
 | `@Cron`, `@Interval`, `@Timeout` | `@Scheduled` | `[@@cron]` (проверка при сборке), `[@@interval]`, `[@@after]` | ✅ |
 | `CacheInterceptor`, `@CacheKey` | `@Cacheable`, `@CacheEvict` | `[@@cache ttl]` на GET; `Forge.Cache.memoize` → `{ find; evict; clear }` | ✅ |
