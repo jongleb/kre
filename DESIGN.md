@@ -727,6 +727,16 @@ module Job : sig
   module Make (Db : Db.S) (Config : sig val poll : float val attempts : int end) : S
 end
 
+(* Forge.Profiler — фаза 3: запросы и их SQL в dev; /__forge/profiler *)
+module Profiler : sig
+  type entry = { method_ : string; target : string; status : int; milliseconds : float; queries : string list }
+  val sql : string -> unit                 (* драйверы *)
+  val middleware : Dream.middleware
+  val controller : Controller.t
+  val recent : unit -> entry list
+  val repeated : entry -> (string * int) list   (* N+1 *)
+end
+
 (* Forge.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1627,7 +1637,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` с сегментом `:cat` — сегмент разбирается `Cat.Id` (тип `M.t` → `M.Id`: ppx не видит типа загрузчика), `Forge.Route.load` → 404; `[@@authorize]` получает загруженную запись | ✅ |
 | 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `forge generate resource dogs name:string age:int` — тип с `table`/`dto`, SQL, сервис, контроллер, страницы `.mlx`, тест; всё сразу компилируется | 3 |
 | 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: переходы — `function` по конструкторам (опечатка — ошибка компиляции), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native и Melange (`docs/workflow.md`) | ✅ |
-| 14 | Symfony Profiler, Rails dev log, Spring `httpexchanges` | `/__forge/profiler` при `FORGE_ENV=dev`: запросы, их SQL (драйвер уже видит текст), время, guards | 3 |
+| 14 | Symfony Profiler, Rails dev log и Bullet, Spring `httpexchanges` | `Forge.Profiler`: middleware собирает по запросу SQL (драйверы и `Db.query` зовут `Profiler.sql`), время, статус; `/__forge/profiler` (HTML) и `.json`, пометка N+1 (≥ 3 одинаковых запроса); только `FORGE_ENV=dev` | ✅ |
 | 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Forge.Mail`: письмо — функция в `.mlx`, превью в dev | 3 |
 | 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — сигнатура вызовов → функтор `(Config : sig val url : string val headers : … end)` поверх `Forge_client.Http`/`Wire` (`Http.request ?base`); native и Melange (`docs/http-client.md`) | ✅ |
 

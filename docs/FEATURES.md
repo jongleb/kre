@@ -24,6 +24,7 @@
 | — | `@Lazy`, `@Conditional` | | ⏳ | |
 | `@nestjs/bullmq` | `@Async`; Rails ActiveJob, Symfony Messenger, IHP Jobs | `Forge.Job` + `[@@job q]`: очередь в той же БД, `SKIP LOCKED`, повторы, enqueue в транзакции | ✅ | `docs/jobs.md` |
 | `nest-commander` | `CommandLineRunner`; Symfony `#[AsCommand]`, Rails rake | `[@@command "…"]` + `app.commands` → `main.exe seed --count 3` | ✅ | `docs/commands.md` |
+| Devtools | Symfony Web Profiler, Rails Bullet | `Forge.Profiler`: запросы с их SQL и пометкой N+1, `/__forge/profiler`, только в dev | ✅ | `docs/profiler.md` |
 | Devtools graph | `/actuator/beans` | `app.beans` из `[%wire]` → `/actuator/beans`, `/actuator/beans.mmd` | ✅ | `docs/actuator.md` |
 | circular deps, `forwardRef`, `ModuleRef`, discovery | `ApplicationContext` | ошибка компиляции / не нужно | — | `docs/not-needed.md` |
 

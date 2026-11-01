@@ -59,20 +59,24 @@ module Sql = struct
 
   let select conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     select conn sql set_params callback
 
   let select_one conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     select_one conn sql set_params callback
 
   let select_one_maybe conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     select_one_maybe conn sql set_params callback
 
   let execute conn sql set_params =
     Lwt.map
       (fun response ->
         Forge.Live.wrote sql;
+        Forge.Profiler.sql sql;
         response)
       (execute conn sql set_params)
 end

@@ -333,16 +333,19 @@ module Sql = struct
 
   let select conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     Lwt.map (List.iter callback) (rows conn sql set_params)
 
   let select_one_maybe conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     Lwt.map
       (fun rows -> Option.map callback (List.nth_opt rows 0))
       (rows conn sql set_params)
 
   let select_one conn sql set_params callback =
     Forge.Live.read sql;
+    Forge.Profiler.sql sql;
     Lwt.bind (rows conn sql set_params) (function
       | row :: _ -> Lwt.return (callback row)
       | [] -> Lwt.fail (Oops ("no row: " ^ sql)))
@@ -367,6 +370,7 @@ module Sql = struct
       | _ -> Lwt.return_none
     in
     Forge.Live.wrote sql;
+    Forge.Profiler.sql sql;
     Lwt.return
       {
         affected_rows =

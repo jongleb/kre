@@ -995,6 +995,54 @@ let time =
           ]);
   ]
 
+let profiler =
+  [
+    Alcotest.test_case "requests, their SQL and N+1" `Quick (fun () ->
+        let handler =
+          Dream.test
+            (Forge.App.handler
+               ~middleware:[ Forge.Profiler.middleware ]
+               [
+                 Forge.Profiler.controller;
+                 Forge.Controller.v
+                   ~spec:
+                     {
+                       Forge.Spec.prefix = "/owners";
+                       version = None;
+                       routes = [];
+                     }
+                   [
+                     Forge.Route.v `GET
+                       (Routes.( @--> )
+                          Routes.(s "owners" /? nil)
+                          (Forge.Route.handle ~status:`OK Forge.Route.Text
+                             (fun _ ->
+                               Forge.Profiler.sql "SELECT * FROM owners";
+                               List.iter
+                                 (fun _ ->
+                                   Forge.Profiler.sql
+                                     "SELECT * FROM cats WHERE owner_id = ?")
+                                 [ 1; 2; 3 ];
+                               Lwt.return_ok "ok")));
+                   ];
+               ])
+        in
+        let get target =
+          let response = handler (Dream.request ~target "") in
+          ( Dream.status_to_int (Dream.status response),
+            Lwt_main.run (Dream.body response) )
+        in
+        ignore (get "/owners");
+        let entry = List.hd (Forge.Profiler.recent ()) in
+        Alcotest.(check (triple string int (list (pair string int))))
+          "entry"
+          ("/owners", 4, [ ("SELECT * FROM cats WHERE owner_id = ?", 3) ])
+          ( entry.target,
+            List.length entry.queries,
+            Forge.Profiler.repeated entry );
+        Alcotest.(check int) "page" 200 (fst (get "/__forge/profiler")));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
@@ -1005,6 +1053,7 @@ let () =
       ("Command", command);
       ("Page", page);
       ("Time", time);
+      ("Profiler", profiler);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);
