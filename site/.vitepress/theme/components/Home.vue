@@ -96,7 +96,7 @@ import Capabilities from './Capabilities.vue'
 
 <section class="section">
   <div class="section-head">
-    <div><div class="num">03</div><h2>Batteries, typed.</h2></div>
+    <div><div class="num">03</div><h2>Everything an app needs. Typed.</h2></div>
     <p>The pieces a real application needs are part of the framework and follow the same rules: declared next to your code, checked when it compiles.</p>
   </div>
   <Capabilities />
