@@ -4,6 +4,18 @@
 
 (using mdx 0.4)
 
+; Pages are written in mlx: OCaml with JSX.
+
+(dialect
+ (name mlx)
+ (implementation
+  (extension mlx)
+  (merlin_reader mlx)
+  (format
+   (run ocamlformat-mlx %{input-file}))
+  (preprocess
+   (run mlx-pp %{input-file}))))
+
 (name forge)
 
 (generate_opam_files true)
@@ -69,7 +81,11 @@
   (reason-react
    (>= 0.17.0))
   (reason-react-ppx
-   (>= 0.17.0))))
+   (>= 0.17.0))
+  (mlx
+   (and
+    (>= 0.11)
+    :with-test))))
 
 (package
  (name forge-cli)

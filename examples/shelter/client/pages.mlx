@@ -1,0 +1,109 @@
+let layout ~children = <main>children</main>
+
+let failed error =
+  <p className="error">(React.string (Forge_client.Error.message error))</p>
+
+module Adopt = struct
+  let[@react.component] make ~(cat : Cat.t) =
+    let message, set_message = React.useState (fun () -> "") in
+    let adopt _ =
+      ignore
+        (Js.Promise.then_
+           (fun result ->
+             set_message (fun _ ->
+                 Result.fold
+                   ~ok:(fun _ -> "adopted")
+                   ~error:Forge_client.Error.message result);
+             Js.Promise.resolve ())
+           (Adoptions_client.adopt ~body:{ Adopt_dto.cat_id = cat.id }))
+    in
+    <div>
+      <button onClick=adopt>(React.string "Adopt")</button>
+      (React.string message)
+    </div>
+end
+
+module Login = struct
+  let[@react.component] make ~on_login =
+    let email, set_email = React.useState (fun () -> "") in
+    let password, set_password = React.useState (fun () -> "") in
+    let message, set_message = React.useState (fun () -> "") in
+    let submit event =
+      React.Event.Form.preventDefault event;
+      Result.fold
+        ~error:(fun errors ->
+          set_message (fun _ ->
+              String.concat ", "
+                (List.map
+                   (fun (error : Forge_shared.Validation.error) ->
+                     error.message)
+                   (Forge_shared.Validation.to_list errors))))
+        ~ok:(fun email ->
+          ignore
+            (Js.Promise.then_
+               (fun result ->
+                 Result.fold ~ok:on_login
+                   ~error:(fun error ->
+                     set_message (fun _ -> Forge_client.Error.message error))
+                   result;
+                 Js.Promise.resolve ())
+               (Auth_client.login ~body:{ Login_dto.email; password })))
+        (Forge_shared.Refined.Email.of_repr email)
+    in
+    <form onSubmit=submit>
+      <input
+        type_="email"
+        value=email
+        onChange=(fun event ->
+                     let value = (React.Event.Form.target event)##value in
+                     set_email (fun _ -> value))
+      />
+      <input
+        type_="password"
+        value=password
+        onChange=(fun event ->
+                     let value = (React.Event.Form.target event)##value in
+                     set_password (fun _ -> value))
+      />
+      <button type_="submit">(React.string "Log in")</button>
+      (React.string message)
+    </form>
+end
+
+let cats ~link ~data ~params:() ~search:() =
+  Result.fold ~error:failed
+    ~ok:(fun cats ->
+      <ul>
+        (React.array
+           (Array.of_list
+              (List.map
+                 (fun (cat : Cat.t) ->
+                   <li key=(Cat.Id.to_string cat.id)>
+                     (link cat (React.string (Cat.Name.to_repr cat.name)))
+                   </li>)
+                 cats)))
+      </ul>)
+    data
+
+let cat ~data ~params:_ ~search:() =
+  Result.fold ~error:failed
+    ~ok:(fun (cat : Cat.t) ->
+      <article>
+        <h1>(React.string (Cat.Name.to_repr cat.name))</h1>
+        <p>
+          (React.string (Printf.sprintf "%d years" (Cat.Age.to_repr cat.age)))
+        </p>
+        (match cat.status with
+        | Available -> <Adopt cat />
+        | Adopted -> React.string "already adopted")
+      </article>)
+    data
+
+let adoptions ~data ~params:() ~search:() =
+  Result.fold ~error:failed
+    ~ok:(fun adoptions ->
+      <p>
+        (React.string
+           (Printf.sprintf "%d cats adopted" (List.length adoptions)))
+      </p>)
+    data

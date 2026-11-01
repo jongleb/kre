@@ -21,9 +21,9 @@ let searched query =
 
 let view url =
   ReactDOMServer.renderToStaticMarkup
-    (React.createElement Forge_client.Router.View.make
-       (Forge_client.Router.View.makeProps ~router:Routes.router ~server_url:url
-          ~pending:(React.string "loading") ()))
+    <Forge_client.Router.View
+      router=Routes.router server_url=url pending=(React.string "loading")
+    />
 
 let () =
   List.iter

@@ -46,3 +46,5 @@ dune build @all && dune test && dune build @fmt
 - ppx errors: `Location.raise_errorf` on the offending node, text "what is
   wrong → what to do". Generated names start with `__forge_`.
 - ocamlformat 0.29, profile `default`; CI fails on unformatted code.
+- JSX only in `.mlx` files (dune dialect, `ocamlformat-mlx`); no hand-written
+  `[@JSX]` or `React.createElement`.

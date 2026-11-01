@@ -29,11 +29,13 @@ let navigate route ~params ~search =
 
 let link route ~params ~search ~children =
   let href = href route ~params ~search in
-  (a ~href
-     ~onClick:(fun event ->
-       React.Event.Mouse.preventDefault event;
-       ReasonReactRouter.push href)
-     ~children:[ children ] () [@JSX])
+  <a
+    href
+    onClick=(fun event ->
+                React.Event.Mouse.preventDefault event;
+                ReasonReactRouter.push href)>
+    children
+  </a>
 
 module View = struct
   type page = { key : string; element : React.element }

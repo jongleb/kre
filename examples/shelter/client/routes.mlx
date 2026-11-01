@@ -29,13 +29,13 @@ let login =
   Forge_client.Router.child root ~path:[%path "/login"]
     ~search:Forge_client.Search.none ~loader:Forge_client.Router.no_data
     ~component:(fun ~data:() ~params:() ~search:() ->
-      React.createElement Pages.Login.make
-        (Pages.Login.makeProps
-           ~on_login:(fun (session : Session.t) ->
-             Forge_client.Http.headers :=
-               [ ("Authorization", "Bearer " ^ session.token) ];
-             Forge_client.Router.navigate Cats.index ~params:() ~search:())
-           ()))
+      <Pages.Login
+        on_login=(fun (session : Session.t) ->
+                     Forge_client.Http.headers :=
+                       [ ("Authorization", "Bearer " ^ session.token) ];
+                     Forge_client.Router.navigate Cats.index ~params:()
+                       ~search:())
+      />)
 
 let router =
   Forge_client.Router.make

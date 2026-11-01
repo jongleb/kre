@@ -77,7 +77,5 @@ let () =
      Js.log ("live " ^ table);
      Js.log
        ("login "
-       ^ ReactDOMServer.renderToStaticMarkup
-           (React.createElement Pages.Login.make
-              (Pages.Login.makeProps ~on_login:ignore ())));
+       ^ ReactDOMServer.renderToStaticMarkup <Pages.Login on_login=ignore />);
      !stop ())

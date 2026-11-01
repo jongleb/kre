@@ -237,7 +237,7 @@ shelter/
             users_service.ml  cats_service.ml  adoptions_service.ml
             auth_controller.ml  cats_controller.ml  adoptions_controller.ml
             sql/queries.sql  migrations/0001_init.sql
-  client/   pages.ml  routes.ml  scenario.ml                    (*_client.ml генерирует forge client)
+  client/   pages.mlx  routes.mlx  scenario.mlx                 (*_client.ml генерирует forge client)
   bin/      main.ml                                             (let app = [%wire])
   test/     test_shelter.ml  run_scenario.ml
 ```
@@ -1336,6 +1336,8 @@ let index = Forge_client.Router.child root ~path:[%path "/cats"] ~search:search_
 
 `Link` — обычный компонент reason-react над `Router.link`; `.mlx`-синтаксис даёт `<Link route=… params=… search=…>`. Ошибка в `params` — ошибка типов в компоненте, не в рантайме.
 
+JSX пишется только в `.mlx`: диалект подключён в `dune-project` (`mlx-pp` для сборки, `ocamlformat-mlx` 0.29.0.1 для `@fmt`), ручных `[@JSX]` и `React.createElement` нет ни в примерах, ни в `src/client/router.mlx`.
+
 ### Что не делаем
 
 File-based routing (`routes/cats.$id.tsx`) — не нужен: дерево из значений даёт то же самое без кодогенерации по файловой системе. SSR Melange-компонентов — не в скоупе; серверный HTML — Dream eml/tyxml как опция.
@@ -1635,7 +1637,7 @@ open http://localhost:8080/cats/1
 - [ ] Длина строк в `Validation.min_length`/`max_length`: `String.length` считает байты в native и UTF-16-единицы в JS; для не-ASCII нужен подсчёт code points, одинаковый на обоих концах.
 - [x] sqlgg: traits берутся из `sqlgg.mariadb` (opam `sqlgg.20260721`), `Forge.Db` — пул и транзакции; `schema.sql` печатает бинарь со списком таблиц, реестр не нужен. Форк `jongleb/sqlgg` пока не требуется; если понадобятся его возможности (IR, lattice-nullability), — pin в `dune-project`.
 - [ ] Имя: `Forge` — рабочее; проверить коллизии в opam перед публикацией.
-- [ ] `.mlx` против reason-синтаксиса для JSX: `.mlx` по умолчанию, пока не упрёмся в ограничения.
+- [x] `.mlx` против reason-синтаксиса для JSX: `.mlx` (диалект dune, фаза 2).
 - [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
 - [ ] WebSocket: при закрытии со стороны клиента сервер получает `None` и вызывает `Dream.close_websocket`, но клиент (node 22) не получает подтверждения закрытия в течение 3 с. Сообщения ходят. Проверить на примере `k-websocket` Dream 1.0 и, если это там же, — в Dream.
 - [ ] `--emit-spec` запускает composition root (`main.ml`), а он сначала грузит конфиг, поэтому сборка требует переменных окружения (в cats dune-правило ставит `SESSION_SECRET=unused`). `spec` статичен; вариант — `forge` сам собирает маленький бинарь, который печатает `Cats_controller.spec`, без запуска `main`.
