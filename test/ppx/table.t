@@ -190,3 +190,36 @@ for_update; the update needs the version it read.
         __kre_query ~id:(Id.to_string __kre_record.id)
           ~name:(__kre_record.name)
       let _ = for_insert
+
+[@filter], [@prune] and [@@scopes] add queries to Table.crud.
+
+  $ cat > input.ml <<'ML'
+  > type t = {
+  >   id : int; [@primary] [@auto]
+  >   name : string; [@filter Partial]
+  >   seen : float; [@prune] [@filter Range]
+  > }
+  > [@@deriving table ~name:"visits"]
+  > [@@scopes [ ("recent", "seen > 0") ]]
+  > ML
+  $ ./pp.exe -impl input.ml | sed -n '/let table/,/let _ = table/p'
+      let table : Kre.Table.t =
+        Kre.Table.make ~scopes:[("recent", "seen > 0")] ~prune:"seen"
+          ~name:"visits"
+          [Kre.Table.column ~role:Kre.Table.Primary_auto "id" Kre.Table.Integer
+             Kre.Table.Not_null;
+          Kre.Table.column ~filter:Kre.Table.Partial "name"
+            (Kre.Table.Text None) Kre.Table.Not_null;
+          Kre.Table.column ~filter:Kre.Table.Range "seen" Kre.Table.Double
+            Kre.Table.Not_null]
+      let _ = table
+  $ cat > input.ml <<'ML'
+  > type t = { id : int; [@primary] name : string [@filter Fuzzy] }
+  > [@@deriving table ~name:"visits"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 1, characters 55-60:
+  1 | type t = { id : int; [@primary] name : string [@filter Fuzzy] }
+                                                             ^^^^^
+  Error: [@filter] is Exact, Partial or Range
+  [1]

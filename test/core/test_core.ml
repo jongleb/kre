@@ -767,39 +767,53 @@ let table =
       (fun () ->
         Alcotest.(check string)
           "sql"
-          "-- @all\n\
-           SELECT id, email, team, owner_id FROM pets;\n\
-           -- @insert\n\
-           INSERT INTO pets (email, team, owner_id) VALUES (@email, @team, \
-           @owner_id);\n\
-           -- @find\n\
-           SELECT id, email, team, owner_id FROM pets WHERE id = @id;\n\
-           -- @update\n\
-           UPDATE pets SET email = @email, team = @team, owner_id = @owner_id \
-           WHERE id = @id;\n\
-           -- @delete\n\
-           DELETE FROM pets WHERE id = @id;\n\
-           -- @page\n\
-           SELECT id, email, team, owner_id FROM pets ORDER BY id LIMIT @limit \
-           OFFSET @offset;\n\
-           -- @by_email\n\
-           SELECT id, email, team, owner_id FROM pets WHERE email = @email;\n\
-           -- @by_team\n\
-           SELECT id, email, team, owner_id FROM pets WHERE team = @team ORDER \
-           BY id;\n\
-           -- @by_owner_id\n\
-           SELECT id, email, team, owner_id FROM pets WHERE owner_id = \
-           @owner_id ORDER BY id;\n\
-           -- @count\n\
-           SELECT COUNT(*) FROM pets;\n"
+          {|-- @all
+SELECT id, email, team, owner_id, seen FROM pets;
+-- @insert
+INSERT INTO pets (email, team, owner_id, seen) VALUES (@email, @team, @owner_id, @seen);
+-- @find
+SELECT id, email, team, owner_id, seen FROM pets WHERE id = @id;
+-- @update
+UPDATE pets SET email = @email, team = @team, owner_id = @owner_id, seen = @seen WHERE id = @id;
+-- @delete
+DELETE FROM pets WHERE id = @id;
+-- @page
+SELECT id, email, team, owner_id, seen FROM pets ORDER BY id LIMIT @limit OFFSET @offset;
+-- @by_email
+SELECT id, email, team, owner_id, seen FROM pets WHERE email = @email;
+-- @by_team
+SELECT id, email, team, owner_id, seen FROM pets WHERE team = @team ORDER BY id;
+-- @by_owner_id
+SELECT id, email, team, owner_id, seen FROM pets WHERE owner_id = @owner_id ORDER BY id;
+-- @by_owner_id_any
+SELECT id, email, team, owner_id, seen FROM pets WHERE owner_id IN @owner_id_list ORDER BY id;
+-- @all_cats
+SELECT id, email, team, owner_id, seen FROM pets WHERE team = 'cats' ORDER BY id;
+-- @page_cats
+SELECT id, email, team, owner_id, seen FROM pets WHERE team = 'cats' ORDER BY id LIMIT @limit OFFSET @offset;
+-- @count_cats
+SELECT COUNT(*) FROM pets WHERE team = 'cats';
+-- @filter
+SELECT id, email, team, owner_id, seen FROM pets WHERE { team = @team }? AND { seen >= @seen_min }? AND { seen <= @seen_max }? ORDER BY id LIMIT @limit OFFSET @offset;
+-- @filter_count
+SELECT COUNT(*) FROM pets WHERE { team = @team }? AND { seen >= @seen_min }? AND { seen <= @seen_max }?;
+-- @prune
+DELETE FROM pets WHERE seen < @before;
+-- @count
+SELECT COUNT(*) FROM pets;
+|}
           (Kre.Table.crud
-             (Kre.Table.make ~name:"pets"
+             (Kre.Table.make
+                ~scopes:[ ("cats", "team = 'cats'") ]
+                ~prune:"seen" ~name:"pets"
                 [
                   Kre.Table.column ~role:Primary_auto "id" Integer Not_null;
                   Kre.Table.column ~role:Unique "email" (Text (Some 255))
                     Not_null;
-                  Kre.Table.column ~role:Index "team" (Text None) Not_null;
+                  Kre.Table.column ~role:Index ~filter:Exact "team" (Text None)
+                    Not_null;
                   Kre.Table.column ~references:users "owner_id" Integer Null;
+                  Kre.Table.column ~filter:Range "seen" Double Not_null;
                 ])));
   ]
 

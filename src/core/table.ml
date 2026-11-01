@@ -2,6 +2,7 @@ type sql_type = Integer | Text of int option | Boolean | Double
 type role = Primary_auto | Primary | Unique | Index | Plain
 type nullability = Null | Not_null
 type managed = Created_at | Updated_at | Version
+type filter = Exact | Partial | Range
 
 type column = {
   name : string;
@@ -11,15 +12,23 @@ type column = {
   default : string option;
   references : string option;
   managed : managed option;
+  filter : filter option;
 }
 
-type t = { name : string; columns : column list }
+type t = {
+  name : string;
+  columns : column list;
+  scopes : (string * string) list;
+  prune : string option;
+}
+
 type dialect = Mysql | Postgresql
 
-let column ?(role = Plain) ?managed ?default ?references name type_ nullability
-    =
+let column ?(role = Plain) ?managed ?filter ?default ?references name type_
+    nullability =
   {
     managed;
+    filter;
     name;
     type_;
     nullability;
@@ -28,7 +37,16 @@ let column ?(role = Plain) ?managed ?default ?references name type_ nullability
     references = Option.map (fun (table : t) -> table.name) references;
   }
 
-let make ~name columns = { name; columns }
+let make ?(scopes = []) ?prune ~name columns = { name; columns; scopes; prune }
+
+let group ~key items =
+  let groups = Hashtbl.create 16 in
+  List.iter
+    (fun item ->
+      Hashtbl.replace groups (key item)
+        (item :: Option.value ~default:[] (Hashtbl.find_opt groups (key item))))
+    (List.rev items);
+  fun parent -> Option.value ~default:[] (Hashtbl.find_opt groups parent)
 
 let ddl dialect table =
   let definition (column : column) =
@@ -118,6 +136,15 @@ let crud table =
       table.columns
   in
   let all = String.concat ", " (names table.columns) in
+  let order =
+    Option.fold
+      ~none:
+        (Option.fold ~none:"1"
+           ~some:(fun (column : column) -> column.name)
+           (List.nth_opt table.columns 0))
+      ~some:(fun (key : column) -> key.name)
+      key
+  in
   String.concat "\n"
     ([
        "-- @all";
@@ -193,6 +220,73 @@ let crud table =
               ]
           | (Primary_auto | Primary), _ | Plain, None -> [])
         table.columns
+    @ List.concat_map
+        (fun (column : column) ->
+          match (column.references, column.role) with
+          | Some _, (Plain | Index | Unique) ->
+              [
+                Printf.sprintf "-- @by_%s_any" column.name;
+                Printf.sprintf
+                  "SELECT %s FROM %s WHERE %s IN @%s_list ORDER BY %s;" all
+                  table.name column.name column.name order;
+              ]
+          | Some _, (Primary_auto | Primary) | None, _ -> [])
+        table.columns
+    @ List.concat_map
+        (fun (scope, condition) ->
+          [
+            "-- @all_" ^ scope;
+            Printf.sprintf "SELECT %s FROM %s WHERE %s ORDER BY %s;" all
+              table.name condition order;
+            "-- @page_" ^ scope;
+            Printf.sprintf
+              "SELECT %s FROM %s WHERE %s ORDER BY %s LIMIT @limit OFFSET \
+               @offset;"
+              all table.name condition order;
+            "-- @count_" ^ scope;
+            Printf.sprintf "SELECT COUNT(*) FROM %s WHERE %s;" table.name
+              condition;
+          ])
+        table.scopes
+    @ (match
+         List.concat_map
+           (fun (column : column) ->
+             match column.filter with
+             | None -> []
+             | Some Exact ->
+                 [ Printf.sprintf "{ %s = @%s }?" column.name column.name ]
+             | Some Partial ->
+                 [
+                   Printf.sprintf "{ %s LIKE CONCAT('%%', @%s, '%%') }?"
+                     column.name column.name;
+                 ]
+             | Some Range ->
+                 [
+                   Printf.sprintf "{ %s >= @%s_min }?" column.name column.name;
+                   Printf.sprintf "{ %s <= @%s_max }?" column.name column.name;
+                 ])
+           table.columns
+       with
+      | [] -> []
+      | conditions ->
+          let where = String.concat " AND " conditions in
+          [
+            "-- @filter";
+            Printf.sprintf
+              "SELECT %s FROM %s WHERE %s ORDER BY %s LIMIT @limit OFFSET \
+               @offset;"
+              all table.name where order;
+            "-- @filter_count";
+            Printf.sprintf "SELECT COUNT(*) FROM %s WHERE %s;" table.name where;
+          ])
+    @ Option.fold ~none:[]
+        ~some:(fun column ->
+          [
+            "-- @prune";
+            Printf.sprintf "DELETE FROM %s WHERE %s < @before;" table.name
+              column;
+          ])
+        table.prune
     @ [ "-- @count"; Printf.sprintf "SELECT COUNT(*) FROM %s;" table.name; "" ]
     )
 

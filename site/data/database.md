@@ -245,6 +245,52 @@ let id = Result.get_ok (Order.Id.of_repr (Kre.Ulid.next ()))
 
 `[@ulid]` makes the column `VARCHAR(26)` and keeps the id in `for_insert`. `Kre_shared.Ulid.Make ()` is a new type per entity, like `Kre_shared.Id.Make ()`, and rejects anything that is not 26 characters of Crockford base32 — in JSON, in path segments and when reading from the database.
 
+## Filters
+
+Mark the columns a list can be filtered by. `Table.crud` adds a `filter` query and a `filter_count` with an optional condition per field: pass `None` and the condition disappears.
+
+```ocaml
+type t = {
+  id : Id.t; [@primary] [@auto] [@column int]
+  name : Name.t; [@column string] [@size 64] [@filter Partial]
+  age : Age.t; [@column int] [@filter Range]
+  status : Status.t; [@column string] [@size 16] [@index] [@filter Exact]
+}
+```
+
+| Attribute | Condition | Parameters |
+| --- | --- | --- |
+| `[@filter Exact]` | `status = @status` | `~status` |
+| `[@filter Partial]` | `name LIKE '%…%'` | `~name` |
+| `[@filter Range]` | `age >= @age_min AND age <= @age_max` | `~age_min ~age_max` |
+
+The filter itself is a search record shared with the browser, so the page's URL, the generated client and the controller agree on it:
+
+<<< @/../examples/shelter/shared/cat_filter.ml
+
+<<< @/../examples/shelter/server/cats_service.ml{30-46}
+
+`GET /cats/catalog?name=itt&age_min=1` returns the matching page and its total.
+
+## Scopes
+
+A scope is a named condition. Each one becomes `all_<name>`, `page_<name>` and `count_<name>`, checked by sqlgg like any other query:
+
+```ocaml
+[@@deriving table ~name:"cats"]
+[@@scopes [ ("available", "status = 'available'"); ("senior", "age >= 10") ]]
+```
+
+## Relations without N+1
+
+A `[@references M]` column already gives `by_<column>` for one parent. `Table.crud` also prints `by_<column>_any`, which takes a list, and `Kre.Table.group` turns the rows into a lookup by parent — one query for any number of owners:
+
+<<< @/../examples/shelter/server/cats_service.ml{47-62}
+
+## Cleaning up old rows
+
+`[@prune]` on a time column adds `prune ~before`, a `DELETE` of everything older. Run it from a provider with `[@@interval 3600.]` or `[@@cron "0 3 * * *"]`.
+
 ## Pages
 
 Paging uses `Kre_shared.Page`, shared by server and browser:

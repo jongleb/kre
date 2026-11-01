@@ -20,9 +20,9 @@ end
 
 type t = {
   id : Id.t; [@primary] [@auto] [@column int]
-  name : Name.t; [@column string] [@size 64]
-  age : Age.t; [@column int]
-  status : Status.t; [@column string] [@size 16] [@index]
+  name : Name.t; [@column string] [@size 64] [@filter Partial]
+  age : Age.t; [@column int] [@filter Range]
+  status : Status.t; [@column string] [@size 16] [@index] [@filter Exact]
   owner_id : User.Id.t option; [@column int] [@references User]
   version : int; [@version]
 }

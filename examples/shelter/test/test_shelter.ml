@@ -151,9 +151,27 @@ let () =
               in
               Alcotest.(check (list string))
                 "pages"
-                [ "1 of 3: tom,felix"; "2 of 3: kitty"; "400"; "400" ]
+                [
+                  "1 of 3: tom,felix";
+                  "2 of 3: kitty";
+                  "400";
+                  "400";
+                  "1 of 1: kitty";
+                  "1 of 3: tom,felix";
+                  "1 of 0: ";
+                  "400";
+                ]
                 (List.map page
-                   [ "?size=2"; "?page=2&size=2"; "?size=0"; "?page=x" ]));
+                   [
+                     "?size=2";
+                     "?page=2&size=2";
+                     "?size=0";
+                     "?page=x";
+                     "?name=itt";
+                     "?status=available&size=2";
+                     "?age_min=3";
+                     "?status=lost";
+                   ]));
           Alcotest.test_case "an unknown cat is 404" `Quick (fun () ->
               Alcotest.(check int) "status" 404 (fst (call `GET "/cats/999999")));
         ] );
@@ -221,6 +239,22 @@ let () =
               wait 100;
               Lwt_main.run (Lwt_unix.sleep 0.3);
               Alcotest.(check int) "letters to ann" 2 (letters ()));
+        ] );
+      ( "relations",
+        [
+          Alcotest.test_case "cats of many owners in one query" `Quick
+            (fun () ->
+              let module Db = Database.Make (Settings) in
+              let module Cats = Cats_service.Make (Db) in
+              let id token =
+                Result.get_ok
+                  (User.Id.of_repr
+                     (number "id" (snd (call ~token `GET "/auth/me"))))
+              in
+              let owned = Lwt_main.run (Cats.owned_by [ id ann; id bob ]) in
+              Alcotest.(check (pair int int))
+                "ann and bob" (2, 0)
+                (List.length (owned (id ann)), List.length (owned (id bob))));
         ] );
       ( "commands",
         [

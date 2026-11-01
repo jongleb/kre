@@ -1691,10 +1691,10 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 20 | подписанные ссылки | `[@@signed secret]` + `Kre.Signed.url` — `expires` и HMAC-SHA256 последним параметром, иначе 403; `Kre.Signed.guard` | ✅ |
 | 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют поле `Kre_shared.Slug.of_string` из значения столбца-источника; нет поля — ошибка сборки | ✅ |
 | 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` (проверка формата, native и Melange) + `Kre.Ulid.next ()` (48 бит времени, 80 случайных), `[@ulid]` в `table` — `VARCHAR(26)`, без автоинкремента, id вставляется | ✅ |
-| 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`) | 4 |
-| 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud` | 4 |
-| 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg | 4 |
-| 26 | связи и жадная загрузка | `[@references M]` + `by_<fk>_any` (`IN @ids`) в `Table.crud`, `Kre.Table.group` — дети многих родителей одним запросом | 4 |
+| 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`), запускать — `[@@interval]` в провайдере | ✅ |
+| 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud`; условия проверяет sqlgg | ✅ |
+| 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg (`None` — условие снято); на клиенте — search-запись (`examples/shelter/shared/cat_filter.ml`) | ✅ |
+| 26 | связи и жадная загрузка | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) в `Table.crud`, `Kre.Table.group ~key` — дети многих родителей одним запросом (`Cats.owned_by`) | ✅ |
 | 27 | `#[Embedded]` | `[@embedded]` — запись того же `type … and …` хранится столбцами `<поле>_<подполе>` | 4 |
 | 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и схема на каждое представление | 4 |
 | 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал | 4 |

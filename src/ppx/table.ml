@@ -206,6 +206,29 @@ let structure ~ctxt (_, declarations) table_name =
                    ~some:(fun role -> [ (Labelled "role", role) ])
                    role;
                  Option.fold ~none:[]
+                   ~some:(fun (filter : expression) ->
+                     match filter.pexp_desc with
+                     | Pexp_construct
+                         ( {
+                             txt =
+                               Lident (("Exact" | "Partial" | "Range") as kind);
+                             loc;
+                           },
+                           None ) ->
+                         [
+                           ( Labelled "filter",
+                             pexp_construct ~loc
+                               {
+                                 txt = Ldot (Ldot (Lident "Kre", "Table"), kind);
+                                 loc;
+                               }
+                               None );
+                         ]
+                     | _ ->
+                         Location.raise_errorf ~loc:filter.pexp_loc
+                           "[@@filter] is Exact, Partial or Range")
+                   (payload "filter");
+                 Option.fold ~none:[]
                    ~some:(fun kind ->
                      [
                        ( Labelled "managed",
@@ -378,8 +401,32 @@ let structure ~ctxt (_, declarations) table_name =
       [
         [%stri
           let [%p pvar ~loc (value_name "table")] : Kre.Table.t =
-            Kre.Table.make ~name:[%e estring ~loc table_name]
-              [%e elist ~loc (List.map fst columns)]];
+            [%e
+              pexp_apply ~loc [%expr Kre.Table.make]
+                (Option.fold ~none:[]
+                   ~some:(fun (attribute : attribute) ->
+                     match attribute.attr_payload with
+                     | PStr [ { pstr_desc = Pstr_eval (scopes, _); _ } ] ->
+                         [ (Labelled "scopes", scopes) ]
+                     | _ ->
+                         Location.raise_errorf ~loc:attribute.attr_loc
+                           "[@@@@scopes] lists named conditions: [@@@@scopes [ \
+                            (\"available\", \"status = 'available'\") ]]")
+                   (List.find_opt
+                      (fun (attribute : attribute) ->
+                        String.equal attribute.attr_name.txt "scopes")
+                      (List.concat_map
+                         (fun (declaration : type_declaration) ->
+                           declaration.ptype_attributes)
+                         declarations))
+                @ Option.fold ~none:[]
+                    ~some:(fun (label : label_declaration) ->
+                      [ (Labelled "prune", estring ~loc label.pld_name.txt) ])
+                    (List.find_opt (fun label -> has label "prune") labels)
+                @ [
+                    (Labelled "name", estring ~loc table_name);
+                    (Nolabel, elist ~loc (List.map fst columns));
+                  ])]];
         [%stri
           let [%p pvar ~loc (value_name "for_insert")] =
             [%e

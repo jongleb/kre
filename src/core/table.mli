@@ -16,6 +16,9 @@ type managed =
   | Version
       (** Starts at 0; an update needs the version it read and bumps it. *)
 
+(** How a column filters the [filter] query: equal, contained, or between. *)
+type filter = Exact | Partial | Range
+
 type column = private {
   name : string;
   type_ : sql_type;
@@ -24,9 +27,15 @@ type column = private {
   default : string option;  (** SQL expression. *)
   references : string option;  (** Referenced table; its [id] column. *)
   managed : managed option;
+  filter : filter option;
 }
 
-type t = private { name : string; columns : column list }
+type t = private {
+  name : string;
+  columns : column list;
+  scopes : (string * string) list;  (** Named SQL conditions. *)
+  prune : string option;  (** The time column [prune] deletes by. *)
+}
 (** A table, described by [[@@deriving table]] from an OCaml record. *)
 
 (** Whose DDL [ddl] and [schema] print; CRUD queries are the same for both. *)
@@ -35,6 +44,7 @@ type dialect = Mysql | Postgresql
 val column :
   ?role:role ->
   ?managed:managed ->
+  ?filter:filter ->
   ?default:string ->
   ?references:t ->
   string ->
@@ -42,7 +52,14 @@ val column :
   nullability ->
   column
 
-val make : name:string -> column list -> t
+val make :
+  ?scopes:(string * string) list ->
+  ?prune:string ->
+  name:string ->
+  column list ->
+  t
+
+val group : key:('a -> 'k) -> 'a list -> 'k -> 'a list
 val ddl : dialect -> t -> string
 val schema : dialect -> t list -> string
 val crud : t -> string

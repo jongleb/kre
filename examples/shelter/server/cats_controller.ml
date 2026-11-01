@@ -9,10 +9,10 @@ let find_one (module Cats : Cats_service.S) ~(cat : (Cat.t[@load Cats.find])) :
   Lwt.return cat
 [@@get ":cat"] [@@live [ "cats" ]]
 
-let catalog (module Cats : Cats_service.S)
+let catalog (module Cats : Cats_service.S) ~(filter : (Cat_filter.t[@search]))
     ~(page : (Kre_shared.Page.Request.t[@search])) () :
     Cat.t Kre_shared.Page.t Lwt.t =
-  Cats.catalog page
+  Cats.catalog filter page
 [@@get "catalog"] [@@live [ "cats" ]] [@@summary "Every cat, a page at a time"]
 
 let create (module Cats : Cats_service.S) ~(body : Create_cat_dto.t) :
