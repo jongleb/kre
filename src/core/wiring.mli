@@ -20,3 +20,13 @@ val make :
   ?beans:Actuator.bean list ->
   unit ->
   t
+
+(** What a [(All : Kre.Wiring.ALL with type t = (module I.S))] parameter gets:
+    every provider of [I.S] found by [[%wire]]. *)
+module type ALL = sig
+  type t
+
+  val all : t list
+end
+
+val profile : unit -> string

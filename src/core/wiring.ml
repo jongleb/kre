@@ -22,3 +22,11 @@ let make ~controllers ~on_start ~on_shutdown ?(jobs = []) ?(health = [])
     on_shutdown =
       (fun () -> Lwt.bind (!stop ()) (sequence (List.rev on_shutdown)));
   }
+
+module type ALL = sig
+  type t
+
+  val all : t list
+end
+
+let profile () = Option.value (Sys.getenv_opt "KRE_ENV") ~default:"dev"

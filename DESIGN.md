@@ -774,6 +774,19 @@ module Signed : sig
   val guard : ?now:(unit -> float) -> secret:string -> unit -> unit Guard.t
 end
 
+(* Kre.Wiring — то, что собирает [%wire] *)
+module Wiring : sig
+  type t = private { controllers : Controller.t list; on_start : unit -> unit Lwt.t;
+                     on_shutdown : unit -> unit Lwt.t; health : Actuator.check list;
+                     commands : Command.t list; beans : Actuator.bean list }
+  val make : controllers:Controller.t list -> on_start:(unit -> unit Lwt.t) list ->
+    on_shutdown:(unit -> unit Lwt.t) list -> ?jobs:Schedule.job list ->
+    ?health:Actuator.check list -> ?commands:Command.t list ->
+    ?beans:Actuator.bean list -> unit -> t
+  module type ALL = sig type t val all : t list end   (* параметр «все провайдеры I.S» *)
+  val profile : unit -> string                       (* KRE_ENV или "dev" — для [@@@profile] *)
+end
+
 (* Kre.Lock — фаза 3: замки в базе; [@@lock "name"] зовёт Lock.exclusive *)
 module Lock : sig
   val table : Table.t
@@ -1616,7 +1629,7 @@ let adopt (module Adoptions : Adoptions_service.S)
 
 ### Profiles
 
-`Kre.Config.profile ()` читает `config/default.env`, затем `config/${KRE_ENV}.env` (по умолчанию `dev`), затем реальное окружение; позже — приоритетнее. Использование: `Config.load_exn ~env:(Kre.Config.profile ()) ()`. Условные провайдеры в `main.ml` — обычный `match config.env with`; атрибут `[@profile]` не нужен.
+`Kre.Config.profile ()` читает `config/default.env`, затем `config/${KRE_ENV}.env` (по умолчанию `dev`), затем реальное окружение; позже — приоритетнее. Использование: `Config.load_exn ~env:(Kre.Config.profile ()) ()`. Провайдер под окружение — `[@@@profile "dev"]`: `[%wire]` строит `let module X = (val (match Kre.Wiring.profile () with "dev" -> (module Dev.Make () : I.S) | _ -> (module X.Make () : I.S)))`, так что собирается только выбранный. Нужен провайдер без профиля; у участников группы нет хуков, `[@@on_event]`, `[@@job]`, `[@@health]` и расписаний — снаружи виден только `I.S`.
 
 ## Заимствования из IHP
 
@@ -1707,9 +1720,9 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 26 | связи и жадная загрузка | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) в `Table.crud`, `Kre.Table.group ~key` — дети многих родителей одним запросом (`Cats.owned_by`) | ✅ |
 | 27 | `#[Embedded]` | `[@embedded]` — запись того же `type … and …` хранится столбцами `<поле>_<подполе>` | 4 |
 | 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и схема на каждое представление | 4 |
-| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал | 4 |
-| 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S` | 4 |
-| 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` | 4 |
+| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал; несколько обёрток — цепочка в порядке файлов; `Make` обязан принимать `I.S` | ✅ |
+| 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S`, кроме самого провайдера и обёрток | ✅ |
+| 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` (`Kre.Wiring.profile`); нужен провайдер без профиля; хуки в группе — ошибка сборки | ✅ |
 | 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (таблица `kre_locks`: вставка или захват просроченной строки, проверка владельца, снятие в `finalize`, TTL 600 с) — функция не идёт на двух серверах сразу, занятый замок — пропуск | ✅ |
 | 33 | токены API с правами | `Kre.Token` (таблица `kre_tokens`, хеш токена, права) + `[@@ability "cats:write"]` | 4 |
 | 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` и `…/:id/delete`; только loopback; `[%wire]` сам добавляет его в `app.controllers` | ✅ |

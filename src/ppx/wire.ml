@@ -1,19 +1,27 @@
 open Ppxlib
 open Ast_builder.Default
 
+(** What a functor parameter asks for. *)
+type need =
+  | One of string  (** The provider of this interface. *)
+  | Every of string
+      (** All providers of this interface, as a [Kre.Wiring.ALL] module. *)
+
 (** How a provider is built. *)
 type construction =
   | Singleton  (** The file module itself. *)
   | Generative  (** [module Make () = …]: one fresh instance. *)
-  | Factory of (string * string) list
-      (** [module Make (A : I.S) …]: parameter names and the interfaces they
-          need. *)
+  | Factory of (string * need) list
+      (** [module Make (A : I.S) …]: parameter names and what they need. *)
 
 (** Which of several providers of one interface the wiring picks. *)
 type rank =
   | Primary
   | Secondary
   | Fallback  (** Used only when nothing else provides the interface. *)
+  | Decorator
+      (** [[@@@decorates I.S]]: wraps the provider of its interface; everyone
+          else gets the wrapper. *)
 
 type provider = {
   name : string;
@@ -31,6 +39,9 @@ type provider = {
       (** Functions marked [[@@cron]], [[@@interval]] or [[@@after]], with their
           timing. *)
   rank : rank;
+  profile : string option;
+      (** [[@@@profile "dev"]]: used instead of the provider without a profile
+          when [KRE_ENV] is this. *)
   loc : location;
 }
 
@@ -121,7 +132,16 @@ let scan path =
     match module_.pmod_desc with
     | Pmod_functor (Unit, body) -> (`Generative, body)
     | Pmod_functor (Named ({ txt = Some parameter; _ }, module_type), body) -> (
-        match (interface module_type, parameters body) with
+        let need =
+          match (module_type.pmty_desc, interface module_type) with
+          | ( Pmty_with
+                (_, [ Pwith_type (_, { ptype_manifest = Some type_; _ }) ]),
+              Some "Kre.Wiring.ALL" ) ->
+              Option.map (fun needed -> Every needed) (package type_)
+          | _, Some "Kre.Wiring.ALL" -> None
+          | _, needed -> Option.map (fun needed -> One needed) needed
+        in
+        match (need, parameters body) with
         | Some needed, (`Factory rest, inner) ->
             (`Factory ((parameter, needed) :: rest), inner)
         | Some needed, (`Generative, inner) ->
@@ -129,7 +149,8 @@ let scan path =
         | None, _ ->
             Location.raise_errorf ~loc:module_type.pmty_loc
               "a provider's dependencies are named module types, e.g. (Db : \
-               Kre.Db.S)")
+               Kre.Db.S), or every provider of one: (All : Kre.Wiring.ALL with \
+               type t = (module Notifier.S))")
     | Pmod_functor (Named ({ txt = None; loc }, _), _) ->
         Location.raise_errorf ~loc "name the dependency: (Db : Kre.Db.S)"
     | _ -> (`Factory [], module_)
@@ -166,31 +187,40 @@ let scan path =
       structure
   in
   let explicit =
-    Option.map
-      (fun (attribute : attribute) ->
-        match attribute.attr_payload with
-        | PStr [] -> name ^ ".S"
-        | PStr
-            [
-              {
-                pstr_desc =
-                  Pstr_eval
-                    ( {
-                        pexp_desc =
-                          ( Pexp_ident { txt; _ }
-                          | Pexp_construct ({ txt; _ }, None) );
-                        _;
-                      },
-                      _ );
-                _;
-              };
-            ] ->
-            Longident.name txt
-        | _ ->
+    let named (attribute : attribute) =
+      match attribute.attr_payload with
+      | PStr [] -> None
+      | PStr
+          [
+            {
+              pstr_desc =
+                Pstr_eval
+                  ( {
+                      pexp_desc =
+                        Pexp_ident { txt; _ } | Pexp_construct ({ txt; _ }, None);
+                      _;
+                    },
+                    _ );
+              _;
+            };
+          ] ->
+          Some (Longident.name txt)
+      | _ ->
+          Location.raise_errorf ~loc:attribute.attr_loc
+            "[@@@@@@%s] takes the interface, e.g. [@@@@@@%s Cats_service.S]"
+            attribute.attr_name.txt attribute.attr_name.txt
+    in
+    match (floating "decorates", floating "injectable") with
+    | Some attribute, _ -> (
+        match named attribute with
+        | Some wrapped -> Some wrapped
+        | None ->
             Location.raise_errorf ~loc:attribute.attr_loc
-              "[@@@@@@injectable] takes nothing or the interface it provides, \
-               e.g. [@@@@@@injectable Cats_service.S]")
-      (floating "injectable")
+              "[@@@@@@decorates] names the interface it wraps: \
+               [@@@@@@decorates Clock.S]")
+    | None, Some attribute ->
+        Some (Option.value (named attribute) ~default:(name ^ ".S"))
+    | None, None -> None
   in
   let site =
     match structure with
@@ -540,10 +570,40 @@ let scan path =
                       | _ -> [])
                     (items body);
                 rank =
-                  (match (floating "primary", floating "fallback") with
-                  | Some _, _ -> Primary
-                  | None, Some _ -> Fallback
-                  | None, None -> Secondary);
+                  (match
+                     ( floating "decorates",
+                       floating "primary",
+                       floating "fallback" )
+                   with
+                  | Some _, _, _ -> Decorator
+                  | None, Some _, _ -> Primary
+                  | None, None, Some _ -> Fallback
+                  | None, None, None -> Secondary);
+                profile =
+                  Option.map
+                    (fun (attribute : attribute) ->
+                      match attribute.attr_payload with
+                      | PStr
+                          [
+                            {
+                              pstr_desc =
+                                Pstr_eval
+                                  ( {
+                                      pexp_desc =
+                                        Pexp_constant
+                                          (Pconst_string (profile, _, _));
+                                      _;
+                                    },
+                                    _ );
+                              _;
+                            };
+                          ] ->
+                          profile
+                      | _ ->
+                          Location.raise_errorf ~loc:attribute.attr_loc
+                            "[@@@@@@profile] takes the KRE_ENV value it is \
+                             used for: [@@@@@@profile \"dev\"]")
+                    (floating "profile");
                 loc = site;
               })
   in
@@ -588,29 +648,33 @@ let expand ~loc ~input directories =
          (match directories with [] -> [ "." ] | directories -> directories))
     |> snd
   in
-  let providers =
-    let all =
-      List.filter_map
-        (function
-          | Provider provider -> Some provider
-          | Controller _ | Tasks _ | Plain -> None)
-        components
-    in
+  let all =
+    List.filter_map
+      (function
+        | Provider provider -> Some provider
+        | Controller _ | Tasks _ | Plain -> None)
+      components
+  in
+  let active =
     List.filter
       (fun provider ->
         match provider.rank with
-        | Primary | Secondary -> true
+        | Primary | Secondary | Decorator -> true
         | Fallback ->
             not
               (List.exists
                  (fun other ->
                    String.equal other.provides provider.provides
+                   && Option.is_none other.profile
                    &&
                    match other.rank with
                    | Primary | Secondary -> true
-                   | Fallback -> false)
+                   | Fallback | Decorator -> false)
                  all))
       all
+  in
+  let providers =
+    List.filter (fun provider -> Option.is_none provider.profile) active
   in
   let controllers =
     List.filter_map
@@ -625,10 +689,15 @@ let expand ~loc ~input directories =
         | Tasks tasks -> Some tasks | Provider _ | Controller _ | Plain -> None)
       components
   in
-  let resolve ?parameter ~needed ~site ~by () =
+  let choose ?parameter ~needed ~site ~by () =
     match
       List.filter
-        (fun provider -> String.equal provider.provides needed)
+        (fun provider ->
+          String.equal provider.provides needed
+          &&
+          match provider.rank with
+          | Decorator -> false
+          | Primary | Secondary | Fallback -> true)
         providers
     with
     | [ provider ] -> provider
@@ -643,7 +712,7 @@ let expand ~loc ~input directories =
               (fun provider ->
                 match provider.rank with
                 | Primary -> true
-                | Secondary | Fallback -> false)
+                | Secondary | Fallback | Decorator -> false)
               candidates,
             Option.bind parameter (fun parameter ->
                 List.find_opt
@@ -660,6 +729,143 @@ let expand ~loc ~input directories =
               (String.concat ", "
                  (List.map (fun provider -> provider.name) candidates)))
   in
+  let resolve ?parameter ~needed ~site ~by () =
+    let decorators =
+      List.filter
+        (fun provider ->
+          String.equal provider.provides needed
+          &&
+          match provider.rank with
+          | Decorator -> true
+          | Primary | Secondary | Fallback -> false)
+        providers
+    in
+    match
+      ( List.find_index
+          (fun decorator -> String.equal decorator.name by)
+          decorators,
+        List.rev decorators )
+    with
+    | Some position, _ when position > 0 -> List.nth decorators (position - 1)
+    | None, outermost :: _ -> outermost
+    | Some _, _ | None, [] -> choose ?parameter ~needed ~site ~by ()
+  in
+  let every ~needed ~by =
+    List.filter
+      (fun provider ->
+        String.equal provider.provides needed
+        && (not (String.equal provider.name by))
+        &&
+        match provider.rank with
+        | Decorator -> false
+        | Primary | Secondary | Fallback -> true)
+      providers
+  in
+  let dependencies provider =
+    match provider.construction with
+    | Factory needs ->
+        List.concat_map
+          (fun (parameter, need) ->
+            match need with
+            | One needed ->
+                [
+                  resolve ~parameter ~needed ~site:provider.loc
+                    ~by:provider.name ();
+                ]
+            | Every needed -> every ~needed ~by:provider.name)
+          needs
+    | Singleton | Generative -> []
+  in
+  let variants =
+    List.fold_left
+      (fun variants variant ->
+        match (variant.profile, variant.rank) with
+        | None, _ -> variants
+        | Some profile, Decorator ->
+            Location.raise_errorf ~loc:variant.loc
+              "%s decorates %s and has [@@@@@@profile %S]; a decorator wraps \
+               every environment, so drop the profile"
+              variant.name variant.provides profile
+        | Some profile, (Primary | Secondary | Fallback) -> (
+            let default =
+              match
+                List.filter
+                  (fun provider ->
+                    String.equal provider.provides variant.provides)
+                  providers
+              with
+              | [] ->
+                  Location.raise_errorf ~loc:variant.loc
+                    "%s has [@@@@@@profile %S], but %s has no provider without \
+                     a profile for the other environments; add one"
+                    variant.name profile variant.provides
+              | _ :: _ ->
+                  choose ~needed:variant.provides ~site:variant.loc
+                    ~by:variant.name ()
+            in
+            match
+              List.find_opt
+                (fun (owner, (taken, _)) ->
+                  String.equal owner default.name && String.equal taken profile)
+                variants
+            with
+            | Some (_, (_, other)) ->
+                Location.raise_errorf ~loc:variant.loc
+                  "%s and %s both have [@@@@@@profile %S] for %s; keep one"
+                  other.name variant.name profile variant.provides
+            | None -> variants @ [ (default.name, (profile, variant)) ]))
+      [] active
+  in
+  let variants_of provider =
+    List.map snd
+      (List.filter
+         (fun (owner, _) -> String.equal owner provider.name)
+         variants)
+  in
+  List.iter
+    (fun provider ->
+      match variants_of provider with
+      | [] -> ()
+      | profiled ->
+          List.iter
+            (fun member ->
+              match
+                ( member.hooks,
+                  member.listeners,
+                  member.performs,
+                  member.checks,
+                  member.jobs )
+              with
+              | [], [], [], [], [] -> ()
+              | _ ->
+                  Location.raise_errorf ~loc:member.loc
+                    "%s is picked by KRE_ENV at start-up and seen only as %s, \
+                     so its on_start, on_shutdown and [@@@@on_event], \
+                     [@@@@job], [@@@@health] or schedule functions would never \
+                     run; move them to a provider of their own"
+                    member.name member.provides)
+            (provider :: List.map snd profiled))
+    providers;
+  List.iter
+    (fun provider ->
+      match provider.rank with
+      | Decorator -> (
+          match provider.construction with
+          | Factory needs
+            when List.exists
+                   (fun (_, need) ->
+                     match need with
+                     | One needed -> String.equal needed provider.provides
+                     | Every _ -> false)
+                   needs ->
+              ()
+          | Factory _ | Singleton | Generative ->
+              Location.raise_errorf ~loc:provider.loc
+                "%s decorates %s, so its Make takes the original: module Make \
+                 (Inner : %s) = …"
+                provider.name provider.provides provider.provides)
+      | Primary | Secondary | Fallback -> ())
+    providers;
   let order =
     let same provider other = String.equal provider.name other.name in
     let rec visit path order provider =
@@ -670,14 +876,10 @@ let expand ~loc ~input directories =
       else
         let order =
           List.fold_left
-            (fun order (parameter, needed) ->
-              visit (provider.name :: path) order
-                (resolve ~parameter ~needed ~site:provider.loc ~by:provider.name
-                   ()))
+            (visit (provider.name :: path))
             order
-            (match provider.construction with
-            | Factory needs -> needs
-            | Singleton | Generative -> [])
+            (List.concat_map dependencies
+               (provider :: List.map snd (variants_of provider)))
         in
         if List.exists (same provider) order then order
         else order @ [ provider ]
@@ -851,17 +1053,19 @@ let expand ~loc ~input directories =
                        needs =
                          [%e
                            elist ~loc
-                             (match provider.construction with
-                             | Factory needs ->
-                                 List.map
-                                   (fun (parameter, needed) ->
-                                     estring ~loc
-                                       (resolve ~parameter ~needed
-                                          ~site:provider.loc ~by:provider.name
-                                          ())
-                                         .name)
-                                   needs
-                             | Singleton | Generative -> [])];
+                             (List.fold_left
+                                (fun names dependency ->
+                                  Option.fold
+                                    ~none:(names @ [ dependency.name ])
+                                    ~some:(fun _ -> names)
+                                    (List.find_opt
+                                       (String.equal dependency.name)
+                                       names))
+                                []
+                                (List.concat_map dependencies
+                                   (provider
+                                   :: List.map snd (variants_of provider)))
+                             |> List.map (estring ~loc))];
                      }])
                  order
               @ List.map
@@ -889,29 +1093,70 @@ let expand ~loc ~input directories =
       (fun subscription rest -> pexp_sequence ~loc subscription rest)
       subscriptions wiring
   in
+  let package interface =
+    ptyp_package ~loc ({ txt = Longident.parse interface; loc }, [])
+  in
+  let build provider =
+    match provider.construction with
+    | Singleton -> instance provider
+    | Generative ->
+        pmod_apply_unit ~loc
+          (pmod_ident ~loc { txt = Ldot (Lident provider.name, "Make"); loc })
+    | Factory needs ->
+        List.fold_left
+          (fun functor_ (parameter, need) ->
+            pmod_apply ~loc functor_
+              (match need with
+              | One needed ->
+                  instance
+                    (resolve ~parameter ~needed ~site:provider.loc
+                       ~by:provider.name ())
+              | Every needed ->
+                  pmod_structure ~loc
+                    [
+                      [%stri type t = [%t package needed]];
+                      [%stri
+                        let all =
+                          [%e
+                            elist ~loc
+                              (List.map
+                                 (fun member ->
+                                   pexp_constraint ~loc
+                                     (pexp_pack ~loc (instance member))
+                                     (package needed))
+                                 (every ~needed ~by:provider.name))]];
+                    ]))
+          (pmod_ident ~loc { txt = Ldot (Lident provider.name, "Make"); loc })
+          needs
+  in
   List.fold_right
     (fun provider body ->
-      match provider.construction with
-      | Singleton -> body
-      | Generative ->
+      match (provider.construction, variants_of provider) with
+      | Singleton, [] -> body
+      | (Generative | Factory _), [] ->
           pexp_letmodule ~loc
             { txt = Some provider.name; loc }
-            (pmod_apply_unit ~loc
-               (pmod_ident ~loc
-                  { txt = Ldot (Lident provider.name, "Make"); loc }))
-            body
-      | Factory needs ->
+            (build provider) body
+      | _, profiled ->
+          let packed member =
+            pexp_constraint ~loc
+              (pexp_pack ~loc (build member))
+              (package provider.provides)
+          in
           pexp_letmodule ~loc
             { txt = Some provider.name; loc }
-            (List.fold_left
-               (fun functor_ (parameter, needed) ->
-                 pmod_apply ~loc functor_
-                   (instance
-                      (resolve ~parameter ~needed ~site:provider.loc
-                         ~by:provider.name ())))
-               (pmod_ident ~loc
-                  { txt = Ldot (Lident provider.name, "Make"); loc })
-               needs)
+            (pmod_unpack ~loc
+               (pexp_constraint ~loc
+                  (pexp_match ~loc [%expr Kre.Wiring.profile ()]
+                     (List.map
+                        (fun (profile, variant) ->
+                          case ~lhs:(pstring ~loc profile) ~guard:None
+                            ~rhs:(packed variant))
+                        profiled
+                     @ [
+                         case ~lhs:[%pat? _] ~guard:None ~rhs:(packed provider);
+                       ]))
+                  (package provider.provides)))
             body)
     order wiring
 

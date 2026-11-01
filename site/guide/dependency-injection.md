@@ -1,8 +1,8 @@
 <script setup>
 const facts = [
   { value: '3', label: 'provider shapes', note: 'singleton, Make (), Make (Deps)' },
-  { value: '3', label: 'build errors', note: 'missing, ambiguous, cycle' },
-  { value: '0', label: 'tokens, decorators, reflection', note: 'module types are the tokens' }
+  { value: '3', label: 'ways to compose', note: 'wrap, collect, switch by environment' },
+  { value: '0', label: 'containers or reflection', note: 'module types are the tokens' }
 ]
 
 const wireSteps = [
@@ -163,6 +163,61 @@ module Make () : Clock.S = struct let now () = 0. end
 
 **The parameter name** settles the rest. `Make (Clock : Clock.S)` picks the provider called `Clock`; `Make (C : Clock.S)` does not pick anything.
 
+## Wrap, collect, switch
+
+Three attributes change what a consumer receives without touching the consumer.
+
+```mermaid
+flowchart LR
+  C["Signup_controller<br/>needs Notifications.S"] --> A["Audited_notifications<br/>[@@@decorates]"]
+  A --> N["Notifications<br/>(Notifiers : Kre.Wiring.ALL …)"]
+  N --> E["Email_notifier"]
+  N --> P["Push_notifier"]
+```
+
+### Wrap: `[@@@decorates I.S]`
+
+A decorator implements an interface by wrapping its other provider. Its `Make` takes that interface; `[%wire]` passes it the original, and everyone else gets the decorator. From the events example:
+
+<<< @/../examples/events/server/audited_notifications.ml
+
+```ocaml
+let module Notifications = (Notifications.Make)(…) in
+let module Audited_notifications = (Audited_notifications.Make)(Notifications) in
+… Signup_controller.register … (module Audited_notifications) …
+```
+
+Several decorators of one interface form a chain in file order: the first wraps the original, the next wraps the first, and consumers get the last. A decorator whose `Make` does not take the interface it wraps is a build error.
+
+### Collect: `Kre.Wiring.ALL`
+
+A parameter of type `Kre.Wiring.ALL with type t = (module I.S)` receives every provider of `I.S` as a list of first-class modules:
+
+<<< @/../examples/events/server/notifications.ml
+
+Each notifier is a file that says what it implements:
+
+<<< @/../examples/events/server/email_notifier.ml
+
+Adding a notifier is adding a file. The list leaves out decorators and the provider that asks for it, so a collecting provider can implement the same interface it collects. An empty list is allowed.
+
+### Switch: `[@@@profile "dev"]`
+
+A provider with a profile replaces the provider without one when `KRE_ENV` has that value (`dev` when it is unset):
+
+<<< @/../examples/events/server/quiet_greeting.ml
+
+The choice happens once, at start-up, and only the chosen module is built:
+
+```ocaml
+let module Greeting =
+  (val (match Kre.Wiring.profile () with
+        | "quiet" -> (module Quiet_greeting : Greeting.S)
+        | _ -> (module Greeting : Greeting.S))) in
+```
+
+Because the result is known only as `Greeting.S`, the providers of a switched interface cannot define `on_start`, `on_shutdown`, `[@@on_event]`, `[@@job]`, `[@@health]` or schedules; put those in a provider of their own. A profile without a provider for the other environments, or two providers with the same profile, is a build error.
+
 ## Errors at build time
 
 Every wiring mistake stops `dune build` with a location. These are the exact messages:
@@ -185,6 +240,20 @@ Error: Report needs Clock.S and 2 providers give it (Clock, Fake_clock); mark on
 ```text
 File "./app/clock.ml", line 1, characters 0-47:
 Error: dependency cycle: Clock -> Report -> Clock
+```
+:::
+
+::: danger A decorator that wraps nothing
+```text
+File "./app/timed_clock.ml", line 1, characters 0-22:
+Error: Timed_clock decorates Clock.S, so its Make takes the original: module Make (Inner : Clock.S) = …
+```
+:::
+
+::: danger A profile with no default
+```text
+File "./app/test_clock.ml", line 1, characters 0-19:
+Error: Test_clock has [@@@profile "test"], but Clock.S has no provider without a profile for the other environments; add one
 ```
 :::
 

@@ -129,3 +129,100 @@ interface.
         let module Report = ((Report.Make)(Repo))(System_clock) in
                    { Kre.Actuator.name = "System_clock"; needs = [] };
                      needs = ["Repo"; "System_clock"]
+
+[@@@decorates I.S] wraps the provider of I.S: the decorator gets the
+original, everyone else gets the decorator. Two decorators chain in file
+order.
+
+  $ rm app/frozen_clock.ml
+  $ cat > app/logged_clock.ml <<'ML'
+  > [@@@decorates Clock.S]
+  > module Make (Clock : Clock.S) = struct let now () = Clock.now () end
+  > ML
+  $ cat > app/timed_clock.ml <<'ML'
+  > [@@@decorates Clock.S]
+  > module Make (Clock : Clock.S) = struct let now () = Clock.now () end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep 'let module'
+    let module System_clock = (System_clock.Make)() in
+      let module Logged_clock = (Logged_clock.Make)(System_clock) in
+        let module Repo = (Repo.Make)() in
+          let module Timed_clock = (Timed_clock.Make)(Logged_clock) in
+            let module Report = ((Report.Make)(Repo))(Timed_clock) in
+
+A decorator must take what it wraps.
+
+  $ cat > app/timed_clock.ml <<'ML'
+  > [@@@decorates Clock.S]
+  > module Make () = struct let now () = 0. end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/timed_clock.ml", line 1, characters 0-22:
+  Error: Timed_clock decorates Clock.S, so its Make takes the original: module Make (Inner : Clock.S) = …
+  [1]
+  $ rm app/timed_clock.ml app/logged_clock.ml
+
+A (Notifiers : Kre.Wiring.ALL with type t = (module I.S)) parameter gets
+every provider of I.S, but not the provider itself.
+
+  $ cat > app/clocks.ml <<'ML'
+  > module Make (Clocks : Kre.Wiring.ALL with type t = (module Clock.S)) : Clock.S = struct
+  >   let now () = List.fold_left (fun _ (module C : Clock.S) -> C.now ()) 0. Clocks.all
+  > end
+  > [@@@primary]
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep -A 8 'module Clocks'
+      let module Clocks =
+        (Clocks.Make)(struct
+                        type t = (module Clock.S)
+                        let all = [((module System_clock) : (module Clock.S))]
+                      end) in
+        let module Repo = (Repo.Make)() in
+          let module Report = ((Report.Make)(Repo))(Clocks) in
+            Kre.Wiring.make
+              ~controllers:[Reports_controller.register (module Report)]
+
+[@@@profile "test"] swaps a provider when KRE_ENV is "test". It needs a
+provider without a profile for the other environments.
+
+  $ rm app/clocks.ml
+  $ cat > app/test_clock.ml <<'ML'
+  > [@@@profile "test"]
+  > module Make () : Clock.S = struct let now () = 42. end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep -B 1 -A 6 'Kre.Wiring.profile'
+      let module System_clock = (val
+        (match Kre.Wiring.profile () with
+         | "test" -> ((module (Test_clock.Make)()) : (module Clock.S))
+         | _ -> ((module (System_clock.Make)()) : (module Clock.S)) : (module
+                                                                      Clock.S)))
+        in
+        let module Report = ((Report.Make)(Repo))(System_clock) in
+          Kre.Wiring.make
+  $ cat > app/other_test_clock.ml <<'ML'
+  > [@@@profile "test"]
+  > module Make () : Clock.S = struct let now () = 43. end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/test_clock.ml", line 1, characters 0-19:
+  Error: Other_test_clock and Test_clock both have [@@@profile "test"] for Clock.S; keep one
+  [1]
+  $ rm app/other_test_clock.ml app/system_clock.ml
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/test_clock.ml", line 1, characters 0-19:
+  Error: Test_clock has [@@@profile "test"], but Clock.S has no provider without a profile for the other environments; add one
+  [1]
+
+A provider picked at start-up exposes only its interface, so its hooks would
+be lost: a build error.
+
+  $ cat > app/system_clock.ml <<'ML'
+  > module Make () : Clock.S = struct
+  >   let now () = Unix.gettimeofday ()
+  >   let on_start () = Lwt.return_unit
+  > end
+  > ML
+  $ ../ppx/pp.exe -impl main.ml
+  File "./app/system_clock.ml", lines 1-4, characters 0-3:
+  Error: System_clock is picked by KRE_ENV at start-up and seen only as Clock.S, so its on_start, on_shutdown and [@@on_event], [@@job], [@@health] or schedule functions would never run; move them to a provider of their own
+  [1]

@@ -1,6 +1,6 @@
 (test
  (name test_events)
- (libraries events_server kre dream alcotest lwt lwt.unix yojson)
+ (libraries events_server kre dream alcotest lwt lwt.unix unix yojson)
  (preprocess
   (pps kre-ppx))
  (preprocessor_deps
