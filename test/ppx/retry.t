@@ -45,3 +45,19 @@ Errors say where it goes.
                                     ^^^^^^^^^^^^^^^
   Error: [@@backoff] sets the pause between retries; add [@@retry 3]
   [1]
+
+[@@lock "name"] runs the body only while this process holds the lock; the
+Lock module in scope is a Kre.Lock.S provider.
+
+  $ cat > input.ml <<'ML'
+  > module Make (Lock : Kre.Lock.S) = struct
+  >   let nightly () = Report.build () [@@interval 3600.] [@@lock "nightly-report"]
+  > end
+  > ML
+  $ ./pp.exe -impl input.ml
+  module Make(Lock:Kre.Lock.S) =
+    struct
+      let nightly () =
+        Lock.exclusive "nightly-report" (fun () -> Report.build ())[@@interval
+                                                                     3600.]
+    end

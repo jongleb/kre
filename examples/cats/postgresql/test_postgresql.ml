@@ -48,6 +48,14 @@ let () =
            Kre_db_postgresql.Driver.execute conn
              (Kre.Table.ddl Postgresql Kre.Job.table)
          in
+         let%lwt () =
+           Kre_db_postgresql.Driver.execute conn
+             "DROP TABLE IF EXISTS kre_locks"
+         in
+         let%lwt () =
+           Kre_db_postgresql.Driver.execute conn
+             (Kre.Table.ddl Postgresql Kre.Lock.table)
+         in
          let%lwt _ = Crud.create_cats conn in
          let%lwt _ = Crud.create_index_cats_breed conn in
          Lwt.return_unit));
@@ -203,6 +211,22 @@ let () =
                 "listed, deleted, gone"
                 ([ "greet queued" ], 303, [])
                 (before, deleted, listed ()));
+        ] );
+      ( "locks",
+        [
+          Alcotest.test_case "one holder at a time, then free again" `Quick
+            (fun () ->
+              let module Lock = Kre.Lock.Make (Db) in
+              let ran = ref 0 in
+              let job () =
+                Lock.exclusive "nightly" (fun () ->
+                    incr ran;
+                    Lwt_unix.sleep 0.2)
+              in
+              Lwt_main.run (Lwt.join [ job (); job () ]);
+              let together = !ran in
+              Lwt_main.run (job ());
+              Alcotest.(check (pair int int)) "runs" (1, 2) (together, !ran));
         ] );
       ( "migrations",
         [

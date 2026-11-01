@@ -19,6 +19,56 @@ let mapper =
             Some expression
         | _ -> None
       in
+      let binding =
+        match find "lock" with
+        | None -> binding
+        | Some lock ->
+            let loc = lock.attr_loc in
+            let name =
+              match payload lock with
+              | Some
+                  ({ pexp_desc = Pexp_constant (Pconst_string _); _ } as name)
+                ->
+                  name
+              | Some _ | None ->
+                  Location.raise_errorf ~loc
+                    "[@@@@lock] takes the lock's name: [@@@@lock \
+                     \"nightly-report\"]"
+            in
+            {
+              binding with
+              pvb_expr =
+                (match binding.pvb_expr.pexp_desc with
+                | Pexp_function
+                    ((_ :: _ as params), constraint_, Pfunction_body body) ->
+                    {
+                      binding.pvb_expr with
+                      pexp_desc =
+                        Pexp_function
+                          ( params,
+                            constraint_,
+                            Pfunction_body
+                              [%expr
+                                Lock.exclusive [%e name] (fun () -> [%e body])]
+                          );
+                    }
+                | _ ->
+                    Location.raise_errorf ~loc
+                      "[@@@@lock] guards a function: let f () = … [@@@@lock \
+                       \"name\"]");
+              pvb_attributes =
+                List.filter
+                  (fun (attribute : attribute) ->
+                    not (String.equal attribute.attr_name.txt "lock"))
+                  binding.pvb_attributes;
+            }
+      in
+      let find name =
+        List.find_opt
+          (fun (attribute : attribute) ->
+            String.equal attribute.attr_name.txt name)
+          binding.pvb_attributes
+      in
       match (find "retry", find "backoff") with
       | None, None -> binding
       | None, Some backoff ->

@@ -54,6 +54,19 @@ Error: [@cron "61 * * * *"]: minute 61 is outside 0-59
 
 Each field accepts `*`, a number, a range `1-5`, a step `*/15` or `0-30/10`, and lists of those separated by commas. The ranges are minute 0–59, hour 0–23, day 1–31, month 1–12 and weekday 0–6. Seconds for `[@@interval]` and `[@@after]` must be float literals: `[@@interval 30]` is rejected, and the error suggests `[@@interval 30.0]`.
 
+## One server at a time
+
+Run two copies of the application and every scheduled task runs twice. Guard it with `[@@lock "name"]`: the body runs only in the process that takes the lock, the others skip that tick.
+
+```ocaml
+module Make (Lock : Kre.Lock.S) = struct
+  let nightly () = Report.build () [@@cron "0 3 * * *"] [@@lock "nightly-report"]
+end
+```
+
+`Lock` is any `Kre.Lock.S` provider, usually `module Make (Db : Kre.Db.S) : Kre.Lock.S = Kre.Lock.Make (Db)`. Locks live in the `kre_locks` table of your database (`Kre.Lock.table`), are released when the body finishes or fails, and expire after ten minutes if a process dies holding one.
+
+
 ## Typed events
 
 An event system needs three things: a name, a bus, and listeners. In Kre each has a type.

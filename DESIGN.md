@@ -774,6 +774,15 @@ module Signed : sig
   val guard : ?now:(unit -> float) -> secret:string -> unit -> unit Guard.t
 end
 
+(* Kre.Lock — фаза 3: замки в базе; [@@lock "name"] зовёт Lock.exclusive *)
+module Lock : sig
+  val table : Table.t
+  module type S = sig
+    val exclusive : ?ttl:float -> string -> (unit -> unit Lwt.t) -> unit Lwt.t
+  end
+  module Make (Db : Db.S) : S
+end
+
 (* Kre.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1701,7 +1710,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал | 4 |
 | 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S` | 4 |
 | 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` | 4 |
-| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` — функция не идёт на двух серверах сразу | 4 |
+| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (таблица `kre_locks`: вставка или захват просроченной строки, проверка владельца, снятие в `finalize`, TTL 600 с) — функция не идёт на двух серверах сразу, занятый замок — пропуск | ✅ |
 | 33 | токены API с правами | `Kre.Token` (таблица `kre_tokens`, хеш токена, права) + `[@@ability "cats:write"]` | 4 |
 | 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` и `…/:id/delete`; только loopback; `[%wire]` сам добавляет его в `app.controllers` | ✅ |
 | 35 | precognition | заголовок `Precognition: true` на POST/PUT/PATCH/DELETE — разбор, guards, `[@@authorize]` и `[@@check]` без вызова хендлера: 204 `Precognition-Success: true` или та же ошибка (`Kre.Route.precognition`) | ✅ |
