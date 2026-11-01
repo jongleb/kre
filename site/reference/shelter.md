@@ -99,7 +99,6 @@ examples/shelter/
                jobs.ml queues.ml mail.ml mailer.ml tasks.ml
                auth_controller.ml cats_controller.ml adoptions_controller.ml
     sql/       queries.sql, plus generated *_crud.ml checked by sqlgg
-    migrations/ 0001_init.sql 0002_jobs.sql
   bin/         main.ml: let app = [%wire]
   client/      routes.mlx pages.mlx scenario.mlx (+ generated *_client.ml)
   test/        test_shelter.ml run_scenario.ml
@@ -306,21 +305,33 @@ Two functions marked `[@@command]` reuse the same wired providers as the server.
 ./main.exe signup --email boss@shelter.test --password whiskers1
 ```
 
-## Configuration, database and migrations
+## Configuration and database
 
 The config is a record read from the environment, with secrets masked in `/actuator/env`:
 
 <<< @/../examples/shelter/server/config.ml
 
-The database provider applies the embedded migrations on start and exposes a health check:
+The database provider is the connection pool with a health check:
 
-<<< @/../examples/shelter/server/database.ml
+```ocaml
+module Make (Settings : Settings.S) = struct
+  include
+    Kre.Db.Make
+      (Kre_db_mariadb.Driver)
+      (struct
+        let url = Settings.config.database_url
+        let size = 4
+      end)
+end
+```
 
-The migrations are not written by hand. `schema/schema.ml` prints them from the four tables and `Kre.Job.table`, and a rule in `server/sql/dune` diffs the output against `migrations/`. Change a record without adding a migration and `dune test` fails; `dune promote` writes the new file.
+`schema/schema.ml` prints the DDL from the tables, and sqlgg checks every query against it:
 
-<<< @/../examples/shelter/schema/schema.ml
-
-<<< @/../examples/shelter/server/migrations/0001_init.sql
+```ocaml
+let () =
+  let tables = [ User.table; Cat.table; Adoption.table; Credential.table ] in
+  print_string (Kre.Table.schema Mysql tables)
+```
 
 ## The wiring graph
 

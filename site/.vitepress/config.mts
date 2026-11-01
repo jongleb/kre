@@ -60,7 +60,6 @@ export default withMermaid(
           items: [
             { text: 'Tables & SQL', link: '/data/database' },
             { text: 'Transactions', link: '/data/transactions' },
-            { text: 'Migrations', link: '/data/migrations' },
             { text: 'Live loaders', link: '/data/live' },
             { text: 'Workflows', link: '/data/workflow' }
           ]

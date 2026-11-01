@@ -7,7 +7,7 @@ const flow = [
 ]
 
 const run = [
-  { title: 'on_start', sub: 'Provider hooks: migrations, job worker, schedules', tone: 'amber' },
+  { title: 'on_start', sub: 'Provider hooks: job worker, schedules', tone: 'amber' },
   { title: 'command ()', sub: 'Your function, with real services', tone: 'mint' },
   { title: 'on_shutdown', sub: 'The same hooks, in reverse', tone: 'violet' }
 ]
@@ -139,7 +139,7 @@ A command runs inside the same lifecycle as the server, minus the server:
 
 <Flow :steps="run" caption="main.exe seed: no HTTP, same hooks" />
 
-`on_start` runs first, so migrations are applied and pools are open before your code touches the database. After the command, `on_shutdown` runs the provider hooks again, so a job worker finishes and connections close cleanly.
+`on_start` runs first, so pools are open and workers are running before your code touches the database. After the command, `on_shutdown` runs the provider hooks again, so a job worker finishes and connections close cleanly.
 
 ```mermaid
 sequenceDiagram

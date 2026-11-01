@@ -194,9 +194,17 @@ The same checks cover other things `[%wire]` collects: an `[@@on_event]` listene
 
 A provider that defines `on_start` or `on_shutdown` (and exposes it in its signature) gets them called: `on_start` in dependency order before the server accepts requests, `on_shutdown` in reverse order after SIGINT or SIGTERM.
 
-The shelter's database runs its migrations on start and reports its health:
+The shelter's database reports its health:
 
-<<< @/../examples/shelter/server/database.ml{10-17,19-27}
+```ocaml
+let ping () =
+  Lwt.catch
+    (fun () ->
+      with_conn (fun conn ->
+          Lwt.map (fun _ -> Ok ()) (Kre_db_mariadb.Driver.strings conn "SELECT 1")))
+    (fun exn -> Lwt.return_error (Printexc.to_string exn))
+[@@health "db"]
+```
 
 ```mermaid
 sequenceDiagram
@@ -204,7 +212,7 @@ sequenceDiagram
   participant D as Database
   participant J as Jobs
   participant S as Dream
-  M->>D: on_start (run migrations)
+  M->>D: on_start (open the pool)
   M->>J: on_start (start workers)
   M->>S: serve requests
   Note over S: SIGINT or SIGTERM

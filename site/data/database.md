@@ -77,7 +77,7 @@ Under Melange (`kre-ppx -- -melange`) `table` generates nothing, so the same fil
 
 ## Print the schema
 
-There is no runtime registry of tables. A small executable lists them and prints whatever the build asks for: the DDL, the CRUD queries of one table, or a migration.
+There is no runtime registry of tables. A small executable lists them and prints whatever the build asks for: the DDL or the CRUD queries of one table.
 
 <<< @/../examples/shelter/schema/schema.ml
 
@@ -242,9 +242,19 @@ The generated client exposes `Cats_client.catalog ~page`, and its result has the
 | `transaction f` | `Ok` commits, `Error` or an exception rolls back. See [Transactions](/data/transactions). |
 | `query sql params` | Raw SQL with `?` parameters and `string option` values, through `with_conn`. |
 
-The shelter's database provider includes the pool and runs migrations on start:
+The shelter's database provider is the pool:
 
-<<< @/../examples/shelter/server/database.ml
+```ocaml
+module Make (Settings : Settings.S) = struct
+  include
+    Kre.Db.Make
+      (Kre_db_mariadb.Driver)
+      (struct
+        let url = Settings.config.database_url
+        let size = 4
+      end)
+end
+```
 
 ## MariaDB and PostgreSQL
 
@@ -261,7 +271,7 @@ Two drivers ship as separate packages, so the core keeps no C dependencies. Serv
 | `insert_id` | from the server | `SELECT lastval()` on the same connection |
 | Traits and pool | `Kre_db_mariadb.Sql`, `Kre.Db.Make (Kre_db_mariadb.Driver)` | `Kre_db_postgresql.Sql`, `Kre.Db.Make (Kre_db_postgresql.Driver)` |
 
-Because the Postgres driver fills `insert_id` from `lastval()`, `Crud.insert` returns the new id on both databases and services are written once. sqlgg's Postgres dialect has no `RETURNING`, `BIGSERIAL` or `GENERATED … AS IDENTITY`, which is why the key is `SERIAL`. Migrations, `[@@transactional]` and live loaders work the same on both.
+Because the Postgres driver fills `insert_id` from `lastval()`, `Crud.insert` returns the new id on both databases and services are written once. sqlgg's Postgres dialect has no `RETURNING`, `BIGSERIAL` or `GENERATED … AS IDENTITY`, which is why the key is `SERIAL`. `[@@transactional]` and live loaders work the same on both.
 
 The cats example builds its Postgres variant from the same `schema.exe`:
 
@@ -280,4 +290,4 @@ CREATE INDEX cats_breed ON cats (breed);
 Run its tests with `KRE_TEST_PG_URL=postgresql://… dune build @examples/cats/postgresql/pg`.
 :::
 
-Next: group writes into one unit with [Transactions](/data/transactions), and keep the database in step with the record using [Migrations](/data/migrations).
+Next: group writes into one unit with [Transactions](/data/transactions).

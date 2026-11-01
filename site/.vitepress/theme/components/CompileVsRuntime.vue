@@ -2,7 +2,7 @@
 const checks = [
   { mistake: 'A service needs a provider nobody wrote', where: 'build', how: 'The functor application [%wire] writes does not compile; the error points at the parameter.' },
   { mistake: 'A column is renamed', where: 'build', how: 'sqlgg rejects every query that still uses the old name.' },
-  { mistake: 'A table changes without a migration', where: 'test', how: 'dune test shows the missing migration as a diff; dune promote writes it.' },
+  { mistake: 'A handler skips the admin check', where: 'build', how: 'Auth.Admin.t comes only from the admin guard; without it the call does not type-check.' },
   { mistake: 'A link is built with the wrong params', where: 'build', how: 'Routes are typed values; href and navigate check params and search.' },
   { mistake: 'A workflow state is misspelled', where: 'build', how: 'Transitions are patterns over the constructors.' },
   { mistake: 'A live page forgets a table it reads', where: 'test', how: 'Under KRE_ENV=test the route answers 500 and names the table.' }

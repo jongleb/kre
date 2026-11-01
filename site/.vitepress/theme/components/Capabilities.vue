@@ -5,7 +5,7 @@ const items = [
   { id: 'jobs', title: 'Background jobs', text: 'Typed queues in your database, retries with backoff, enqueued inside the transaction.', link: '/background/jobs' },
   { id: 'flow', title: 'Workflows', text: 'States are constructors and transitions are patterns, so a typo stops the build.', link: '/data/workflow' },
   { id: 'router', title: 'Typed router', text: 'Routes are values. Links, params and query strings are checked by the compiler.', link: '/client/client-router' },
-  { id: 'migrate', title: 'Migrations', text: 'The schema is printed from your types; a change without a migration fails dune test.', link: '/data/migrations' },
+  { id: 'versions', title: 'Versions', text: 'A [@version] column makes a stale write change nothing, and the service answers 409.', link: '/data/database' },
   { id: 'profiler', title: 'Profiler', text: 'Every request with its SQL, and a flag when one query repeats in a loop.', link: '/tooling/observability' },
   { id: 'cli', title: 'Commands', text: 'A function with [@@command] runs from the same binary, with the same providers.', link: '/background/commands' }
 ]
@@ -83,17 +83,18 @@ const items = [
           <path d="M178 70v18" class="d" />
           <text x="148" y="102" class="t">Breed.t option</text>
         </svg>
-        <!-- migrations: a diff -->
-        <svg v-else-if="item.id === 'migrate'" viewBox="0 0 220 120" fill="none">
-          <rect x="30" y="14" width="160" height="92" rx="6" class="s" />
-          <path d="M30 30h160" class="s" />
-          <text x="42" y="26" class="t">0001_init.sql</text>
-          <rect x="40" y="40" width="110" height="7" rx="2" class="f" />
-          <rect x="40" y="54" width="90" height="7" rx="2" class="f" />
-          <rect x="36" y="67" width="148" height="13" rx="2" class="aw" />
-          <text x="42" y="77" class="u2">+</text>
-          <rect x="54" y="70" width="96" height="7" rx="2" class="a" />
-          <rect x="40" y="88" width="70" height="7" rx="2" class="f" />
+        <!-- versions: one write wins, the stale one is refused -->
+        <svg v-else-if="item.id === 'versions'" viewBox="0 0 220 120" fill="none">
+          <rect x="10" y="46" width="74" height="28" rx="5" class="s" />
+          <text x="21" y="64" class="u">cat · v3</text>
+          <path d="M84 54c22 0 26-26 48-26" class="s" />
+          <path d="M127 23l6 5-6 5" class="s" />
+          <rect x="136" y="14" width="66" height="28" rx="5" class="a" />
+          <text x="150" y="32" class="u2">cat · v4</text>
+          <path d="M84 66c22 0 26 26 48 26" class="d" />
+          <rect x="136" y="78" width="66" height="28" rx="5" class="s" />
+          <text x="150" y="96" class="u">409</text>
+          <path d="M184 85l10 14M194 85l-10 14" class="s" />
         </svg>
         <!-- profiler: requests as bars, one repeated query flagged -->
         <svg v-else-if="item.id === 'profiler'" viewBox="0 0 220 120" fill="none">

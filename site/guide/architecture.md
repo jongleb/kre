@@ -15,7 +15,7 @@ const apiPipeline = [
 
 const sqlPipeline = [
   { title: 'Record', sub: 'A type in shared/ or schema/', code: '[@@deriving table]', tone: 'ember' },
-  { title: 'schema.exe', sub: 'Prints DDL, CRUD and migrations', code: 'Kre.Table.schema', tone: 'amber' },
+  { title: 'schema.exe', sub: 'Prints DDL and CRUD queries', code: 'Kre.Table.schema', tone: 'amber' },
   { title: 'schema.sql', sub: 'The tables, as SQL', code: 'CREATE TABLE cats …', tone: 'sky' },
   { title: 'sqlgg', sub: 'Checks queries against the schema', code: 'queries.sql', tone: 'violet' },
   { title: 'OCaml functions', sub: 'Typed parameters and rows', code: 'Shelter_sql.Make', tone: 'mint' }
@@ -97,9 +97,13 @@ Rename a field in `Cat.t` and the client, the pages that use it and the OpenAPI 
 
 `[@@deriving table]` gives each record a `table : Kre.Table.t`. A tiny executable prints them:
 
-<<< @/../examples/shelter/schema/schema.ml
+```ocaml
+let () =
+  let tables = [ User.table; Cat.table; Adoption.table; Credential.table ] in
+  print_string (Kre.Table.schema Mysql tables)
+```
 
-Dune rules then run it to produce `schema.sql`, the CRUD statements and the expected migrations, and hand them to sqlgg, which type-checks every query in `queries.sql` against that schema and generates OCaml functions. One more rule diffs the printed migration against `migrations/0001_init.sql`: change a table without writing a migration and `dune test` fails. See [Tables & SQL](/data/database) and [Migrations](/data/migrations).
+Dune rules then run it to produce `schema.sql` and the CRUD statements, and hand them to sqlgg, which type-checks every query in `queries.sql` against that schema and generates OCaml functions. See [Tables & SQL](/data/database).
 
 ## The runtime
 

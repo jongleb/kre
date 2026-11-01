@@ -35,7 +35,7 @@ That is all. There is no scheduler module to import and no registry to fill. `[%
 
 <Flow :steps="lifecycle" caption="Schedules follow the application lifecycle" />
 
-Schedules start after the providers' own `on_start` hooks, so migrations and pools are ready before the first tick. On shutdown they are cancelled before the providers stop. The events test checks exactly this: the digest runs a few times between `on_start` and `on_shutdown`, and not once after.
+Schedules start after the providers' own `on_start` hooks, so pools and workers are ready before the first tick. On shutdown they are cancelled before the providers stop. The events test checks exactly this: the digest runs a few times between `on_start` and `on_shutdown`, and not once after.
 
 An exception in a task is logged with the task name (`job Mailer.digest failed: …`) and the schedule keeps going. One bad run never stops the next.
 

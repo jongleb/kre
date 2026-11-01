@@ -47,7 +47,7 @@ The public API is small:
 Because the result is a `Kre.Job.S`, `[%wire]` knows it has lifecycle hooks: it calls `on_start` when the server boots and `on_shutdown` when it stops. The worker is a loop inside your server process. On shutdown it finishes the batch it is draining and exits.
 
 ::: info One provider, one database
-The runner talks only to the `Db` you give it. Jobs live in whatever database that module points at, MariaDB or PostgreSQL, so they are backed up, replicated and migrated with the rest of your data.
+The runner talks only to the `Db` you give it. Jobs live in whatever database that module points at, MariaDB or PostgreSQL, so they are backed up and replicated with the rest of your data.
 :::
 
 ## Handlers: `[@@job queue]`
@@ -127,11 +127,9 @@ Step by step:
 A worker that crashes mid-job leaves the row `running`. Five minutes later `locked_until` expires and another worker picks it up again. Write handlers that are safe to repeat.
 :::
 
-## The table and its migration
+## The table
 
-`Kre.Job.table` is an ordinary `Kre.Table.t`, so the schema tool prints its DDL for your dialect the same way it does for your own tables. The shelter keeps it as a regular migration:
-
-<<< @/../examples/shelter/server/migrations/0002_jobs.sql
+`Kre.Job.table` is an ordinary `Kre.Table.t`, so the schema tool prints its DDL for your dialect the same way it does for your own tables.
 
 | Column | Purpose |
 | --- | --- |

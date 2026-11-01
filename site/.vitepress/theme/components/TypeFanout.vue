@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const left = [
-  { kind: 'schema', title: 'CREATE TABLE', sub: 'DDL and the first migration, printed from the record' },
+  { kind: 'schema', title: 'CREATE TABLE', sub: 'The DDL, printed from the record' },
   { kind: 'sql', title: 'Checked queries', sub: 'sqlgg types every query against that schema' },
   { kind: 'crud', title: 'CRUD and finders', sub: 'insert, update, by_status, page, count' }
 ]

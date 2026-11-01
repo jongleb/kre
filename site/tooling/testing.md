@@ -83,7 +83,7 @@ Tests that need a real database are not part of `dune test`. Each one is a dune 
 
 | Alias | Variable | Runs |
 | --- | --- | --- |
-| `@db` | `KRE_TEST_DB_URL` | Cats on MariaDB: a migration test, `kre migrate up`, `status`, `down` twice, then the CRUD test |
+| `@db` | `KRE_TEST_DB_URL` | Cats on MariaDB: the CRUD, transaction and live tests |
 | `@shelter` | `KRE_TEST_SHELTER_URL` | The shelter suite against MariaDB, then the browser scenario against the real binary |
 | `@pg` | `KRE_TEST_PG_URL` | Cats on PostgreSQL |
 

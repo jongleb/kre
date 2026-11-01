@@ -3,7 +3,7 @@ const layers = [
   { name: 'client/', runs: 'Melange · React', items: ['Typed page router', 'Generated API clients', 'Pages in .mlx', 'Live updates over SSE'] },
   { name: 'shared/', runs: 'native and Melange', items: ['Records with [@@deriving dto]', 'Refined and opaque types', 'Search records, pages, time', 'Workflows'] },
   { name: 'server/', runs: 'Dream · Lwt', items: ['Controllers', 'Providers wired by [%wire]', 'sqlgg queries, jobs, mail', 'MariaDB or PostgreSQL'] },
-  { name: 'build', runs: 'kre-ppx · sqlgg · kre CLI', items: ['Routes, specs, OpenAPI', 'Dependency graph', 'SQL checked against the schema', 'Migrations checked against types'] }
+  { name: 'build', runs: 'kre-ppx · sqlgg · kre CLI', items: ['Routes, specs, OpenAPI', 'Dependency graph', 'SQL checked against the schema', 'Typed clients generated'] }
 ]
 </script>
 
