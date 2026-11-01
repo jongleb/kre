@@ -68,7 +68,7 @@
 | `ValidationPipe` | `@Valid` | `[@@deriving dto]`: разбор = проверка, 422 с путями | ✅ |
 | exception filters, `@Catch` | `@ControllerAdvice`, `@ExceptionHandler` | `error_handler`, `[@@@error_handler]`, Problem Details (RFC 9457) | ✅ |
 | `@UseFilters` на метод | `@ExceptionHandler` в контроллере | `[@@error_handler h]` на хендлере (важнее контроллерного и глобального) | ✅ |
-| — | `@Transactional` | `[@@transactional]` + `[@from Db.tx]` | ✅ |
+| `dataSource.transaction`, `@nestjs-cls/transactional` | `@Transactional` | `[@@transactional]`; `Db.with_conn` внутри присоединяется к транзакции | ✅ |
 | `@nestjs/throttler` | — | `Forge.Rate_limit` | ✅ |
 | helmet, `enableCors` | `@CrossOrigin` | `Forge.Secure_headers`, `Forge.Cors` | ✅ |
 | Passport, JWT | Spring Security | `Forge.Jwt.bearer`, `Guard.session` | ✅ |

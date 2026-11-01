@@ -70,8 +70,8 @@ type handler = {
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
   transaction : longident option;
-      (** [[@@transactional]]: the [Forge.Db.S] module read by [[@from M.tx]].
-      *)
+      (** [[@@transactional]]: the [Forge.Db.S] dependency, or [M] of
+          [[@from M.tx]]. *)
 }
 
 let string_payload (attribute : attribute) =
@@ -834,16 +834,49 @@ let transform structure =
                              } ->
                              Some (db, argument.loc)
                          | _ -> None)
+                       arguments,
+                     List.filter_map
+                       (fun argument ->
+                         match argument.source with
+                         | Dependency
+                             {
+                               name;
+                               package =
+                                 {
+                                   ptyp_desc =
+                                     Ptyp_package
+                                       ( {
+                                           txt =
+                                             Ldot
+                                               (Ldot (Lident "Forge", "Db"), "S");
+                                           _;
+                                         },
+                                         _ );
+                                   _;
+                                 };
+                               _;
+                             } ->
+                             Some name
+                         | _ -> None)
                        arguments )
                  with
-                | Some _, Some (db, _) -> Some db
-                | None, None -> None
-                | Some attribute, None ->
+                | Some _, Some (db, _), _ -> Some db
+                | Some _, None, [ db ] -> Some (Lident db)
+                | None, None, _ -> None
+                | Some attribute, None, [] ->
                     Location.raise_errorf ~loc:attribute.attr_loc
-                      "[@@@@transactional] needs the connection: add ~(conn : \
-                       Db.conn [@@from Db.tx]) where Db is a Forge.Db.S \
-                       dependency"
-                | None, Some (db, loc) ->
+                      "[@@@@transactional] runs %s in a transaction of a \
+                       Forge.Db.S dependency; add (module Db : Forge.Db.S with \
+                       type conn = …)"
+                      name
+                | Some attribute, None, (first :: _ :: _ as databases) ->
+                    Location.raise_errorf ~loc:attribute.attr_loc
+                      "[@@@@transactional] sees several Forge.Db.S \
+                       dependencies (%s); pick one with ~(conn : … [@@from \
+                       %s.tx])"
+                      (String.concat ", " databases)
+                      first
+                | None, Some (db, loc), _ ->
                     Location.raise_errorf ~loc
                       "[@@from %s.tx] reads the open transaction; add \
                        [@@@@transactional] to %s"

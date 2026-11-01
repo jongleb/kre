@@ -72,7 +72,9 @@ let%lwt _ = Crud.delete conn ~id in
 
 Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
 
-Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. В контроллере — `[@@transactional]` и параметр `[@from Db.tx]`:
+Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. Как в Spring, соединение транзакции привязано к текущему Lwt-контексту: `Db.with_conn` и вложенный `Db.transaction` внутри неё берут его же, поэтому сервисы не передают `~conn` друг другу. Вложенная транзакция — часть внешней.
+
+В контроллере хватает `[@@transactional]` и зависимости `Forge.Db.S` (пример — `examples/shelter/server/adoptions_controller.ml`): все сервисы, которые хендлер вызывает, пишут в одну транзакцию. Нужен сам `conn` — параметр `[@from Db.tx]`:
 
 <!-- $MDX file=../examples/cats/db/batch_controller.ml -->
 ```ocaml

@@ -36,25 +36,33 @@ struct
     Lwt_pool.create Config.size ~dispose:Driver.close (fun () ->
         Driver.connect Config.url)
 
-  let with_conn f = Lwt_pool.use pool f
+  let current : conn Lwt.key = Lwt.new_key ()
+
+  let with_conn f =
+    match Lwt.get current with
+    | Some conn -> f conn
+    | None -> Lwt_pool.use pool f
 
   let transaction f =
-    Live.deferred @@ fun () ->
-    with_conn (fun conn ->
-        let open Lwt.Syntax in
-        let* () = Driver.start conn in
-        Lwt.try_bind
-          (fun () -> f conn)
-          (fun result ->
-            let+ () =
-              match result with
-              | Ok _ -> Driver.commit conn
-              | Error _ -> Driver.rollback conn
-            in
-            result)
-          (fun exn ->
-            let* () = Driver.rollback conn in
-            Lwt.reraise exn))
+    match Lwt.get current with
+    | Some conn -> f conn
+    | None ->
+        Live.deferred @@ fun () ->
+        Lwt_pool.use pool (fun conn ->
+            let open Lwt.Syntax in
+            let* () = Driver.start conn in
+            Lwt.try_bind
+              (fun () -> Lwt.with_value current (Some conn) (fun () -> f conn))
+              (fun result ->
+                let+ () =
+                  match result with
+                  | Ok _ -> Driver.commit conn
+                  | Error _ -> Driver.rollback conn
+                in
+                result)
+              (fun exn ->
+                let* () = Driver.rollback conn in
+                Lwt.reraise exn))
 
   let field : conn Dream.field = Dream.new_field ~name:"forge.transaction" ()
 
@@ -63,12 +71,7 @@ struct
       ~missing:(Error.internal "no open transaction; add [@@transactional]")
 
   let within request run =
-    match Dream.field request field with
-    | Some _ ->
-        Lwt.return_error
-          (Error.internal "nested [@@transactional] is not supported")
-    | None ->
-        transaction (fun conn ->
-            Dream.set_field request field conn;
-            run ())
+    transaction (fun conn ->
+        Dream.set_field request field conn;
+        run ())
 end

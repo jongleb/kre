@@ -248,7 +248,7 @@ shelter/
 - Пароли — отдельная таблица `credentials` (`schema/credential.ml`, PBKDF2-SHA256 из `kdf`, сравнение `Eqaf`), а не `password_hash` в `User.t`: тип, который уходит клиенту, не содержит хеша вовсе. `Credential.verify` возвращает `User.Id.t` как доказательство.
 - `role`, `status` — варианты с `[@@deriving dto]`, которые стали скалярами (см. «Варианты» в dto); `Ptime`-полей нет — у `table` нет типа времени.
 - Миграция `0001_init.sql` — это вывод `schema.exe migration`; правило `diff` в `server/sql/dune` роняет `dune test`, если таблицу поменяли без миграции.
-- `Forge.Db.conn` общего нет: сервисы берут `Forge.Db.S with type conn = Forge_db_mariadb.Client.t`.
+- `Forge.Db.conn` общего нет: сервисы берут `Forge.Db.S with type conn = Forge_db_mariadb.Client.t`. `~conn` в сервисах тоже нет: `Cats.adopt` и `Adoptions.adopt` зовут `Db.with_conn` и попадают в транзакцию хендлера.
 - `[@@transactional]` проверен откатом: третье усыновление уже обновило кота, лимит «2 на участника» возвращает `Error` — кот снова доступен, live-событий нет.
 - `Config.interface` (по умолчанию `127.0.0.1`): Dream слушает `localhost`, который на macOS — `::1`.
 - Тесты: `test_shelter` (alcotest через `Dream.test` и `[%wire]`, MariaDB) и `run_scenario` (запускает `bin/main.exe` и сценарий Melange-клиента в node: регистрация, 403, усыновление, 409, live `cats`, разметка страницы входа). Alias `@examples/shelter/test/shelter`, база — `FORGE_TEST_SHELTER_URL`; в CI — job `db`.
@@ -1104,8 +1104,8 @@ module type DRIVER = sig
 end
 module type S = sig
   type conn
-  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool *)
-  val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/исключение → rollback *)
+  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool; внутри транзакции — её соединение *)
+  val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/исключение → rollback; внутри другой — присоединяется *)
 end
 module Make (Driver : DRIVER) (Config : sig val url : string val size : int end) : S with type conn = Driver.conn
 
@@ -1118,6 +1118,8 @@ module Driver : Forge.Db.DRIVER with type conn = Client.t      (* mariadb://user
 ```
 
 Сервис с базой — функтор: `module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) … end`. `Forge_db_pgx` — фаза 2.
+
+Транзакция как в Spring (фаза 2): `transaction` кладёт своё соединение в ключ Lwt (`Lwt.with_value`, аналог ThreadLocal у `TransactionSynchronizationManager`). Всё, что выполняется внутри неё, — `with_conn` любого сервиса и вложенный `transaction` — берёт это соединение, а не новое из пула. Поэтому сервисам не нужен `~conn` в сигнатуре, чтобы участвовать в транзакции контроллера. Вложенная транзакция — часть внешней (`REQUIRED`): commit или rollback решает внешняя, live-события уходят один раз после её commit. Цена: внутри транзакции запросы идут по одному соединению по очереди, и `Lwt.async`, запущенный внутри, унаследует соединение — фоновую работу запускают после транзакции.
 
 Postgres (фаза 2): драйвер — `Forge_db_postgresql` на libpq (пакет `postgresql`), не pgx. Причина: sqlgg-traits требуют `execute_response.affected_rows`, а pgx число изменённых строк читает, но наружу не отдаёт; libpq отдаёт (`cmd_tuples`). Запросы libpq идут через `Lwt_preemptive.detach`: сокет libpq — `int`, а превратить его в `Unix.file_descr` без `Obj.magic` нельзя. Ограничения sqlgg для `-dialect postgresql`: нет `RETURNING`, `BIGSERIAL`, `GENERATED … AS IDENTITY`. Поэтому ключ `[@primary] [@auto]` — `SERIAL`, а `insert_id` драйвер заполняет через `SELECT lastval()` на том же соединении, и сервисы пишутся одинаково для обеих БД. `Forge.Table.schema` получает диалект: у Postgres `DOUBLE PRECISION` и отдельный `CREATE INDEX`; CRUD-запросы общие.
 
@@ -1394,7 +1396,7 @@ Nest задаёт структуру; из Spring берём пять вещей
 | --- | --- | --- |
 | Problem Details (RFC 9457, `application/problem+json`) | формат `Error.to_json` и клиентского `Error.t` | 0 |
 | `@PreAuthorize("… #id == principal.id")` | `[@@authorize f]` — типизированная функция над извлечёнными параметрами | 2 |
-| `@Transactional` | `[@@transactional]` + `[@from Db.tx]` | 2 |
+| `@Transactional` | `[@@transactional]`; соединение — неявно через ключ Lwt (или явно `[@from Db.tx]`) | 2 |
 | Actuator | `Forge.Actuator.routes` | 2 |
 | Profiles | `FORGE_ENV` + слои `config/*.env` — сделано | 1 |
 
@@ -1430,13 +1432,17 @@ let read ~(user : string [@guard Roles.user]) ~(id : int) : string Lwt.t = …
 Реализовано в фазе 2:
 
 ```ocaml
-let import (module Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
-    ~(conn : Forge_db_mariadb.Client.t [@from Db.tx]) ~(body : Create_cat_dto.t)
-    : (unit, Forge.Error.t) result Lwt.t = …
+let adopt (module Adoptions : Adoptions_service.S)
+    (module Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
+    ~(user : User.t [@guard Auth.current]) ~(body : Adopt_dto.t)
+    : (Adoption.t, Forge.Error.t) result Lwt.t =
+  Adoptions.adopt body.cat_id user.id
 [@@post] [@@transactional]
 ```
 
-`Forge.Db.S` получил `tx : conn Guard.t` (читает соединение из поля запроса) и `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (открывает транзакцию, кладёт соединение в поле, `Ok` → commit, `Error`/исключение → rollback). ppx находит параметр `[@from M.tx]` и оборачивает разбор параметров и вызов хендлера в `M.within`; guards выполняются до транзакции. `[@@transactional]` без такого параметра и `[@from M.tx]` без `[@@transactional]` — ошибки компиляции. Вложенный `within` на том же запросе — 500 вместо молчаливого savepoint. Опции изоляции и `read_only` — когда понадобятся. Пример — `examples/cats/db/batch_controller.ml`, проверка — алиас `@db`.
+Как `@Transactional` в Spring: соединение в коде не видно, сервисы внутри пользуются обычным `Db.with_conn` и попадают в транзакцию (см. «Forge.Db»). В Nest такого декоратора нет — там `dataSource.transaction(…)`/`QueryRunner` руками или сторонний `@nestjs-cls/transactional`.
+
+`Forge.Db.S` получил `tx : conn Guard.t` (читает соединение из поля запроса) и `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (открывает транзакцию или присоединяется к открытой, кладёт соединение в поле, `Ok` → commit, `Error`/исключение → rollback). ppx берёт модуль из единственной зависимости `Forge.Db.S` хендлера или из параметра `[@from M.tx]`, если он есть (тогда соединение приходит параметром явно, как `examples/cats/db/batch_controller.ml`), и оборачивает разбор параметров и вызов хендлера в `M.within`; guards выполняются до транзакции. `[@@transactional]` без зависимости `Forge.Db.S`, с двумя такими без `[@from M.tx]`, и `[@from M.tx]` без `[@@transactional]` — ошибки компиляции. Опции изоляции и `read_only` — когда понадобятся. Пример — `examples/shelter/server/adoptions_controller.ml`; проверки — алиасы `@db` и `@shelter`.
 
 ### Actuator
 
@@ -1546,7 +1552,7 @@ open http://localhost:8080/cats/1
 
 **Статус фазы 2** (по мере работы):
 - ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
-- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`
+- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`; затем транзакция как в Spring: `with_conn`/`transaction` внутри открытой присоединяются к ней, `[@@transactional]` хватает зависимости `Forge.Db.S`
 - ✅ helmet/CORS/rate-limit: `Forge.Secure_headers`, `Forge.Cors`, `Forge.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Forge.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `forge client` пока пропускает такие маршруты (подписка — `EventSource`)
 - ✅ WebSocket: `Forge.Gateway` (кадры `{event, data}` как в Nest, `on`/`notify` с явными модулями тела и ответа, `send`/`broadcast`, ошибки — событие `error` с Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` видит шлюзы; проверено живым WebSocket из node 22

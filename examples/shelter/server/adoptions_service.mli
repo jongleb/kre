@@ -1,11 +1,6 @@
-(** Adoptions: a member takes a cat home, at most [limit] of them. *)
+(** Adoptions: a member takes a cat home, at most two of them. *)
 module type S = sig
-  val adopt :
-    conn:Forge_db_mariadb.Client.t ->
-    Cat.Id.t ->
-    User.Id.t ->
-    (Adoption.t, Forge.Error.t) result Lwt.t
-
+  val adopt : Cat.Id.t -> User.Id.t -> (Adoption.t, Forge.Error.t) result Lwt.t
   val of_user : User.Id.t -> Adoption.t list Lwt.t
 end
 

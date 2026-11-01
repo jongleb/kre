@@ -311,7 +311,8 @@ Timeout takes seconds as a float.
   Error: [@@timeout] expects seconds as a float: [@@timeout 5.0]
   [1]
 
-[@@transactional] and [@from Db.tx] come together.
+[@@transactional] needs a Forge.Db.S dependency, one of them, and [@from Db.tx]
+needs [@@transactional].
 
   $ cat > input.ml <<'ML'
   > [@@@controller "c"]
@@ -321,7 +322,19 @@ Timeout takes seconds as a float.
   File "input.ml", line 2, characters 49-66:
   2 | let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@transactional]
                                                        ^^^^^^^^^^^^^^^^^
-  Error: [@@transactional] needs the connection: add ~(conn : Db.conn [@from Db.tx]) where Db is a Forge.Db.S dependency
+  Error: [@@transactional] runs f in a transaction of a Forge.Db.S dependency; add (module Db : Forge.Db.S with type conn = …)
+  [1]
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f (module A : Forge.Db.S) (module B : Forge.Db.S) () : unit Lwt.t =
+  >   Lwt.return_unit
+  > [@@post] [@@transactional]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 4, characters 9-26:
+  4 | [@@post] [@@transactional]
+               ^^^^^^^^^^^^^^^^^
+  Error: [@@transactional] sees several Forge.Db.S dependencies (A, B); pick one with ~(conn : … [@from A.tx])
   [1]
   $ cat > input.ml <<'ML'
   > [@@@controller "c"]

@@ -3,12 +3,7 @@ module type S = sig
   val find : Cat.Id.t -> Cat.t option Lwt.t
   val create : Create_cat_dto.t -> Cat.t Lwt.t
   val rename : Cat.Id.t -> Cat.Name.t -> (Cat.t, Forge.Error.t) result Lwt.t
-
-  val adopt :
-    conn:Forge_db_mariadb.Client.t ->
-    Cat.Id.t ->
-    User.Id.t ->
-    (unit, Forge.Error.t) result Lwt.t
+  val adopt : Cat.Id.t -> User.Id.t -> (unit, Forge.Error.t) result Lwt.t
 end
 
 module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) : S =
@@ -47,16 +42,17 @@ struct
           (Option.to_result ~none:(Forge.Error.not_found "cat"))
           (Cats.Single.find conn ~id:(key id) Cat.of_row))
 
-  let adopt ~conn id user =
-    let%lwt changed =
-      Sql.adopt_cat conn
-        ~status:(Cat.Status.to_string Adopted)
-        ~owner_id:(Some (Int64.of_int (User.Id.to_repr user)))
-        ~id:(key id)
-        ~available:(Cat.Status.to_string Available)
-    in
-    Lwt.return
-      (match changed.affected_rows with
-      | 1L -> Ok ()
-      | _ -> Error (Forge.Error.conflict "this cat is not available"))
+  let adopt id user =
+    Db.with_conn (fun conn ->
+        let%lwt changed =
+          Sql.adopt_cat conn
+            ~status:(Cat.Status.to_string Adopted)
+            ~owner_id:(Some (Int64.of_int (User.Id.to_repr user)))
+            ~id:(key id)
+            ~available:(Cat.Status.to_string Available)
+        in
+        Lwt.return
+          (match changed.affected_rows with
+          | 1L -> Ok ()
+          | _ -> Error (Forge.Error.conflict "this cat is not available")))
 end

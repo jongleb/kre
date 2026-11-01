@@ -146,5 +146,31 @@ let () =
                 "rolled back" (Error "abort", 3)
                 ( Result.map ignore attempt,
                   List.length (Lwt_main.run (Cats.find_all ())) ));
+          Alcotest.test_case "with_conn and transaction join an open one" `Quick
+            (fun () ->
+              let module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) in
+              let changes, stop = Forge.Live.subscribe [ "cats" ] in
+              let attempt =
+                Lwt_main.run
+                  (Db.transaction (fun _ ->
+                       let%lwt _ =
+                         Db.with_conn (fun conn ->
+                             Sql.insert conn ~name:"ghost" ~age:1L
+                               ~breed:"persian")
+                       in
+                       let%lwt inner =
+                         Db.transaction (fun conn ->
+                             Lwt.map Result.ok
+                               (Sql.insert conn ~name:"ghost" ~age:1L
+                                  ~breed:"persian"))
+                       in
+                       Lwt.return (Result.bind inner (fun _ -> Error "abort"))))
+              in
+              stop ();
+              Alcotest.(check (triple (result reject string) int (list string)))
+                "all rolled back, nothing published" (Error "abort", 3, [])
+                ( Result.map ignore attempt,
+                  List.length (Lwt_main.run (Cats.find_all ())),
+                  Lwt_stream.get_available changes ));
         ] );
     ]
