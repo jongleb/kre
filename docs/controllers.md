@@ -18,6 +18,7 @@ let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
   let%lwt cat = Cats.find id in
   Lwt.return (Option.to_result cat ~none:(Forge.Error.not_found "cat"))
 [@@get ":id"]
+[@@etag]
 [@@summary "Find a cat"]
 [@@description "Answers 404 when no cat has this id."]
 

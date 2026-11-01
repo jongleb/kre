@@ -72,6 +72,7 @@
 | `@nestjs/throttler` | — | `Forge.Rate_limit` | ✅ |
 | helmet, `enableCors` | `@CrossOrigin` | `Forge.Secure_headers`, `Forge.Cors` | ✅ |
 | Passport, JWT | Spring Security | `Forge.Jwt.bearer`, `Guard.session` | ✅ |
+| — | `ShallowEtagHeaderFilter`, Rails `fresh_when` | `[@@etag]`, `Forge.Etag.middleware` → 304 | ✅ |
 
 ## Данные и сериализация
 

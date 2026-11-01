@@ -423,3 +423,16 @@ A stream needs [@@sse], and [@@sse] needs a stream.
                                                                 ^^^^
   Error: [@@live] lists table names as strings: [@@live [ "cats" ]]
   [1]
+
+[@@etag] is for GET.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@etag]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 49-57:
+  2 | let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@etag]
+                                                       ^^^^^^^^
+  Error: [@@etag] answers 304 to a repeated GET; f is not a GET
+  [1]

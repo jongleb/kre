@@ -802,11 +802,48 @@ let table =
                 ])));
   ]
 
+let etag =
+  let handler =
+    Dream.test
+      (Forge.Etag.middleware (fun request ->
+           match Dream.target request with
+           | "/missing" -> Dream.empty `Not_Found
+           | _ -> Dream.html "hello"))
+  in
+  let get ?(headers = []) target =
+    let response = handler (Dream.request ~target ~headers "") in
+    ( Dream.status_to_int (Dream.status response),
+      Option.value ~default:"-" (Dream.header response "ETag"),
+      Lwt_main.run (Dream.body response) )
+  in
+  [
+    Alcotest.test_case "a repeated GET gets 304" `Quick (fun () ->
+        let status, tag, body = get "/" in
+        Alcotest.(check (list (triple int string string)))
+          "responses"
+          [
+            (200, tag, "hello");
+            (304, tag, "");
+            (304, tag, "");
+            (200, tag, "hello");
+          ]
+          [
+            (status, tag, body);
+            get ~headers:[ ("If-None-Match", tag) ] "/";
+            get ~headers:[ ("If-None-Match", "\"old\", W/" ^ tag) ] "/";
+            get ~headers:[ ("If-None-Match", "\"old\"") ] "/";
+          ]);
+    Alcotest.test_case "only 200 gets a tag" `Quick (fun () ->
+        Alcotest.(check (triple int string string))
+          "404" (404, "-", "") (get "/missing"));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
       ("Live", live);
       ("Table", table);
+      ("Etag", etag);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

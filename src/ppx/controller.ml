@@ -680,8 +680,18 @@ let transform structure =
                           status)
                   (attribute_of binding "status");
               middleware =
-                (Option.fold ~none:[] ~some:list_payload
-                   (attribute_of binding "use")
+                (Option.fold ~none:[]
+                   ~some:(fun (attribute : attribute) ->
+                     match verb with
+                     | Get -> [ [%expr Forge.Etag.middleware] ]
+                     | Post | Put | Patch | Delete | Head | Options | All ->
+                         Location.raise_errorf ~loc:attribute.attr_loc
+                           "[@@@@etag] answers 304 to a repeated GET; %s is \
+                            not a GET"
+                           name)
+                   (attribute_of binding "etag")
+                @ Option.fold ~none:[] ~some:list_payload
+                    (attribute_of binding "use")
                 @ Option.fold ~none:[]
                     ~some:(fun (attribute : attribute) ->
                       match (verb, attribute.attr_payload) with
@@ -924,6 +934,7 @@ let transform structure =
               "summary";
               "description";
               "live";
+              "etag";
             ]
             @ List.map fst verbs
           in

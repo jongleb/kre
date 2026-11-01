@@ -80,6 +80,18 @@ let () =
                 (List.map
                    (fun target -> status (call `GET target))
                    [ "/cats/1"; "/cats/9"; "/cats/one" ]));
+          Alcotest.test_case "[@@etag]: an unchanged cat is 304" `Quick
+            (fun () ->
+              let tag =
+                Option.value ~default:""
+                  (Dream.header
+                     (app (Dream.request ~target:"/cats/1" ""))
+                     "ETag")
+              in
+              Alcotest.(check int)
+                "not modified" 304
+                (status
+                   (call ~headers:[ ("If-None-Match", tag) ] `GET "/cats/1")));
           Alcotest.test_case "query parameter with default" `Quick (fun () ->
               Alcotest.(check (list (pair int string)))
                 "limit"

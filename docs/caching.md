@@ -26,3 +26,11 @@ let changed sku = prices.evict sku
 ```
 
 Кэш живёт в памяти процесса; общий кэш на несколько процессов (Redis) — фаза 3.
+
+**HTTP-кэш клиента** — `[@@etag]` на GET-хендлере, как `fresh_when` в Rails и `ShallowEtagHeaderFilter` в Spring. Ответ 200 получает `ETag` (хеш тела); запрос с тем же `If-None-Match` получает `304 Not Modified` без тела. Хендлер выполняется, экономится трафик и разбор на клиенте. На весь сервер — `Forge.Etag.middleware` в `~middleware`; потоки SSE он пропускает.
+
+<!-- $MDX skip -->
+```ocaml
+let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) : (Cat.t, Forge.Error.t) result Lwt.t = …
+[@@get ":id"] [@@etag]
+```

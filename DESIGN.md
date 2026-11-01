@@ -647,6 +647,11 @@ module App : sig
     Controller.t list -> unit
 end
 
+(* Forge.Etag — фаза 3: ETag из тела ответа 200 на GET/HEAD, If-None-Match → 304; [@@etag] *)
+module Etag : sig
+  val middleware : Dream.middleware
+end
+
 (* Forge.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1516,7 +1521,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | # | Откуда | Forge | Волна |
 | --- | --- | --- | --- |
 | 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Forge.Table.crud` печатает `by_<col>` для `[@unique]` (одна строка), `[@index]` и `[@references]` (список) и `count`; sqlgg их типизирует | ✅ |
-| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | 1 |
+| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | ✅ |
 | 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` — повтор при исключении, через `Forge.Interceptor` | 1 |
 | 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф провайдеров; `/actuator/beans` и `--emit-graph` (mermaid) | 1 |
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `Forge.Testing`: запросы в обработчик без сокета, ответ как `status`/`json`/`problem` | 1 |
