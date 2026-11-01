@@ -163,6 +163,46 @@ let () =
                   [ "felix"; "tom" ],
                   [ [ Some "queued"; Some "1"; Some "tom is shy" ] ] )
                 (ran, List.sort String.compare !seen, left));
+          Alcotest.test_case "the dashboard lists and deletes jobs" `Quick
+            (fun () ->
+              let module Jobs =
+                Kre.Job.Make
+                  (Db)
+                  (struct
+                    let poll = 0.1
+                    let attempts = 3
+                  end) in
+              let handler = Dream.test (Kre.App.handler [ Jobs.dashboard ]) in
+              let call method_ target =
+                let response = handler (Dream.request ~method_ ~target "") in
+                ( Dream.status_to_int (Dream.status response),
+                  Lwt_main.run (Dream.body response) )
+              in
+              let listed () =
+                List.map
+                  (fun job ->
+                    Yojson.Basic.Util.(
+                      to_string (member "queue" job)
+                      ^ " "
+                      ^ to_string (member "status" job)))
+                  (Yojson.Basic.Util.to_list
+                     (Yojson.Basic.from_string
+                        (snd (call `GET "/__kre/jobs.json"))))
+              in
+              let before = listed () in
+              let id =
+                Option.value ~default:""
+                  (List.hd
+                     (List.hd
+                        (Lwt_main.run (Db.query "SELECT id FROM kre_jobs" []))))
+              in
+              let deleted =
+                fst (call `POST ("/__kre/jobs/" ^ id ^ "/delete"))
+              in
+              Alcotest.(check (triple (list string) int (list string)))
+                "listed, deleted, gone"
+                ([ "greet queued" ], 303, [])
+                (before, deleted, listed ()));
         ] );
       ( "migrations",
         [

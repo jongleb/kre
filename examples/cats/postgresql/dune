@@ -32,7 +32,7 @@
 
 (executable
  (name test_postgresql)
- (libraries cats_shared kre kre-db-postgresql lwt alcotest)
+ (libraries cats_shared kre kre-db-postgresql dream yojson lwt alcotest)
  (preprocess
   (pps lwt_ppx)))
 

@@ -127,6 +127,11 @@ Step by step:
 A worker that crashes mid-job leaves the row `running`. Five minutes later `locked_until` expires and another worker picks it up again. Write handlers that are safe to repeat.
 :::
 
+## The dashboard
+
+The runner also serves a small dashboard, and `[%wire]` mounts it for you: `/__kre/jobs` shows how many jobs each queue has in each state and lists the dead ones with their last error, next to **retry** and **delete** buttons. `/__kre/jobs.json` returns the same rows. Like the actuator, it answers requests from the machine itself only.
+
+
 ## The table
 
 `Kre.Job.table` is an ordinary `Kre.Table.t`, so the schema tool prints its DDL for your dialect the same way it does for your own tables.

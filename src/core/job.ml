@@ -28,6 +28,7 @@ module type S = sig
   val drain : unit -> int Lwt.t
   val on_start : unit -> unit Lwt.t
   val on_shutdown : unit -> unit Lwt.t
+  val dashboard : Controller.t
 end
 
 module Make
@@ -149,4 +150,115 @@ struct
     Lwt.return_unit
 
   let on_shutdown () = !stop ()
+
+  let dashboard =
+    let local : unit Guard.t =
+     fun request ->
+      Lwt.map
+        (function
+          | Ok ("127.0.0.1" | "::1" | "localhost") -> Ok ()
+          | Ok _ | Error _ ->
+              Error (Error.forbidden "the jobs dashboard answers loopback only"))
+        (Extract.ip request)
+    in
+    let rows () =
+      Lwt.map
+        (List.filter_map (function
+          | [ Some id; Some queue; Some status; Some attempts; error ] ->
+              Some (id, queue, status, attempts, Option.value error ~default:"")
+          | _ -> None))
+        (Db.query
+           "SELECT id, queue, status, attempts, last_error FROM kre_jobs ORDER \
+            BY id"
+           [])
+    in
+    let page () =
+      Lwt.bind (rows ()) (fun rows ->
+          let counts =
+            List.sort_uniq compare
+              (List.map (fun (_, queue, status, _, _) -> (queue, status)) rows)
+          in
+          Dream.html
+            (String.concat ""
+               ([
+                  "<!doctype html><meta charset=utf-8><title>Jobs</title>";
+                  "<style>body{font:14px \
+                   system-ui;margin:24px}td,th{padding:4px \
+                   10px;text-align:left}form{display:inline}</style>";
+                  "<h1>Jobs</h1><table><tr><th>queue</th><th>status</th><th>count</th></tr>";
+                ]
+               @ List.map
+                   (fun (queue, status) ->
+                     Printf.sprintf "<tr><td>%s</td><td>%s</td><td>%d</td></tr>"
+                       (Dream.html_escape queue) status
+                       (List.length
+                          (List.filter
+                             (fun (_, q, s, _, _) ->
+                               String.equal q queue && String.equal s status)
+                             rows)))
+                   counts
+               @ [ "</table><h2>Dead</h2><table>" ]
+               @ List.filter_map
+                   (fun (id, queue, status, attempts, error) ->
+                     match status with
+                     | "dead" ->
+                         Some
+                           (Printf.sprintf
+                              "<tr><td>#%s</td><td>%s</td><td>%s \
+                               attempts</td><td>%s</td><td><form method=post \
+                               action=/__kre/jobs/%s/retry><button>retry</button></form> \
+                               <form method=post \
+                               action=/__kre/jobs/%s/delete><button>delete</button></form></td></tr>"
+                              id (Dream.html_escape queue) attempts
+                              (Dream.html_escape error) id id)
+                     | _ -> None)
+                   rows
+               @ [ "</table>" ])))
+    in
+    let act verb sql parameters =
+      Route.v `POST
+        (Routes.( @--> )
+           Routes.(s "__kre" / s "jobs" / str / s verb /? nil)
+           (fun id ->
+             Route.handle ~status:`See_Other ~guards:[ local ] Route.Raw
+               (fun request ->
+                 Lwt.bind
+                   (Db.query sql (parameters id))
+                   (fun _ ->
+                     Lwt.map Result.ok (Dream.redirect request "/__kre/jobs")))))
+    in
+    Controller.v
+      ~spec:{ Spec.prefix = "/__kre"; version = None; routes = [] }
+      [
+        Route.v `GET
+          (Routes.( @--> )
+             Routes.(s "__kre" / s "jobs" /? nil)
+             (Route.handle ~status:`OK ~guards:[ local ] Route.Raw (fun _ ->
+                  Lwt.map Result.ok (page ()))));
+        Route.v `GET
+          (Routes.( @--> )
+             Routes.(s "__kre" / s "jobs.json" /? nil)
+             (Route.handle ~status:`OK ~guards:[ local ] Route.Raw (fun _ ->
+                  Lwt.bind (rows ()) (fun rows ->
+                      Lwt.map Result.ok
+                        (Dream.json
+                           (Yojson.Basic.to_string
+                              (`List
+                                 (List.map
+                                    (fun (id, queue, status, attempts, error) ->
+                                      `Assoc
+                                        [
+                                          ("id", `String id);
+                                          ("queue", `String queue);
+                                          ("status", `String status);
+                                          ("attempts", `String attempts);
+                                          ("last_error", `String error);
+                                        ])
+                                    rows))))))));
+        act "retry"
+          "UPDATE kre_jobs SET status = 'queued', attempts = 0, run_at = ?, \
+           locked_until = NULL WHERE id = ?" (fun id ->
+            [ Some (time (Unix.gettimeofday ())); Some id ]);
+        act "delete" "DELETE FROM kre_jobs WHERE id = ?" (fun id -> [ Some id ]);
+      ]
 end

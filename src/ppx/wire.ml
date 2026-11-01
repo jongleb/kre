@@ -761,7 +761,19 @@ let expand ~loc ~input directories =
                                     (resolve ~needed ~site:controller.site
                                        ~by:controller.module_name ())) ))
                            needs))
-                 controllers)]
+                 controllers
+              @ List.filter_map
+                  (fun provider ->
+                    match provider.provides with
+                    | "Kre.Job.S" ->
+                        Some
+                          (pexp_ident ~loc
+                             {
+                               txt = Ldot (Lident provider.name, "dashboard");
+                               loc;
+                             })
+                    | _ -> None)
+                  order)]
         ~on_start:[%e hooks "on_start"] ~on_shutdown:[%e hooks "on_shutdown"]
         ~jobs:
           [%e

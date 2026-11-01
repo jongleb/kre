@@ -15,6 +15,7 @@ module type S = sig
   val drain : unit -> int Lwt.t
   val on_start : unit -> unit Lwt.t
   val on_shutdown : unit -> unit Lwt.t
+  val dashboard : Controller.t
 end
 
 module Make
