@@ -1,7 +1,8 @@
 let () =
   Ppxlib.Driver.register_transformation "kre.preprocess"
     ~preprocess_impl:(fun items ->
-      Dto.structure (Command.structure (Retry.structure items)))
+      Dto.structure
+        (Command.structure (Retry.structure (Resource.structure items))))
     ~preprocess_intf:Dto.signature;
   Ppxlib.Driver.register_transformation "kre.controller"
     ~impl:Controller.transform;

@@ -167,6 +167,28 @@ Each ppx error points at the offending node and says what to do. The full list i
 
 Cross-cutting behaviour is also an attribute: `[@@guards]` and `[@@authorize]` (see [Guards & auth](/guide/guards-auth)), `[@@transactional]` (see [Transactions](/data/transactions)), `[@@live]` (see [Live loaders](/data/live)), `[@@etag]`, `[@@cache]`, `[@@intercept]` and `[@@retry]` (see [Errors & interceptors](/guide/errors)).
 
+## CRUD in one item: `[%%resource]`
+
+A controller that only lists, shows, creates and deletes one kind of record can say so instead of writing the four handlers:
+
+<<< @/../docs/examples/books_controller.ml
+
+`service` is the dependency, written as a handler would take it; `entity` is the module of the record type; `actions` lists the routes to generate:
+
+| Action | Route | Calls |
+| --- | --- | --- |
+| `Index` | `GET /books?page=&size=` | `Books.page request` |
+| `Index Book_filter` | `GET /books?title=…&page=&size=` | `Books.page filter request` |
+| `Show` | `GET /books/:book` | `Books.find id`; 404 when it returns `None` |
+| `Create Book_draft` | `POST /books` → 201 | `Books.create body` |
+| `Remove` | `DELETE /books/:book` → 204 | `Books.find id`, then `Books.remove book` |
+
+The service is an ordinary provider whose signature has those functions:
+
+<<< @/../docs/examples/books.ml{1-8}
+
+The generated handlers are plain code: `Show` is `~(book : (Book.t [@load Books.find]))`, `Index Book_filter` reads the filter with `[@search]`, and the body is validated like any other. Everything else in the file still works: add your own handlers next to `[%%resource]`, or attributes on the controller such as `[@@@guards]`. `[%wire]` reads the resource and passes the service.
+
 ## Server-sent events
 
 Return a stream and add `[@@sse]`. Each element is sent as `data: <json>`:

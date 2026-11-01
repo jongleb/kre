@@ -78,7 +78,7 @@ let scan path =
   let source = In_channel.with_open_bin path In_channel.input_all in
   let lexbuf = Lexing.from_string source in
   Lexing.set_filename lexbuf path;
-  let structure = Parse.implementation lexbuf in
+  let structure = Resource.structure (Parse.implementation lexbuf) in
   let name =
     String.capitalize_ascii (Filename.remove_extension (Filename.basename path))
   in

@@ -339,6 +339,44 @@ let () =
                   Printf.sprintf "%d %s / %s / %s" read.id read.name
                     read.home.street read.home.city;
                 ]);
+          Alcotest.test_case "[%%resource]: CRUD routes over a service" `Quick
+            (fun () ->
+              let books =
+                app [ Books_controller.register (module Books.Make ()) ]
+              in
+              let call ?(body = "") method_ target =
+                let response =
+                  Dream.test books (Dream.request ~method_ ~target body)
+                in
+                Printf.sprintf "%d %s"
+                  (Dream.status_to_int (Dream.status response))
+                  (Lwt_main.run (Dream.body response))
+              in
+              Alcotest.(check (list string))
+                "answers"
+                [
+                  {|201 {"id":1,"title":"Dune"}|};
+                  {|201 {"id":2,"title":"Emma"}|};
+                  {|200 {"items":[{"id":2,"title":"Emma"}],"page":1,"size":20,"total":1}|};
+                  {|200 {"id":1,"title":"Dune"}|};
+                  "422";
+                  "204 ";
+                  "404";
+                ]
+                (List.map
+                   (fun step -> step ())
+                   [
+                     (fun () -> call ~body:{|{"title":"Dune"}|} `POST "/books");
+                     (fun () -> call ~body:{|{"title":"Emma"}|} `POST "/books");
+                     (fun () -> call `GET "/books?title=Emma");
+                     (fun () -> call `GET "/books/1");
+                     (fun () ->
+                       String.sub
+                         (call ~body:{|{"title":""}|} `POST "/books")
+                         0 3);
+                     (fun () -> call `DELETE "/books/1");
+                     (fun () -> String.sub (call `GET "/books/1") 0 3);
+                   ]));
           Alcotest.test_case "response cache" `Quick (fun () ->
               let stats = app [ Stats_controller.register () ] in
               let fetch () =

@@ -1741,7 +1741,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 33 | токены API с правами | `Kre.Token.Make (Db)` (таблица `kre_tokens`: ULID, владелец, SHA-256 токена, права через пробел; `*` — всё) + `[@@ability "cats:write"]` — гард `Tokens.ability`, зависимость `Tokens : Kre.Token.S` добавляется в `register` и в `[%wire]`; 401 без токена, 403 без права | ✅ |
 | 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` и `…/:id/delete`; только loopback; `[%wire]` сам добавляет его в `app.controllers` | ✅ |
 | 35 | precognition | заголовок `Precognition: true` на POST/PUT/PATCH/DELETE — разбор, guards, `[@@authorize]` и `[@@check]` без вызова хендлера: 204 `Precognition-Success: true` или та же ошибка (`Kre.Route.precognition`) | ✅ |
-| 36 | `#[ApiResource]` | `[%%resource …]` — CRUD-контроллер над таблицей: страницы, фильтры, показ, создание, удаление | 4 |
+| 36 | `#[ApiResource]` | `[%%resource { service = (module Books : Books.S); entity = Book; actions = [ Index Book_filter; Show; Create Book_draft; Remove ] }]` — до контроллерного прохода раскрывается в обычные обработчики (`[@search]`, `[@load Books.find]`, 201, 204), сервис обязан иметь `page`/`find`/`create`/`remove`; `[%wire]` раскрывает его же | ✅ |
 
 ## Фазы и критерии приёмки
 

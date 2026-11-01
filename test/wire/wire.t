@@ -239,3 +239,12 @@ A controller with [@@ability] needs Kre.Token.S.
   > ML
   $ ../ppx/pp.exe -impl main.ml | grep 'Api_controller.register'
               ~controllers:[Api_controller.register (module Tokens);
+
+[%wire] reads [%%resource] controllers too.
+
+  $ cat > app/repos_controller.ml <<'ML'
+  > [@@@controller "repos"]
+  > [%%resource { service = (module Repo : Repo.S); entity = Book; actions = [ Show ] }]
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep 'Repos_controller.register'
+                           Repos_controller.register (module Repo)]
