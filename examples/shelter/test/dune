@@ -3,8 +3,8 @@
  (libraries
   shelter_server
   shelter_shared
-  forge
-  forge-db-mariadb
+  kre
+  kre-db-mariadb
   dream
   lwt
   lwt.unix
@@ -13,15 +13,15 @@
   alcotest)
  (preprocess
   (per_module
-   ((pps lwt_ppx forge-ppx)
+   ((pps lwt_ppx kre-ppx)
     test_shelter)
    ((pps lwt_ppx)
     run_scenario)))
  (preprocessor_deps
   (source_tree ..)))
 
-; Needs FORGE_TEST_SHELTER_URL: a database of its own, e.g.
-; mariadb://forge:forge@127.0.0.1:3306/shelter_test. One rule, so the two
+; Needs KRE_TEST_SHELTER_URL: a database of its own, e.g.
+; mariadb://kre:kre@127.0.0.1:3306/shelter_test. One rule, so the two
 ; runs take turns on it.
 
 (rule
@@ -33,7 +33,7 @@
  (action
   (setenv
    DATABASE_URL
-   %{env:FORGE_TEST_SHELTER_URL=}
+   %{env:KRE_TEST_SHELTER_URL=}
    (setenv
     JWT_SECRET
     test-secret
@@ -41,7 +41,7 @@
      ADMIN_EMAIL
      boss@shelter.test
      (setenv
-      FORGE_ENV
+      KRE_ENV
       test
       (progn
        (run %{exe:test_shelter.exe})

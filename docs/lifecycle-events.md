@@ -1,11 +1,11 @@
 # Lifecycle events
 
-Nest: `onModuleInit`, `onApplicationShutdown`. Forge: `Forge.App.run ~on_start ~on_shutdown`: `on_start` выполняется до приёма запросов, `on_shutdown` — после остановки по SIGINT/SIGTERM.
+Nest: `onModuleInit`, `onApplicationShutdown`. Kre: `Kre.App.run ~on_start ~on_shutdown`: `on_start` выполняется до приёма запросов, `on_shutdown` — после остановки по SIGINT/SIGTERM.
 
 <!-- $MDX file=examples/lifecycle.ml -->
 ```ocaml
 let main () =
-  Forge.App.run
+  Kre.App.run
     ~on_start:(fun () ->
       Dream.log "warming caches";
       Lwt.return_unit)

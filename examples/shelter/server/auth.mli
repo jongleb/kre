@@ -4,6 +4,6 @@ module Admin : sig
 end
 
 val session : User.t -> Session.t
-val current : User.t Forge.Guard.t
-val admin : Admin.t Forge.Guard.t
-val owner_or_admin : user:User.t -> Cat.t -> (unit, Forge.Error.t) result Lwt.t
+val current : User.t Kre.Guard.t
+val admin : Admin.t Kre.Guard.t
+val owner_or_admin : user:User.t -> Cat.t -> (unit, Kre.Error.t) result Lwt.t

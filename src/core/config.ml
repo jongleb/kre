@@ -42,15 +42,15 @@ let make (type a b) name ~(parse : string -> (a, string) result)
 let message errors =
   String.concat "; "
     (List.map
-       (fun (error : Forge_shared.Validation.error) -> error.message)
-       (Forge_shared.Validation.to_list errors))
+       (fun (error : Kre_shared.Validation.error) -> error.message)
+       (Kre_shared.Validation.to_list errors))
 
-let field name (module S : Forge_shared.Scalar.S) presence =
+let field name (module S : Kre_shared.Scalar.S) presence =
   make name
     ~parse:(fun raw -> Result.map_error message (S.of_string raw))
     ~print:S.to_string presence
 
-let list name ~separator (module S : Forge_shared.Scalar.S) presence =
+let list name ~separator (module S : Kre_shared.Scalar.S) presence =
   make name
     ~parse:(fun raw ->
       List.fold_right
@@ -135,8 +135,7 @@ let profile ?(dir = "config") ?(env = Sys.getenv_opt) () =
   dotenv ~env
     [
       Filename.concat dir "default.env";
-      Filename.concat dir
-        (Option.value (env "FORGE_ENV") ~default:"dev" ^ ".env");
+      Filename.concat dir (Option.value (env "KRE_ENV") ~default:"dev" ^ ".env");
     ]
 
 module Syntax = struct
@@ -150,7 +149,7 @@ module Syntax = struct
 end
 
 module Flag = struct
-  include Forge_shared.Scalar.Bool
+  include Kre_shared.Scalar.Bool
 
   let of_string raw =
     match String.lowercase_ascii raw with
@@ -158,6 +157,6 @@ module Flag = struct
     | "false" | "0" | "no" -> Ok false
     | _ ->
         Error
-          (Forge_shared.Validation.fail ~rule:"type"
+          (Kre_shared.Validation.fail ~rule:"type"
              "must be true/1/yes or false/0/no")
 end

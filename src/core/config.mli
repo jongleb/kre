@@ -11,12 +11,12 @@ type 'a field
 (** How one record field is read from and shown as an environment variable. *)
 
 val field :
-  string -> (module S : Forge_shared.Scalar.S) -> (S.t, 'b) presence -> 'b field
+  string -> (module S : Kre_shared.Scalar.S) -> (S.t, 'b) presence -> 'b field
 
 val list :
   string ->
   separator:char ->
-  (module S : Forge_shared.Scalar.S) -> (S.t list, 'b) presence -> 'b field
+  (module S : Kre_shared.Scalar.S) -> (S.t list, 'b) presence -> 'b field
 
 val secret : 'a field -> 'a field
 val read : env -> 'a field -> ('a, string list) result
@@ -37,5 +37,5 @@ module Syntax : sig
     ('a * 'b, string list) result
 end
 
-module Flag : Forge_shared.Scalar.S with type t = bool
+module Flag : Kre_shared.Scalar.S with type t = bool
 (** [true]/[1]/[yes] and [false]/[0]/[no]. *)

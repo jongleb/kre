@@ -1,5 +1,5 @@
 let () =
-  let app = Dream.test (Forge.App.handler [ Health_controller.register () ]) in
+  let app = Dream.test (Kre.App.handler [ Health_controller.register () ]) in
   Alcotest.run "{{name}}"
     [
       ( "health",

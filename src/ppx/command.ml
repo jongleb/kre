@@ -50,21 +50,21 @@ let structure items =
               let scalar (type_ : core_type) =
                 match type_.ptyp_desc with
                 | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
-                    [%expr (module Forge_shared.Scalar.Int)]
+                    [%expr (module Kre_shared.Scalar.Int)]
                 | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
-                    [%expr (module Forge_shared.Scalar.Int64)]
+                    [%expr (module Kre_shared.Scalar.Int64)]
                 | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
-                    [%expr (module Forge_shared.Scalar.Float)]
+                    [%expr (module Kre_shared.Scalar.Float)]
                 | Ptyp_constr ({ txt = Lident "bool"; _ }, []) ->
-                    [%expr (module Forge_shared.Scalar.Bool)]
+                    [%expr (module Kre_shared.Scalar.Bool)]
                 | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-                    [%expr (module Forge_shared.Scalar.String)]
+                    [%expr (module Kre_shared.Scalar.String)]
                 | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
                     pexp_pack ~loc (pmod_ident ~loc { txt = path; loc })
                 | _ ->
                     Location.raise_errorf ~loc:type_.ptyp_loc
                       "a command option is int, int64, float, bool, string or \
-                       M.t with M a Forge_shared.Scalar.S"
+                       M.t with M a Kre_shared.Scalar.S"
               in
               let parameters =
                 match binding.pvb_expr.pexp_desc with
@@ -115,7 +115,7 @@ let structure items =
                 | _ ->
                     Location.raise_errorf ~loc
                       "[@@@@command] goes on a function: let %s (module Db : \
-                       Forge.Db.S) ~(count : int) () = …"
+                       Kre.Db.S) ~(count : int) () = …"
                       name
               in
               let options =
@@ -125,15 +125,15 @@ let structure items =
                         Some
                           ( label,
                             [%expr
-                              Forge.Command.required [%e scalar]
-                                [%e estring ~loc label] __forge_args] )
+                              Kre.Command.required [%e scalar]
+                                [%e estring ~loc label] __kre_args] )
                     | Defaulted (label, scalar, default) ->
                         Some
                           ( label,
                             [%expr
-                              Forge.Command.optional [%e scalar]
+                              Kre.Command.optional [%e scalar]
                                 [%e estring ~loc label] ~default:[%e default]
-                                __forge_args] )
+                                __kre_args] )
                     | Dependency _ | Unit -> None)
                   parameters
               in
@@ -165,7 +165,7 @@ let structure items =
                         ~pat:(pvar ~loc label) ~exp:parse
                     in
                     [%expr
-                      let open Forge_shared.Validation.Syntax in
+                      let open Kre_shared.Validation.Syntax in
                       [%e
                         pexp_letop ~loc
                           (letop
@@ -178,7 +178,7 @@ let structure items =
               in
               let command =
                 [%expr
-                  Forge.Command.make ~name:[%e estring ~loc name]
+                  Kre.Command.make ~name:[%e estring ~loc name]
                     ~doc:[%e estring ~loc doc]
                     ~options:
                       [%e
@@ -186,7 +186,7 @@ let structure items =
                           (List.map
                              (fun (label, _) -> estring ~loc label)
                              options)]
-                    (fun __forge_args -> [%e build])]
+                    (fun __kre_args -> [%e build])]
               in
               [
                 {
@@ -208,7 +208,7 @@ let structure items =
                         ] );
                 };
                 [%stri
-                  let [%p pvar ~loc ("__forge_command_" ^ name)] =
+                  let [%p pvar ~loc ("__kre_command_" ^ name)] =
                     [%e
                       match
                         List.filter_map

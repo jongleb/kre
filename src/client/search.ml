@@ -1,5 +1,5 @@
 let parse search query =
-  Forge_shared.Search.decode search
+  Kre_shared.Search.decode search
     (List.filter_map
        (fun pair ->
          match String.split_on_char '=' pair with
@@ -18,7 +18,7 @@ let parse search query =
           | _ -> query)))
 
 let print search value =
-  match Forge_shared.Search.encode search value with
+  match Kre_shared.Search.encode search value with
   | [] -> ""
   | pairs ->
       "?"

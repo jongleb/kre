@@ -6,7 +6,7 @@ let read file =
       List.fold_right
         (fun json specs ->
           Result.bind specs (fun specs ->
-              Result.map (fun spec -> spec :: specs) (Forge.Spec.of_json json)))
+              Result.map (fun spec -> spec :: specs) (Kre.Spec.of_json json)))
         specs (Ok [])
       |> Result.map_error (fun message -> file ^ ": " ^ message)
   | _ -> Error (file ^ ": expected a JSON array of controller specs")
@@ -46,7 +46,7 @@ let client =
                 ~none:(Error ("no controller with prefix /" ^ controller))
                 ~some:(fun spec -> Ok (write out (Generate.client spec)))
                 (List.find_opt
-                   (fun (spec : Forge.Spec.t) ->
+                   (fun (spec : Kre.Spec.t) ->
                      String.equal spec.prefix ("/" ^ controller))
                    specs)))
       $ spec $ controller $ out)
@@ -71,7 +71,7 @@ let openapi =
             (fun specs ->
               write out
                 (Yojson.Basic.pretty_to_string
-                   (Forge.Openapi.document ~title ~version specs)))
+                   (Kre.Openapi.document ~title ~version specs)))
             (read file))
       $ spec $ title $ version $ out)
 
@@ -100,13 +100,13 @@ let migrate =
           ~doc:"mariadb://user:pass@host:port/db")
   in
   let connected run url dir =
-    Result.bind (Forge.Migration.load dir) (fun migrations ->
+    Result.bind (Kre.Migration.load dir) (fun migrations ->
         match
           Lwt_main.run
-            (Lwt.bind (Forge_db_mariadb.Driver.connect url) (fun conn ->
+            (Lwt.bind (Kre_db_mariadb.Driver.connect url) (fun conn ->
                  Lwt.finalize
                    (fun () -> run conn migrations)
-                   (fun () -> Forge_db_mariadb.Driver.close conn)))
+                   (fun () -> Kre_db_mariadb.Driver.close conn)))
         with
         | lines -> Ok (List.iter print_endline lines)
         | exception Failure message -> Error message)
@@ -123,37 +123,33 @@ let migrate =
               | [] -> [ "nothing to apply" ]
               | applied ->
                   List.map
-                    (fun (migration : Forge.Migration.t) ->
+                    (fun (migration : Kre.Migration.t) ->
                       "applied " ^ migration.version)
                     applied)
-            (Forge.Migration.up
-               (module Forge_db_mariadb.Driver)
-               conn migrations));
+            (Kre.Migration.up (module Kre_db_mariadb.Driver) conn migrations));
       command "down" "Roll back the last applied migration."
         (fun conn migrations ->
           Lwt.map
             (Option.fold ~none:[ "nothing to roll back" ]
-               ~some:(fun (migration : Forge.Migration.t) ->
+               ~some:(fun (migration : Kre.Migration.t) ->
                  [ "rolled back " ^ migration.version ]))
-            (Forge.Migration.down
-               (module Forge_db_mariadb.Driver)
-               conn migrations));
+            (Kre.Migration.down (module Kre_db_mariadb.Driver) conn migrations));
       command "status" "List migrations and whether they are applied."
         (fun conn migrations ->
           Lwt.map
-            (List.map (fun ((migration : Forge.Migration.t), state) ->
+            (List.map (fun ((migration : Kre.Migration.t), state) ->
                  (match state with
-                   | Forge.Migration.Applied -> "applied  "
-                   | Forge.Migration.Pending -> "pending  ")
+                   | Kre.Migration.Applied -> "applied  "
+                   | Kre.Migration.Pending -> "pending  ")
                  ^ migration.version))
-            (Forge.Migration.status
-               (module Forge_db_mariadb.Driver)
+            (Kre.Migration.status
+               (module Kre_db_mariadb.Driver)
                conn migrations));
       Cmd.v
         (Cmd.info "new" ~doc:"Create the next numbered migration file.")
         Term.(
           const (fun dir name ->
-              Ok (print_endline (Forge.Migration.create ~dir name)))
+              Ok (print_endline (Kre.Migration.create ~dir name)))
           $ dir
           $ Arg.(required & pos 0 (some string) None & info [] ~docv:"NAME"));
     ]
@@ -201,5 +197,5 @@ let () =
   exit
     (Cmd.eval_result
        (Cmd.group
-          (Cmd.info "forge" ~doc:"NestJS-style tooling for Forge")
+          (Cmd.info "kre" ~doc:"NestJS-style tooling for Kre")
           [ fst scaffold; snd scaffold; client; openapi; routes; migrate ]))

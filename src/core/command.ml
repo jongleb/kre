@@ -4,7 +4,7 @@ type t = {
   name : string;
   doc : string;
   options : string list;
-  build : args -> (unit -> unit Lwt.t, Forge_shared.Validation.t) result;
+  build : args -> (unit -> unit Lwt.t, Kre_shared.Validation.t) result;
 }
 
 type invocation =
@@ -15,27 +15,27 @@ type invocation =
 
 let make ~name ~doc ~options build = { name; doc; options; build }
 
-let parse (module S : Forge_shared.Scalar.S) name raw =
+let parse (module S : Kre_shared.Scalar.S) name raw =
   Result.map_error
     (fun errors ->
-      Forge_shared.Validation.fail ~rule:"type"
+      Kre_shared.Validation.fail ~rule:"type"
         (Printf.sprintf "--%s: %s" name
            (String.concat "; "
               (List.map
-                 (fun (error : Forge_shared.Validation.error) -> error.message)
-                 (Forge_shared.Validation.to_list errors)))))
+                 (fun (error : Kre_shared.Validation.error) -> error.message)
+                 (Kre_shared.Validation.to_list errors)))))
     (S.of_string raw)
 
-let optional (module S : Forge_shared.Scalar.S) name ~default args =
+let optional (module S : Kre_shared.Scalar.S) name ~default args =
   Option.fold ~none:(Ok default)
     ~some:(parse (module S) name)
     (List.assoc_opt name args)
 
-let required (module S : Forge_shared.Scalar.S) name args =
+let required (module S : Kre_shared.Scalar.S) name args =
   Option.fold
     ~none:
       (Error
-         (Forge_shared.Validation.fail ~rule:"required"
+         (Kre_shared.Validation.fail ~rule:"required"
             (Printf.sprintf "--%s is required" name)))
     ~some:(parse (module S) name)
     (List.assoc_opt name args)
@@ -98,7 +98,7 @@ let invoke commands arguments =
                       Invalid
                         (String.concat "\n"
                            (List.map
-                              (fun (error : Forge_shared.Validation.error) ->
+                              (fun (error : Kre_shared.Validation.error) ->
                                 error.message)
-                              (Forge_shared.Validation.to_list errors))))
+                              (Kre_shared.Validation.to_list errors))))
                     (command.build parsed))))

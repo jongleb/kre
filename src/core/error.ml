@@ -16,7 +16,7 @@ let make ~status ~code ?type_ ?(extensions = []) detail =
   {
     status;
     code;
-    type_ = Option.value type_ ~default:("urn:forge:error:" ^ code);
+    type_ = Option.value type_ ~default:("urn:kre:error:" ^ code);
     detail;
     extensions;
   }
@@ -31,7 +31,7 @@ let conflict detail = make ~status:`Conflict ~code:"conflict" detail
 
 let unprocessable errors =
   make ~status:`Unprocessable_Entity ~code:"validation"
-    ~extensions:[ ("errors", Forge_shared.Validation.to_json errors) ]
+    ~extensions:[ ("errors", Kre_shared.Validation.to_json errors) ]
     "validation failed"
 
 let internal detail =

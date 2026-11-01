@@ -5,18 +5,18 @@ type response = { status : int; body : string }
 type 'a returns =
   | Unit : unit returns
   | Text : string returns
-  | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
+  | Json : (module Kre_shared.Json.S with type t = 'a) -> 'a returns
   | Raw : response returns
 
 val method_name : verb -> string
-val segment : (module S : Forge_shared.Scalar.S) -> S.t -> string
+val segment : (module S : Kre_shared.Scalar.S) -> S.t -> string
 
 val query :
-  (module S : Forge_shared.Scalar.S) ->
-  (S.t, 'b) Forge_shared.Presence.t -> string -> 'b -> (string * string) list
+  (module S : Kre_shared.Scalar.S) ->
+  (S.t, 'b) Kre_shared.Presence.t -> string -> 'b -> (string * string) list
 
-val search : 's Forge_shared.Search.t -> 's -> (string * string) list
-val body : (module J : Forge_shared.Json.S) -> J.t -> string
+val search : 's Kre_shared.Search.t -> 's -> (string * string) list
+val body : (module J : Kre_shared.Json.S) -> J.t -> string
 
 val url :
   base:string -> path:string list -> query:(string * string) list list -> string

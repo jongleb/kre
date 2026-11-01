@@ -1,7 +1,7 @@
-let client : string Forge.Guard.t =
+let client : string Kre.Guard.t =
  fun request -> Lwt.return_ok (Dream.client request)
 
-let language : string Forge.Guard.t =
+let language : string Kre.Guard.t =
  fun request ->
   Lwt.return_ok
     (Option.value (Dream.header request "Accept-Language") ~default:"en")

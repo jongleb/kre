@@ -1,7 +1,7 @@
 (library
- (name forge_ppx)
- (public_name forge-ppx)
+ (name kre_ppx)
+ (public_name kre-ppx)
  (kind ppx_rewriter)
- (libraries ppxlib forge.shared)
+ (libraries ppxlib kre.shared)
  (preprocess
   (pps ppxlib.metaquot)))

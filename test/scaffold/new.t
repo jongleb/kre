@@ -1,6 +1,6 @@
-forge new writes a project that builds and passes its own test.
+kre new writes a project that builds and passes its own test.
 
-  $ forge new demo
+  $ kre new demo
   created demo/.gitignore
   created demo/.ocamlformat
   created demo/bin/dune
@@ -20,7 +20,7 @@ forge new writes a project that builds and passes its own test.
 
 A generated resource builds and its CRUD test passes.
 
-  $ forge generate controller cats
+  $ kre generate controller cats
   created ./server/cats_controller.ml
   created ./shared/create_cat_dto.ml
   created ./shared/cat.ml
@@ -36,7 +36,7 @@ A generated resource builds and its CRUD test passes.
 Fields are name:type; the entity is ready for a table, the test posts sample
 values.
 
-  $ forge generate controller dogs name:string age:int born:time good:bool
+  $ kre generate controller dogs name:string age:int born:time good:bool
   created ./server/dogs_controller.ml
   created ./shared/create_dog_dto.ml
   created ./shared/dog.ml
@@ -47,13 +47,13 @@ values.
   $ cat shared/dog.ml shared/create_dog_dto.ml
   open Jsonkit.Primitives
   
-  module Id = Forge_shared.Id.Make ()
+  module Id = Kre_shared.Id.Make ()
   
   type t = {
     id : Id.t; [@primary] [@auto] [@column int]
     name : string; [@size 255] [@validate min_length 1]
     age : int;
-    born : Forge_shared.Time.t;
+    born : Kre_shared.Time.t;
     good : bool;
   }
   [@@deriving table ~name:"dogs", dto]
@@ -62,7 +62,7 @@ values.
   type t = {
     name : string; [@validate min_length 1]
     age : int;
-    born : Forge_shared.Time.t;
+    born : Kre_shared.Time.t;
     good : bool;
   }
   [@@deriving dto ~strict]
@@ -70,14 +70,14 @@ values.
   $ dune test 2>&1 | grep -E "OK|FAIL|Expected|Received"
     [OK]          crud          0   create, read, remove.
     [OK]          crud          1   invalid body is 422.
-  $ forge generate controller birds wings:triple
-  forge: wings:triple: a field is name:type with type string, int, float, bool or time
+  $ kre generate controller birds wings:triple
+  kre: wings:triple: a field is name:type with type string, int, float, bool or time
   [123]
 
 Generating over existing files writes nothing.
 
-  $ forge generate controller cats
-  forge: ./server/cats_controller.ml already exists; nothing was written
+  $ kre generate controller cats
+  kre: ./server/cats_controller.ml already exists; nothing was written
   [123]
-  $ forge generate dto signup && dune build 2>&1
+  $ kre generate dto signup && dune build 2>&1
   created ./shared/signup_dto.ml

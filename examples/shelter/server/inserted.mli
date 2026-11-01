@@ -1,3 +1,3 @@
 val id :
-  (module Id : Forge_shared.Id.S) ->
-  Forge_db_mariadb.Sql.execute_response -> Id.t Lwt.t
+  (module Id : Kre_shared.Id.S) ->
+  Kre_db_mariadb.Sql.execute_response -> Id.t Lwt.t

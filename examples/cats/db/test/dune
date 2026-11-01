@@ -4,15 +4,15 @@
   cats_db
   cats_server
   cats_shared
-  forge
-  forge-db-mariadb
+  kre
+  kre-db-mariadb
   dream
   lwt
   alcotest)
  (preprocess
   (pps lwt_ppx)))
 
-; Needs FORGE_TEST_DB_URL; one rule so the steps share the database in order.
+; Needs KRE_TEST_DB_URL; one rule so the steps share the database in order.
 
 (rule
  (alias db)
@@ -21,11 +21,11 @@
  (action
   (setenv
    DATABASE_URL
-   %{env:FORGE_TEST_DB_URL=}
+   %{env:KRE_TEST_DB_URL=}
    (progn
     (run %{exe:test_migrate.exe})
-    (run %{bin:forge} migrate up --dir ../migrations)
-    (run %{bin:forge} migrate status --dir ../migrations)
-    (run %{bin:forge} migrate down --dir ../migrations)
-    (run %{bin:forge} migrate down --dir ../migrations)
+    (run %{bin:kre} migrate up --dir ../migrations)
+    (run %{bin:kre} migrate status --dir ../migrations)
+    (run %{bin:kre} migrate down --dir ../migrations)
+    (run %{bin:kre} migrate down --dir ../migrations)
     (run %{exe:test_db.exe})))))

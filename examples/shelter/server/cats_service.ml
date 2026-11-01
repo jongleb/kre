@@ -1,16 +1,16 @@
 module type S = sig
   val available : unit -> Cat.t list Lwt.t
   val find : Cat.Id.t -> Cat.t option Lwt.t
-  val catalog : Forge_shared.Page.Request.t -> Cat.t Forge_shared.Page.t Lwt.t
+  val catalog : Kre_shared.Page.Request.t -> Cat.t Kre_shared.Page.t Lwt.t
   val create : Create_cat_dto.t -> Cat.t Lwt.t
-  val rename : Cat.Id.t -> Rename_dto.t -> (Cat.t, Forge.Error.t) result Lwt.t
-  val adopt : Cat.Id.t -> User.Id.t -> (unit, Forge.Error.t) result Lwt.t
+  val rename : Cat.Id.t -> Rename_dto.t -> (Cat.t, Kre.Error.t) result Lwt.t
+  val adopt : Cat.Id.t -> User.Id.t -> (unit, Kre.Error.t) result Lwt.t
 end
 
-module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) : S =
+module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) : S =
 struct
-  module Sql = Shelter_sql.Make (Forge_db_mariadb.Sql)
-  module Cats = Cats_crud.Make (Forge_db_mariadb.Sql)
+  module Sql = Shelter_sql.Make (Kre_db_mariadb.Sql)
+  module Cats = Cats_crud.Make (Kre_db_mariadb.Sql)
 
   let key id = Int64.of_int (Cat.Id.to_repr id)
 
@@ -27,13 +27,13 @@ struct
     Db.with_conn (fun conn ->
         let%lwt cats =
           Cats.List.page conn
-            ~limit:(Int64.of_int request.Forge_shared.Page.Request.size)
-            ~offset:(Int64.of_int (Forge_shared.Page.Request.offset request))
+            ~limit:(Int64.of_int request.Kre_shared.Page.Request.size)
+            ~offset:(Int64.of_int (Kre_shared.Page.Request.offset request))
             Cat.of_row
         in
         let%lwt total = Cats.count conn in
         Lwt.return
-          (Forge_shared.Page.make request ~total:(Int64.to_int total) cats))
+          (Kre_shared.Page.make request ~total:(Int64.to_int total) cats))
 
   let create ({ name; age } : Create_cat_dto.t) =
     Db.with_conn (fun conn ->
@@ -57,7 +57,7 @@ struct
   let rename id ({ name; version } : Rename_dto.t) =
     Db.with_conn (fun conn ->
         match%lwt Cats.Single.find conn ~id:(key id) Cat.of_row with
-        | None -> Lwt.return_error (Forge.Error.not_found "cat")
+        | None -> Lwt.return_error (Kre.Error.not_found "cat")
         | Some cat -> (
             let%lwt changed =
               Cat.for_update { cat with name; version } (Cats.update conn)
@@ -66,7 +66,7 @@ struct
             | 1L -> Lwt.return_ok { cat with name; version = version + 1 }
             | _ ->
                 Lwt.return_error
-                  (Forge.Error.conflict
+                  (Kre.Error.conflict
                      "the cat changed since you read it; reload and try again")))
 
   let adopt id user =
@@ -81,5 +81,5 @@ struct
         Lwt.return
           (match changed.affected_rows with
           | 1L -> Ok ()
-          | _ -> Error (Forge.Error.conflict "this cat is not available")))
+          | _ -> Error (Kre.Error.conflict "this cat is not available")))
 end

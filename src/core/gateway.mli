@@ -6,24 +6,20 @@ type handler
 
 val on :
   string ->
-  (module J : Forge_shared.Json.S) ->
-  (module R : Forge_shared.Json.S) ->
+  (module J : Kre_shared.Json.S) ->
+  (module R : Kre_shared.Json.S) ->
   (socket -> J.t -> (R.t, Error.t) result Lwt.t) -> handler
 
 val notify :
   string ->
-  (module J : Forge_shared.Json.S) ->
+  (module J : Kre_shared.Json.S) ->
   (socket -> J.t -> (unit, Error.t) result Lwt.t) -> handler
 
 val send :
-  socket ->
-  event:string ->
-  (module R : Forge_shared.Json.S) -> R.t -> unit Lwt.t
+  socket -> event:string -> (module R : Kre_shared.Json.S) -> R.t -> unit Lwt.t
 
 val broadcast :
-  socket ->
-  event:string ->
-  (module R : Forge_shared.Json.S) -> R.t -> unit Lwt.t
+  socket -> event:string -> (module R : Kre_shared.Json.S) -> R.t -> unit Lwt.t
 
 type t
 (** A gateway: its handlers and the clients connected to it. *)

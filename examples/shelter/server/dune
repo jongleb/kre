@@ -5,13 +5,13 @@
   shelter_shared
   shelter_tables
   shelter_sql
-  forge
-  forge.shared
-  forge-db-mariadb
+  kre
+  kre.shared
+  kre-db-mariadb
   dream
   lwt
   sqlgg.traits)
  (preprocess
-  (pps lwt_ppx forge-ppx))
+  (pps lwt_ppx kre-ppx))
  (preprocessor_deps
   (glob_files migrations/*.sql)))

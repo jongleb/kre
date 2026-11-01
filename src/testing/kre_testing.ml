@@ -1,6 +1,6 @@
 let use ?middleware controllers =
-  let handler = Forge.App.handler ?middleware controllers in
-  Forge_client.Http.transport :=
+  let handler = Kre.App.handler ?middleware controllers in
+  Kre_client.Http.transport :=
     Local
       (fun exchange ->
         Lwt.bind
@@ -13,7 +13,7 @@ let use ?middleware controllers =
             Lwt.map
               (fun body ->
                 {
-                  Forge_client.Wire.status =
+                  Kre_client.Wire.status =
                     Dream.status_to_int (Dream.status response);
                   body;
                 })

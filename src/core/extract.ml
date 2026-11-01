@@ -17,8 +17,8 @@ let headers request = Lwt.return_ok (Dream.all_headers request)
 let queries request = Lwt.return_ok (Dream.all_queries request)
 let cookies request = Lwt.return_ok (Dream.all_cookies request)
 
-let lookup (type b) (module S : Forge_shared.Scalar.S)
-    (presence : (S.t, b) Forge_shared.Presence.t) ~what ~missing name values :
+let lookup (type b) (module S : Kre_shared.Scalar.S)
+    (presence : (S.t, b) Kre_shared.Presence.t) ~what ~missing name values :
     (b, Error.t) result =
   let parse raw =
     Result.map_error
@@ -27,8 +27,8 @@ let lookup (type b) (module S : Forge_shared.Scalar.S)
           ~extensions:
             [
               ( "errors",
-                Forge_shared.Validation.to_json
-                  (Forge_shared.Validation.at [ name ] errors) );
+                Kre_shared.Validation.to_json
+                  (Kre_shared.Validation.at [ name ] errors) );
             ]
           (Printf.sprintf "invalid %s %s" what name))
       (S.of_string raw)
@@ -47,7 +47,7 @@ let lookup (type b) (module S : Forge_shared.Scalar.S)
               Result.map (List.cons value) parsed))
         values (Ok [])
 
-let header (module S : Forge_shared.Scalar.S) presence name request =
+let header (module S : Kre_shared.Scalar.S) presence name request =
   Lwt.return
     (lookup
        (module S)
@@ -55,7 +55,7 @@ let header (module S : Forge_shared.Scalar.S) presence name request =
        ~missing:(Error.bad_request ("missing header " ^ name))
        (Dream.headers request name))
 
-let cookie (module S : Forge_shared.Scalar.S) presence name request =
+let cookie (module S : Kre_shared.Scalar.S) presence name request =
   Lwt.return
     (lookup
        (module S)
@@ -63,7 +63,7 @@ let cookie (module S : Forge_shared.Scalar.S) presence name request =
        ~missing:(Error.bad_request ("missing cookie " ^ name))
        (Option.to_list (Dream.cookie ~decrypt:false request name)))
 
-let signed_cookie (module S : Forge_shared.Scalar.S) presence name request =
+let signed_cookie (module S : Kre_shared.Scalar.S) presence name request =
   Lwt.return
     (lookup
        (module S)
@@ -71,7 +71,7 @@ let signed_cookie (module S : Forge_shared.Scalar.S) presence name request =
        ~missing:(Error.unauthorized ("missing signed cookie " ^ name))
        (Option.to_list (Dream.cookie request name)))
 
-let session (module S : Forge_shared.Scalar.S) presence name request =
+let session (module S : Kre_shared.Scalar.S) presence name request =
   Lwt.return
     (lookup
        (module S)
@@ -79,7 +79,7 @@ let session (module S : Forge_shared.Scalar.S) presence name request =
        ~missing:(Error.unauthorized ("not signed in: no session field " ^ name))
        (Option.to_list (Dream.session_field request name)))
 
-let body_field (module J : Forge_shared.Json.S) name request =
+let body_field (module J : Kre_shared.Json.S) name request =
   Lwt.map
     (fun text ->
       match Jsonkit.classify (Jsonkit.of_string text) with
@@ -88,20 +88,18 @@ let body_field (module J : Forge_shared.Json.S) name request =
             ~none:
               (Error
                  (Error.unprocessable
-                    (Forge_shared.Validation.at [ name ]
-                       (Forge_shared.Validation.fail ~rule:"missing" "required"))))
+                    (Kre_shared.Validation.at [ name ]
+                       (Kre_shared.Validation.fail ~rule:"missing" "required"))))
             ~some:(fun json ->
               Result.map_error
                 (fun errors ->
-                  Error.unprocessable
-                    (Forge_shared.Validation.at [ name ] errors))
-                (Forge_shared.Json.parse (module J) json))
+                  Error.unprocessable (Kre_shared.Validation.at [ name ] errors))
+                (Kre_shared.Json.parse (module J) json))
             (List.assoc_opt name fields)
       | _ ->
           Error
             (Error.unprocessable
-               (Forge_shared.Validation.fail ~rule:"type"
-                  "body must be an object"))
+               (Kre_shared.Validation.fail ~rule:"type" "body must be an object"))
       | exception Jsonkit.Of_string_error message ->
           Error (Error.bad_request ("request body is not JSON: " ^ message)))
     (Dream.body request)
@@ -116,7 +114,7 @@ let host_param ~pattern name request =
           (List.assoc_opt name)))
 
 let multipart : Dream.multipart_form Dream.field =
-  Dream.new_field ~name:"forge.multipart" ()
+  Dream.new_field ~name:"kre.multipart" ()
 
 let parts request =
   match Dream.field request multipart with
@@ -154,7 +152,7 @@ let file name request =
 
 let files name request = uploads name request
 
-let form (module S : Forge_shared.Scalar.S) presence name request =
+let form (module S : Kre_shared.Scalar.S) presence name request =
   Lwt.map
     (fun found ->
       Result.bind found (fun uploads ->
@@ -170,6 +168,6 @@ let search codec request =
     (Result.map_error
        (fun errors ->
          Error.bad_request
-           ~extensions:[ ("errors", Forge_shared.Validation.to_json errors) ]
+           ~extensions:[ ("errors", Kre_shared.Validation.to_json errors) ]
            "invalid query string")
-       (Forge_shared.Search.decode codec (Dream.all_queries request)))
+       (Kre_shared.Search.decode codec (Dream.all_queries request)))

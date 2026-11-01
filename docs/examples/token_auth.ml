@@ -3,15 +3,15 @@ let secret = "change-me"
 module Admin : sig
   type t
 
-  val of_claims : Forge.Jwt.claims -> (t, Forge.Error.t) result
+  val of_claims : Kre.Jwt.claims -> (t, Kre.Error.t) result
 end = struct
   type t = Admin
 
-  let of_claims (claims : Forge.Jwt.claims) =
+  let of_claims (claims : Kre.Jwt.claims) =
     match List.assoc_opt "role" claims.extra with
     | Some (`String "admin") -> Ok Admin
-    | Some _ | None -> Error (Forge.Error.forbidden "admins only")
+    | Some _ | None -> Error (Kre.Error.forbidden "admins only")
 end
 
-let user : Forge.Jwt.claims Forge.Guard.t = Forge.Jwt.bearer ~secret
-let admin : Admin.t Forge.Guard.t = Forge.Guard.check Admin.of_claims user
+let user : Kre.Jwt.claims Kre.Guard.t = Kre.Jwt.bearer ~secret
+let admin : Admin.t Kre.Guard.t = Kre.Guard.check Admin.of_claims user

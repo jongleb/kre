@@ -1,6 +1,6 @@
 (executable
  (name main)
- (libraries forge_docs cats_server cats_shared forge dream))
+ (libraries kre_docs cats_server cats_shared kre dream))
 
 (cram
- (deps main.exe %{bin:forge}))
+ (deps main.exe %{bin:kre}))

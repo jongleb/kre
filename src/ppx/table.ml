@@ -33,8 +33,7 @@ let structure ~ctxt (_, declarations) table_name =
       let is_time (type_ : core_type) =
         match type_.ptyp_desc with
         | Ptyp_constr
-            ({ txt = Ldot (Ldot (Lident "Forge_shared", "Time"), "t"); _ }, [])
-          ->
+            ({ txt = Ldot (Ldot (Lident "Kre_shared", "Time"), "t"); _ }, []) ->
             Some ()
         | _ -> None
       in
@@ -55,8 +54,7 @@ let structure ~ctxt (_, declarations) table_name =
             | Some () -> Some kind
             | None ->
                 Location.raise_errorf ~loc:attribute.attr_loc
-                  "[@@%s] fills a timestamp; give %s the type \
-                   Forge_shared.Time.t"
+                  "[@@%s] fills a timestamp; give %s the type Kre_shared.Time.t"
                   attribute.attr_name.txt label.pld_name.txt)
         | [ (`Version, attribute) ] -> (
             match label.pld_type.ptyp_desc with
@@ -97,10 +95,10 @@ let structure ~ctxt (_, declarations) table_name =
               [ "primary"; "auto"; "unique"; "index" ]
           with
           | [] -> None
-          | [ "primary"; "auto" ] -> Some [%expr Forge.Table.Primary_auto]
-          | [ "primary" ] -> Some [%expr Forge.Table.Primary]
-          | [ "unique" ] -> Some [%expr Forge.Table.Unique]
-          | [ "index" ] -> Some [%expr Forge.Table.Index]
+          | [ "primary"; "auto" ] -> Some [%expr Kre.Table.Primary_auto]
+          | [ "primary" ] -> Some [%expr Kre.Table.Primary]
+          | [ "unique" ] -> Some [%expr Kre.Table.Unique]
+          | [ "index" ] -> Some [%expr Kre.Table.Index]
           | [ "auto" ] ->
               Location.raise_errorf ~loc
                 "[@@auto] needs [@@primary]: only an integer primary key \
@@ -126,31 +124,29 @@ let structure ~ctxt (_, declarations) table_name =
           match name with
           | "int" ->
               Some
-                ( [%expr Forge.Table.Integer],
+                ( [%expr Kre.Table.Integer],
                   [%type: int64],
                   fun value -> [%expr Int64.to_int [%e value]] )
           | "int64" ->
               Some
-                ([%expr Forge.Table.Integer], [%type: int64], fun value -> value)
+                ([%expr Kre.Table.Integer], [%type: int64], fun value -> value)
           | "string" ->
               Some
-                ( [%expr Forge.Table.Text [%e size]],
+                ( [%expr Kre.Table.Text [%e size]],
                   [%type: string],
                   fun value -> value )
           | "bool" ->
-              Some
-                ([%expr Forge.Table.Boolean], [%type: bool], fun value -> value)
+              Some ([%expr Kre.Table.Boolean], [%type: bool], fun value -> value)
           | "float" ->
-              Some
-                ([%expr Forge.Table.Double], [%type: float], fun value -> value)
+              Some ([%expr Kre.Table.Double], [%type: float], fun value -> value)
           | _ -> None
         in
         let sql_type, row_type, convert =
           match (base.ptyp_desc, is_time base) with
           | _, Some () ->
-              ( [%expr Forge.Table.Double],
+              ( [%expr Kre.Table.Double],
                 [%type: float],
-                fun value -> [%expr Forge_shared.Time.of_seconds [%e value]] )
+                fun value -> [%expr Kre_shared.Time.of_seconds [%e value]] )
           | Ptyp_constr ({ txt = Lident name; _ }, []), None -> (
               match primitive name with
               | Some found -> found
@@ -176,7 +172,7 @@ let structure ~ctxt (_, declarations) table_name =
                         row_type,
                         fun value ->
                           [%expr
-                            Forge.Table.decode [%e pexp_pack ~loc module_]
+                            Kre.Table.decode [%e pexp_pack ~loc module_]
                               [%e
                                 match name with
                                 | "string" -> to_base value
@@ -185,7 +181,7 @@ let structure ~ctxt (_, declarations) table_name =
                                 | "bool" -> [%expr string_of_bool [%e value]]
                                 | _ ->
                                     [%expr
-                                      Forge_shared.Scalar.Float.to_string
+                                      Kre_shared.Scalar.Float.to_string
                                         [%e value]]]] )
                   | None -> unnamed ())
               | Some _ | None -> unnamed ())
@@ -194,7 +190,7 @@ let structure ~ctxt (_, declarations) table_name =
                 "unsupported column type %a" Pprintast.core_type base
         in
         let value = evar ~loc label.pld_name.txt in
-        ( pexp_apply ~loc [%expr Forge.Table.column]
+        ( pexp_apply ~loc [%expr Kre.Table.column]
             (List.concat
                [
                  Option.fold ~none:[]
@@ -205,9 +201,9 @@ let structure ~ctxt (_, declarations) table_name =
                      [
                        ( Labelled "managed",
                          match kind with
-                         | `Created_at -> [%expr Forge.Table.Created_at]
-                         | `Updated_at -> [%expr Forge.Table.Updated_at]
-                         | `Version -> [%expr Forge.Table.Version] );
+                         | `Created_at -> [%expr Kre.Table.Created_at]
+                         | `Updated_at -> [%expr Kre.Table.Updated_at]
+                         | `Version -> [%expr Kre.Table.Version] );
                      ])
                    (managed label);
                  Option.fold ~none:[]
@@ -232,8 +228,8 @@ let structure ~ctxt (_, declarations) table_name =
                    (Nolabel, sql_type);
                    ( Nolabel,
                      match nullability with
-                     | `Null -> [%expr Forge.Table.Null]
-                     | `Not_null -> [%expr Forge.Table.Not_null] );
+                     | `Null -> [%expr Kre.Table.Null]
+                     | `Not_null -> [%expr Kre.Table.Not_null] );
                  ];
                ]),
           ( Labelled label.pld_name.txt,
@@ -259,7 +255,7 @@ let structure ~ctxt (_, declarations) table_name =
         in
         let one value =
           match (base.ptyp_desc, is_time base) with
-          | _, Some () -> [%expr Forge_shared.Time.to_seconds [%e value]]
+          | _, Some () -> [%expr Kre_shared.Time.to_seconds [%e value]]
           | Ptyp_constr ({ txt = Lident "int"; _ }, []), None ->
               [%expr Int64.of_int [%e value]]
           | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []), None -> (
@@ -310,27 +306,27 @@ let structure ~ctxt (_, declarations) table_name =
       in
       let spread fields =
         [%expr
-          fun (__forge_record :
+          fun (__kre_record :
                 [%t ptyp_constr ~loc { txt = Lident type_name; loc } []])
-              __forge_query ->
-            let __forge_now = Forge.Table.now () in
+              __kre_query ->
+            let __kre_now = Kre.Table.now () in
             [%e
-              pexp_apply ~loc [%expr __forge_query]
+              pexp_apply ~loc [%expr __kre_query]
                 (List.map
                    (fun ((label : label_declaration), filled) ->
                      ( Labelled label.pld_name.txt,
                        Option.value filled
                          ~default:
                            (encode label
-                              (pexp_field ~loc [%expr __forge_record]
+                              (pexp_field ~loc [%expr __kre_record]
                                  { txt = Lident label.pld_name.txt; loc })) ))
                    fields)]]
       in
-      let now = [%expr Forge_shared.Time.to_seconds __forge_now] in
+      let now = [%expr Kre_shared.Time.to_seconds __kre_now] in
       [
         [%stri
-          let [%p pvar ~loc (value_name "table")] : Forge.Table.t =
-            Forge.Table.make ~name:[%e estring ~loc table_name]
+          let [%p pvar ~loc (value_name "table")] : Kre.Table.t =
+            Kre.Table.make ~name:[%e estring ~loc table_name]
               [%e elist ~loc (List.map fst columns)]];
         [%stri
           let [%p pvar ~loc (value_name "for_insert")] =

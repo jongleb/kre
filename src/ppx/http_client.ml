@@ -11,29 +11,27 @@ type argument =
 let scalar ~loc (type_ : core_type) =
   let ident path = pmod_ident ~loc { txt = Longident.parse path; loc } in
   match type_.ptyp_desc with
-  | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
-      ident "Forge_shared.Scalar.Int"
+  | Ptyp_constr ({ txt = Lident "int"; _ }, []) -> ident "Kre_shared.Scalar.Int"
   | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
-      ident "Forge_shared.Scalar.Int64"
+      ident "Kre_shared.Scalar.Int64"
   | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
-      ident "Forge_shared.Scalar.Float"
+      ident "Kre_shared.Scalar.Float"
   | Ptyp_constr ({ txt = Lident "bool"; _ }, []) ->
-      ident "Forge_shared.Scalar.Bool"
+      ident "Kre_shared.Scalar.Bool"
   | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-      ident "Forge_shared.Scalar.String"
+      ident "Kre_shared.Scalar.String"
   | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
       pmod_ident ~loc { txt = path; loc }
   | _ ->
       Location.raise_errorf ~loc:type_.ptyp_loc
         "a path or query value is int, int64, float, bool, string or M.t with \
-         M : Forge_shared.Scalar.S"
+         M : Kre_shared.Scalar.S"
 
 let rec json ~loc (type_ : core_type) =
   match type_.ptyp_desc with
   | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]) ->
       pmod_apply ~loc
-        (pmod_ident ~loc
-           { txt = Longident.parse "Forge_shared.Json.List"; loc })
+        (pmod_ident ~loc { txt = Longident.parse "Kre_shared.Json.List"; loc })
         (json ~loc element)
   | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, [ element ]) ->
       pmod_apply ~loc
@@ -134,13 +132,13 @@ let call ~loc (value : value_description) =
   let returns =
     match result.ptyp_desc with
     | Ptyp_constr ({ txt = Lident "unit"; _ }, []) ->
-        [%expr Forge_client.Wire.Unit]
+        [%expr Kre_client.Wire.Unit]
     | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-        [%expr Forge_client.Wire.Text]
-    | _ -> [%expr Forge_client.Wire.Json [%e pexp_pack ~loc (json ~loc result)]]
+        [%expr Kre_client.Wire.Text]
+    | _ -> [%expr Kre_client.Wire.Json [%e pexp_pack ~loc (json ~loc result)]]
   in
   let request =
-    pexp_apply ~loc [%expr Forge_client.Http.request]
+    pexp_apply ~loc [%expr Kre_client.Http.request]
       ([
          (Labelled "base", [%expr Config.url]);
          ( Nolabel,
@@ -164,7 +162,7 @@ let call ~loc (value : value_description) =
                                when String.equal found name ->
                                  Some
                                    [%expr
-                                     Forge_client.Wire.segment
+                                     Kre_client.Wire.segment
                                        [%e pexp_pack ~loc module_]
                                        [%e evar ~loc name]]
                              | _ -> None)
@@ -177,13 +175,13 @@ let call ~loc (value : value_description) =
                   | _, Query (name, module_, presence) ->
                       Some
                         [%expr
-                          Forge_client.Wire.query [%e pexp_pack ~loc module_]
+                          Kre_client.Wire.query [%e pexp_pack ~loc module_]
                             [%e
                               match presence with
                               | `Required ->
-                                  [%expr Forge_shared.Presence.Required]
+                                  [%expr Kre_shared.Presence.Required]
                               | `Optional ->
-                                  [%expr Forge_shared.Presence.Optional]]
+                                  [%expr Kre_shared.Presence.Optional]]
                             [%e estring ~loc name] [%e evar ~loc name]]
                   | _, (Segment _ | Body _ | Unit) -> None)
                 parameters) );
@@ -195,8 +193,7 @@ let call ~loc (value : value_description) =
                 Some
                   ( Labelled "body",
                     [%expr
-                      Forge_client.Wire.body [%e pexp_pack ~loc module_] body]
-                  )
+                      Kre_client.Wire.body [%e pexp_pack ~loc module_] body] )
             | _, (Segment _ | Query _ | Unit) -> None)
           parameters
       @ [ (Nolabel, returns) ])
@@ -210,7 +207,7 @@ let call ~loc (value : value_description) =
     match type_.ptyp_desc with
     | Ptyp_arrow (label, argument, rest) ->
         ptyp_arrow ~loc label argument (declared rest)
-    | _ -> promise [%type: ([%t result], Forge_client.Error.t) result]
+    | _ -> promise [%type: ([%t result], Kre_client.Error.t) result]
   in
   ( pstr_value ~loc Nonrecursive
       [

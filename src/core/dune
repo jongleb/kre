@@ -1,8 +1,8 @@
 (library
- (name forge)
- (public_name forge)
+ (name kre)
+ (public_name kre)
  (libraries
-  forge.shared
+  kre.shared
   dream
   routes
   lwt

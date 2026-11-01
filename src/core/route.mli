@@ -18,8 +18,8 @@ type t = private {
 type 'a returns =
   | Unit : unit returns  (** Empty body. *)
   | Text : string returns  (** [text/plain]. *)
-  | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
-  | Found : (module Forge_shared.Json.S with type t = 'a) -> 'a option returns
+  | Json : (module Kre_shared.Json.S with type t = 'a) -> 'a returns
+  | Found : (module Kre_shared.Json.S with type t = 'a) -> 'a option returns
       (** [None] answers 404. *)
   | Raw : Dream.response returns
   | Redirect : string -> unit returns
@@ -47,26 +47,25 @@ val events :
   ?guards:unit Guard.t list ->
   ?headers:(string * string) list ->
   ?interceptors:Interceptor.t list ->
-  (module J : Forge_shared.Json.S) ->
+  (module J : Kre_shared.Json.S) ->
   (Dream.request -> (J.t Lwt_stream.t, Error.t) result Lwt.t) -> handler
 
 val segment :
-  (module S : Forge_shared.Scalar.S) ->
+  (module S : Kre_shared.Scalar.S) ->
   string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path
 
 val load :
   what:string -> ('id -> 'a option Lwt.t) -> 'id -> ('a, Error.t) result Lwt.t
 
 val query :
-  (module S : Forge_shared.Scalar.S) ->
-  (S.t, 'b) Forge_shared.Presence.t ->
+  (module S : Kre_shared.Scalar.S) ->
+  (S.t, 'b) Kre_shared.Presence.t ->
   string ->
   Dream.request ->
   ('b, Error.t) result Lwt.t
 
 val body :
-  (module J : Forge_shared.Json.S) ->
-  Dream.request -> (J.t, Error.t) result Lwt.t
+  (module J : Kre_shared.Json.S) -> Dream.request -> (J.t, Error.t) result Lwt.t
 
 val ok : 'a Lwt.t -> ('a, Error.t) result Lwt.t
 val rest : Routes.Parts.t -> string

@@ -51,7 +51,7 @@ type shape =
   | Moved of string  (** [[@@redirect]]: an empty answer with [Location]. *)
   | Stream of value  (** [[@@sse]]: server-sent events. *)
 
-(** [Fallible] handlers return [(_, Forge.Error.t) result Lwt.t]. *)
+(** [Fallible] handlers return [(_, Kre.Error.t) result Lwt.t]. *)
 type outcome = Plain | Fallible
 
 type handler = {
@@ -75,7 +75,7 @@ type handler = {
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
   transaction : longident option;
-      (** [[@@transactional]]: the [Forge.Db.S] dependency, or [M] of
+      (** [[@@transactional]]: the [Kre.Db.S] dependency, or [M] of
           [[@from M.tx]]. *)
 }
 
@@ -140,8 +140,8 @@ let ident ~loc path = pmod_ident ~loc { txt = Longident.parse path; loc }
 let unsupported ~loc (type_ : core_type) =
   Location.raise_errorf ~loc
     "unsupported type %a; path and query parameters take int, int64, float, \
-     bool, string or T.t with T : Forge_shared.Scalar.S; bodies and results \
-     also take T.t with T : Forge_shared.Json.S and lists of those"
+     bool, string or T.t with T : Kre_shared.Scalar.S; bodies and results also \
+     take T.t with T : Kre_shared.Json.S and lists of those"
     Pprintast.core_type type_
 
 let scalar ~loc (type_ : core_type) =
@@ -150,15 +150,15 @@ let scalar ~loc (type_ : core_type) =
     module_ =
       (match type_.ptyp_desc with
       | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
-          ident ~loc "Forge_shared.Scalar.Int"
+          ident ~loc "Kre_shared.Scalar.Int"
       | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
-          ident ~loc "Forge_shared.Scalar.Int64"
+          ident ~loc "Kre_shared.Scalar.Int64"
       | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
-          ident ~loc "Forge_shared.Scalar.Float"
+          ident ~loc "Kre_shared.Scalar.Float"
       | Ptyp_constr ({ txt = Lident "bool"; _ }, []) ->
-          ident ~loc "Forge_shared.Scalar.Bool"
+          ident ~loc "Kre_shared.Scalar.Bool"
       | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-          ident ~loc "Forge_shared.Scalar.String"
+          ident ~loc "Kre_shared.Scalar.String"
       | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
           pmod_ident ~loc { txt = path; loc }
       | _ -> unsupported ~loc type_);
@@ -171,7 +171,7 @@ let rec json ~loc (type_ : core_type) =
         type_;
         module_ =
           pmod_apply ~loc
-            (ident ~loc "Forge_shared.Json.List")
+            (ident ~loc "Kre_shared.Json.List")
             (json ~loc element).module_;
       }
   | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, [ element ]) ->
@@ -192,7 +192,7 @@ let extraction (type_ : core_type) =
           Some guard
       | ("guard" | "from"), _ ->
           Location.raise_errorf ~loc:attribute.attr_loc
-            "[@@%s] expects a guard expression of type 'a Forge.Guard.t"
+            "[@@%s] expects a guard expression of type 'a Kre.Guard.t"
             attribute.attr_name.txt
       | _ -> None)
     type_.ptyp_attributes
@@ -285,9 +285,7 @@ let transform structure =
                   "[@@%s] needs the %s name: [@@%s \"…\"]"
                   attribute.attr_name.txt what attribute.attr_name.txt
           in
-          let extractor name =
-            Extracted (evar ~loc ("Forge.Extract." ^ name))
-          in
+          let extractor name = Extracted (evar ~loc ("Kre.Extract." ^ name)) in
           let located carrier what =
             let presence, element = presence ~label ~arg_label ~default type_ in
             Located
@@ -366,7 +364,7 @@ let transform structure =
                   Some
                     (Extracted
                        [%expr
-                         Forge.Extract.body_field
+                         Kre.Extract.body_field
                            [%e pexp_pack ~loc (json ~loc type_).module_]
                            [%e estring ~loc field]])
               | None -> Some (Body (json ~loc type_)))
@@ -379,14 +377,12 @@ let transform structure =
               Some
                 (Extracted
                    [%expr
-                     Forge.Extract.file
-                       [%e estring ~loc (required "file field")]])
+                     Kre.Extract.file [%e estring ~loc (required "file field")]])
           | "files" ->
               Some
                 (Extracted
                    [%expr
-                     Forge.Extract.files
-                       [%e estring ~loc (required "file field")]])
+                     Kre.Extract.files [%e estring ~loc (required "file field")]])
           | ("headers" | "cookies" | "ip" | "host" | "req") as name ->
               Some (extractor name)
           | "wildcard" -> Some Wildcard
@@ -397,7 +393,7 @@ let transform structure =
                   Some
                     (Extracted
                        [%expr
-                         Forge.Extract.host_param
+                         Kre.Extract.host_param
                            ~pattern:[%e estring ~loc pattern]
                            [%e estring ~loc name]])
               | None ->
@@ -509,7 +505,7 @@ let transform structure =
         (shape, outcome)
     | _ ->
         Location.raise_errorf ~loc
-          "handler %s must return a promise: t Lwt.t or (t, Forge.Error.t) \
+          "handler %s must return a promise: t Lwt.t or (t, Kre.Error.t) \
            result Lwt.t, where t is unit, string, Dream.response, T.t, T.t \
            list or T.t option"
           name
@@ -743,7 +739,7 @@ let transform structure =
                 (Option.fold ~none:[]
                    ~some:(fun (attribute : attribute) ->
                      match verb with
-                     | Get -> [ [%expr Forge.Etag.middleware] ]
+                     | Get -> [ [%expr Kre.Etag.middleware] ]
                      | Post | Put | Patch | Delete | Head | Options | All ->
                          Location.raise_errorf ~loc:attribute.attr_loc
                            "[@@@@etag] answers 304 to a repeated GET; %s is \
@@ -770,7 +766,7 @@ let transform structure =
                                 _;
                               };
                             ] ) ->
-                          [ [%expr Forge.Cache.response ~ttl:[%e ttl] ()] ]
+                          [ [%expr Kre.Cache.response ~ttl:[%e ttl] ()] ]
                       | Get, _ ->
                           Location.raise_errorf ~loc:attribute.attr_loc
                             "[@@@@cache] takes seconds as a float: [@@@@cache \
@@ -787,7 +783,7 @@ let transform structure =
                 | tables ->
                     [
                       [%expr
-                        Forge.Live.audit
+                        Kre.Live.audit
                           [%e
                             elist ~loc
                               (List.map
@@ -814,7 +810,7 @@ let transform structure =
                         handler
                     | _ ->
                         Location.raise_errorf ~loc:attribute.attr_loc
-                          "[@@@@error_handler] expects a Forge.Error.handler")
+                          "[@@@@error_handler] expects a Kre.Error.handler")
                   (attribute_of binding "error_handler");
               interceptors =
                 controller_interceptors
@@ -879,10 +875,9 @@ let transform structure =
                            with
                            | Some { source = Path { segment; _ }; _ } ->
                                ( Labelled label,
-                                 evar ~loc ("__forge_arg_" ^ segment) )
+                                 evar ~loc ("__kre_arg_" ^ segment) )
                            | Some _ ->
-                               ( Labelled label,
-                                 evar ~loc ("__forge_arg_" ^ label) )
+                               (Labelled label, evar ~loc ("__kre_arg_" ^ label))
                            | None ->
                                Location.raise_errorf ~loc:check.pexp_loc
                                  "[@@@@authorize] uses ~%s, which %s does not \
@@ -918,7 +913,7 @@ let transform structure =
                                        ( {
                                            txt =
                                              Ldot
-                                               (Ldot (Lident "Forge", "Db"), "S");
+                                               (Ldot (Lident "Kre", "Db"), "S");
                                            _;
                                          },
                                          _ );
@@ -936,14 +931,13 @@ let transform structure =
                 | Some attribute, None, [] ->
                     Location.raise_errorf ~loc:attribute.attr_loc
                       "[@@@@transactional] runs %s in a transaction of a \
-                       Forge.Db.S dependency; add (module Db : Forge.Db.S with \
+                       Kre.Db.S dependency; add (module Db : Kre.Db.S with \
                        type conn = …)"
                       name
                 | Some attribute, None, (first :: _ :: _ as databases) ->
                     Location.raise_errorf ~loc:attribute.attr_loc
-                      "[@@@@transactional] sees several Forge.Db.S \
-                       dependencies (%s); pick one with ~(conn : … [@@from \
-                       %s.tx])"
+                      "[@@@@transactional] sees several Kre.Db.S dependencies \
+                       (%s); pick one with ~(conn : … [@@from %s.tx])"
                       (String.concat ", " databases)
                       first
                 | None, Some (db, loc), _ ->
@@ -1093,7 +1087,7 @@ let transform structure =
                 [ "GET"; "POST"; "PUT"; "PATCH"; "DELETE"; "HEAD"; "OPTIONS" ]
           in
           let verb_tag method_ = pexp_variant ~loc method_ None in
-          let variable label = "__forge_arg_" ^ label in
+          let variable label = "__kre_arg_" ^ label in
           let bound index argument =
             match argument.label with
             | Labelled label | Optional label -> variable label
@@ -1113,7 +1107,7 @@ let transform structure =
                   | Param { name; value } ->
                       Some
                         [%expr
-                          Forge.Route.segment
+                          Kre.Route.segment
                             [%e pexp_pack ~loc value.module_]
                             [%e estring ~loc (":" ^ name)]]
                   | Rest -> None)
@@ -1140,31 +1134,31 @@ let transform structure =
                          [
                            ( bound index argument,
                              [%expr
-                               Forge.Route.query
+                               Kre.Route.query
                                  [%e pexp_pack ~loc value.module_]
                                  [%e
                                    match presence with
                                    | Required ->
-                                       [%expr Forge_shared.Presence.Required]
+                                       [%expr Kre_shared.Presence.Required]
                                    | Optional ->
-                                       [%expr Forge_shared.Presence.Optional]
+                                       [%expr Kre_shared.Presence.Optional]
                                    | Repeated ->
-                                       [%expr Forge_shared.Presence.Repeated]]
-                                 [%e estring ~loc name] __forge_request] );
+                                       [%expr Kre_shared.Presence.Repeated]]
+                                 [%e estring ~loc name] __kre_request] );
                          ]
                      | Body value ->
                          [
                            ( bound index argument,
                              [%expr
-                               Forge.Route.body
+                               Kre.Route.body
                                  [%e pexp_pack ~loc value.module_]
-                                 __forge_request] );
+                                 __kre_request] );
                          ]
                      | Loaded { segment; loader; _ } ->
                          [
                            ( bound index argument,
                              [%expr
-                               Forge.Route.load ~what:[%e estring ~loc segment]
+                               Kre.Route.load ~what:[%e estring ~loc segment]
                                  [%e loader]
                                  [%e evar ~loc (variable segment)]] );
                          ]
@@ -1172,15 +1166,15 @@ let transform structure =
                          [
                            ( bound index argument,
                              [%expr
-                               Forge.Extract.search
+                               Kre.Extract.search
                                  (let module M = [%m value.module_] in
                                   M.codec)
-                                 __forge_request] );
+                                 __kre_request] );
                          ]
                      | Extracted guard ->
                          [
                            ( bound index argument,
-                             [%expr [%e guard] __forge_request] );
+                             [%expr [%e guard] __kre_request] );
                          ]
                      | Located { carrier; name; presence; value } ->
                          [
@@ -1189,22 +1183,22 @@ let transform structure =
                                [%e
                                  evar ~loc
                                    (match carrier with
-                                   | Header -> "Forge.Extract.header"
-                                   | Cookie -> "Forge.Extract.cookie"
+                                   | Header -> "Kre.Extract.header"
+                                   | Cookie -> "Kre.Extract.cookie"
                                    | Signed_cookie ->
-                                       "Forge.Extract.signed_cookie"
-                                   | Session -> "Forge.Extract.session"
-                                   | Form -> "Forge.Extract.form")]
+                                       "Kre.Extract.signed_cookie"
+                                   | Session -> "Kre.Extract.session"
+                                   | Form -> "Kre.Extract.form")]
                                  [%e pexp_pack ~loc value.module_]
                                  [%e
                                    match presence with
                                    | Required ->
-                                       [%expr Forge_shared.Presence.Required]
+                                       [%expr Kre_shared.Presence.Required]
                                    | Optional ->
-                                       [%expr Forge_shared.Presence.Optional]
+                                       [%expr Kre_shared.Presence.Optional]
                                    | Repeated ->
-                                       [%expr Forge_shared.Presence.Repeated]]
-                                 [%e estring ~loc name] __forge_request] );
+                                       [%expr Kre_shared.Presence.Repeated]]
+                                 [%e estring ~loc name] __kre_request] );
                          ]
                      | Dependency _ | Path _ | Wildcard | Request | Unit -> [])
                    handler.arguments)
@@ -1217,10 +1211,10 @@ let transform structure =
                        match argument.source with
                        | Dependency { name; _ } ->
                            pexp_pack ~loc (ident ~loc name)
-                       | Request -> [%expr __forge_request]
+                       | Request -> [%expr __kre_request]
                        | Unit -> [%expr ()]
                        | Path { segment; _ } -> evar ~loc (variable segment)
-                       | Wildcard -> [%expr Forge.Route.rest __forge_rest]
+                       | Wildcard -> [%expr Kre.Route.rest __kre_rest]
                        | Query _ | Body _ | Searched _ | Loaded _ | Extracted _
                        | Located _ ->
                            evar ~loc (bound index argument) ))
@@ -1228,7 +1222,7 @@ let transform structure =
             in
             let result =
               match handler.outcome with
-              | Plain -> [%expr Forge.Route.ok [%e call]]
+              | Plain -> [%expr Kre.Route.ok [%e call]]
               | Fallible -> call
             in
             let steps =
@@ -1244,7 +1238,7 @@ let transform structure =
               | [] -> result
               | _ ->
                   [%expr
-                    let open Forge.Route.Syntax in
+                    let open Kre.Route.Syntax in
                     [%e
                       List.fold_right
                         (fun (pattern, expression) rest ->
@@ -1259,21 +1253,20 @@ let transform structure =
             let callee, form, timeout =
               match handler.shape with
               | Stream value ->
-                  ([%expr Forge.Route.events], pexp_pack ~loc value.module_, [])
+                  ([%expr Kre.Route.events], pexp_pack ~loc value.module_, [])
               | (Empty | Text | Raw | Json _ | Found _ | Moved _) as shape ->
-                  ( [%expr Forge.Route.handle],
+                  ( [%expr Kre.Route.handle],
                     (match shape with
-                    | Empty -> [%expr Forge.Route.Unit]
-                    | Text -> [%expr Forge.Route.Text]
-                    | Raw -> [%expr Forge.Route.Raw]
+                    | Empty -> [%expr Kre.Route.Unit]
+                    | Text -> [%expr Kre.Route.Text]
+                    | Raw -> [%expr Kre.Route.Raw]
                     | Json value ->
-                        [%expr
-                          Forge.Route.Json [%e pexp_pack ~loc value.module_]]
+                        [%expr Kre.Route.Json [%e pexp_pack ~loc value.module_]]
                     | Found value ->
                         [%expr
-                          Forge.Route.Found [%e pexp_pack ~loc value.module_]]
+                          Kre.Route.Found [%e pexp_pack ~loc value.module_]]
                     | Moved location ->
-                        [%expr Forge.Route.Redirect [%e estring ~loc location]]
+                        [%expr Kre.Route.Redirect [%e estring ~loc location]]
                     | Stream value -> pexp_pack ~loc value.module_),
                     Option.fold ~none:[]
                       ~some:(fun timeout -> [ (Labelled "timeout", timeout) ])
@@ -1301,7 +1294,7 @@ let transform structure =
                     (Nolabel, form);
                     ( Nolabel,
                       [%expr
-                        fun __forge_request ->
+                        fun __kre_request ->
                           [%e
                             Option.fold ~none:body
                               ~some:(fun db ->
@@ -1309,7 +1302,7 @@ let transform structure =
                                   [%e
                                     pexp_ident ~loc
                                       { txt = Ldot (db, "within"); loc }]
-                                    __forge_request (fun () -> [%e body])])
+                                    __kre_request (fun () -> [%e body])])
                               handler.transaction]] );
                   ])
             in
@@ -1320,10 +1313,10 @@ let transform structure =
                   | Literal _ -> target
                   | Param { name; _ } ->
                       [%expr fun [%p pvar ~loc (variable name)] -> [%e target]]
-                  | Rest -> [%expr fun __forge_rest -> [%e target]])
+                  | Rest -> [%expr fun __kre_rest -> [%e target]])
                 handler.segments handle
             in
-            pexp_apply ~loc [%expr Forge.Route.v]
+            pexp_apply ~loc [%expr Kre.Route.v]
               (Option.fold ~none:[]
                  ~some:(fun handler -> [ (Labelled "error_handler", handler) ])
                  handler.error_handler
@@ -1343,7 +1336,7 @@ let transform structure =
           let spec_value value =
             [%expr
               {
-                Forge.Spec.type_ =
+                Kre.Spec.type_ =
                   [%e estring ~loc (print Pprintast.core_type value.type_)];
                 module_ =
                   [%e
@@ -1364,7 +1357,7 @@ let transform structure =
           let spec_route handler method_ =
             [%expr
               {
-                Forge.Spec.verb = [%e verb_tag method_];
+                Kre.Spec.verb = [%e verb_tag method_];
                 path =
                   [%e
                     estring ~loc
@@ -1380,9 +1373,9 @@ let transform structure =
                 params =
                   [%e
                     let presence_expression = function
-                      | Required -> [%expr Forge.Spec.Required]
-                      | Optional -> [%expr Forge.Spec.Optional]
-                      | Repeated -> [%expr Forge.Spec.Repeated]
+                      | Required -> [%expr Kre.Spec.Required]
+                      | Optional -> [%expr Kre.Spec.Optional]
+                      | Repeated -> [%expr Kre.Spec.Repeated]
                     in
                     elist ~loc
                       (List.filter_map
@@ -1391,7 +1384,7 @@ let transform structure =
                              (fun (name, location, value) ->
                                [%expr
                                  {
-                                   Forge.Spec.name = [%e estring ~loc name];
+                                   Kre.Spec.name = [%e estring ~loc name];
                                    label =
                                      [%e
                                        estring ~loc
@@ -1405,12 +1398,12 @@ let transform structure =
                              (match argument.source with
                              | Path { segment; value }
                              | Loaded { segment; value; _ } ->
-                                 Some (segment, [%expr Forge.Spec.Path], value)
+                                 Some (segment, [%expr Kre.Spec.Path], value)
                              | Query { name; presence; value } ->
                                  Some
                                    ( name,
                                      [%expr
-                                       Forge.Spec.Query
+                                       Kre.Spec.Query
                                          [%e presence_expression presence]],
                                      value )
                              | Located
@@ -1418,7 +1411,7 @@ let transform structure =
                                  Some
                                    ( name,
                                      [%expr
-                                       Forge.Spec.Header
+                                       Kre.Spec.Header
                                          [%e presence_expression presence]],
                                      value )
                              | Located
@@ -1431,7 +1424,7 @@ let transform structure =
                                  Some
                                    ( name,
                                      [%expr
-                                       Forge.Spec.Cookie
+                                       Kre.Spec.Cookie
                                          [%e presence_expression presence]],
                                      value )
                              | Searched value ->
@@ -1439,7 +1432,7 @@ let transform structure =
                                    ( (match argument.label with
                                      | Labelled label | Optional label -> label
                                      | Nolabel -> "search"),
-                                     [%expr Forge.Spec.Search],
+                                     [%expr Kre.Spec.Search],
                                      value )
                              | Located { carrier = Session | Form; _ }
                              | Dependency _ | Body _ | Extracted _ | Wildcard
@@ -1459,13 +1452,13 @@ let transform structure =
                 returns =
                   [%e
                     match handler.shape with
-                    | Empty | Moved _ -> [%expr Forge.Spec.Unit]
-                    | Text -> [%expr Forge.Spec.Text]
-                    | Raw -> [%expr Forge.Spec.Raw]
+                    | Empty | Moved _ -> [%expr Kre.Spec.Unit]
+                    | Text -> [%expr Kre.Spec.Text]
+                    | Raw -> [%expr Kre.Spec.Raw]
                     | Json value | Found value ->
-                        [%expr Forge.Spec.Json [%e spec_value value]]
+                        [%expr Kre.Spec.Json [%e spec_value value]]
                     | Stream value ->
-                        [%expr Forge.Spec.Events [%e spec_value value]]];
+                        [%expr Kre.Spec.Events [%e spec_value value]]];
                 status = Dream.int_to_status [%e eint ~loc handler.status];
                 summary =
                   [%e
@@ -1507,9 +1500,9 @@ let transform structure =
           in
           let spec =
             [%stri
-              let spec : Forge.Spec.t =
+              let spec : Kre.Spec.t =
                 {
-                  Forge.Spec.prefix =
+                  Kre.Spec.prefix =
                     [%e estring ~loc ("/" ^ String.concat "/" prefix)];
                   version =
                     [%e
@@ -1527,7 +1520,7 @@ let transform structure =
                 }]
           in
           let controller_value =
-            pexp_apply ~loc [%expr Forge.Controller.v]
+            pexp_apply ~loc [%expr Kre.Controller.v]
               ((match controller_middleware with
                  | [] -> []
                  | middleware ->
@@ -1539,7 +1532,7 @@ let transform structure =
                         [ (Labelled "error_handler", handler) ]
                     | _ ->
                         Location.raise_errorf ~loc:attribute.attr_loc
-                          "[@@@@@@error_handler] expects a Forge.Error.handler")
+                          "[@@@@@@error_handler] expects a Kre.Error.handler")
                   (List.nth_opt (floating "error_handler") 0)
               @ Option.fold ~none:[]
                   ~some:(fun host -> [ (Labelled "host", estring ~loc host) ])

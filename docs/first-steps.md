@@ -1,10 +1,10 @@
 # First steps
 
-Nest: `nest new project` и `main.ts` с `NestFactory.create(AppModule)`. Forge: `forge new project` и `bin/main.ml`, где список контроллеров и есть приложение.
+Nest: `nest new project` и `main.ts` с `NestFactory.create(AppModule)`. Kre: `kre new project` и `bin/main.ml`, где список контроллеров и есть приложение.
 
 <!-- $MDX skip -->
 ```sh
-forge new shelter
+kre new shelter
 cd shelter && dune build && dune test
 dune exec bin/main.exe
 ```
@@ -16,15 +16,15 @@ dune exec bin/main.exe
 let () =
   let app = [%wire] in
   let actuator =
-    Forge.Actuator.make ~checks:app.health ~beans:app.beans
+    Kre.Actuator.make ~checks:app.health ~beans:app.beans
       ~env:(Config.pairs Settings.config)
       app.controllers
   in
-  Forge.App.run ~port:Settings.config.port
+  Kre.App.run ~port:Settings.config.port
     ~middleware:
       [ Dream.logger; actuator.metrics; Web.use ~dir:Settings.config.web ]
     ~on_start:app.on_start ~on_shutdown:app.on_shutdown
-    (actuator.controller :: Forge.Live.controller :: app.controllers)
+    (actuator.controller :: Kre.Live.controller :: app.controllers)
 ```
 
-Сервер — `Forge.App.run`, то есть `Dream.serve` с роутингом Forge; `Forge.App.handler` даёт тот же `Dream.handler` для тестов и для встраивания в свой `Dream.run`.
+Сервер — `Kre.App.run`, то есть `Dream.serve` с роутингом Kre; `Kre.App.handler` даёт тот же `Dream.handler` для тестов и для встраивания в свой `Dream.run`.

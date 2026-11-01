@@ -52,7 +52,7 @@ let transform structure =
           | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]) ->
               pmod_apply ~loc
                 (pmod_ident ~loc
-                   { txt = Longident.parse "Forge_shared.Json.List"; loc })
+                   { txt = Longident.parse "Kre_shared.Json.List"; loc })
                 (module_of element)
           | Ptyp_constr
               ( {
@@ -66,7 +66,7 @@ let transform structure =
                 {
                   txt =
                     Longident.parse
-                      ("Forge_shared.Scalar." ^ String.capitalize_ascii scalar);
+                      ("Kre_shared.Scalar." ^ String.capitalize_ascii scalar);
                   loc;
                 }
           | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
@@ -74,7 +74,7 @@ let transform structure =
           | _ ->
               Location.raise_errorf ~loc:type_.ptyp_loc
                 "unsupported message type %a; use T.t with T : \
-                 Forge_shared.Json.S, a scalar or a list"
+                 Kre_shared.Json.S, a scalar or a list"
                 Pprintast.core_type type_
         in
         module_of type_
@@ -141,7 +141,7 @@ let transform structure =
                   | _ ->
                       Location.raise_errorf ~loc
                         "a gateway handler takes (module M : S) dependencies, \
-                         (socket : Forge.Gateway.socket), ~(body : T.t) and ()")
+                         (socket : Kre.Gateway.socket), ~(body : T.t) and ()")
                 params
             in
             let outcome, payload =
@@ -155,7 +155,7 @@ let transform structure =
               | _ ->
                   Location.raise_errorf ~loc:returns.ptyp_loc
                     "gateway handler %s must return a promise: unit Lwt.t, T.t \
-                     Lwt.t or (T.t, Forge.Error.t) result Lwt.t"
+                     Lwt.t or (T.t, Kre.Error.t) result Lwt.t"
                     name
             in
             {
@@ -239,8 +239,8 @@ let transform structure =
                    | Dependency { name; _ } ->
                        pexp_pack ~loc
                          (pmod_ident ~loc { txt = Lident name; loc })
-                   | Socket -> [%expr __forge_socket]
-                   | Body _ -> [%expr __forge_body]
+                   | Socket -> [%expr __kre_socket]
+                   | Body _ -> [%expr __kre_body]
                    | Unit -> [%expr ()] ))
                handler.inputs)
         in
@@ -253,19 +253,19 @@ let transform structure =
           Option.value handler.body
             ~default:
               (pmod_ident ~loc
-                 { txt = Longident.parse "Forge_shared.Json.Ignored"; loc })
+                 { txt = Longident.parse "Kre_shared.Json.Ignored"; loc })
         in
         match handler.reply with
         | Some reply ->
             [%expr
-              Forge.Gateway.on [%e estring ~loc handler.event]
+              Kre.Gateway.on [%e estring ~loc handler.event]
                 [%e pexp_pack ~loc body_module] [%e pexp_pack ~loc reply]
-                (fun __forge_socket __forge_body -> [%e result])]
+                (fun __kre_socket __kre_body -> [%e result])]
         | None ->
             [%expr
-              Forge.Gateway.notify [%e estring ~loc handler.event]
-                [%e pexp_pack ~loc body_module]
-                (fun __forge_socket __forge_body -> [%e result])]
+              Kre.Gateway.notify [%e estring ~loc handler.event]
+                [%e pexp_pack ~loc body_module] (fun __kre_socket __kre_body ->
+                  [%e result])]
       in
       let abstract body =
         match dependencies with
@@ -297,13 +297,13 @@ let transform structure =
               [%e
                 abstract
                   [%expr
-                    Forge.Gateway.make [%e elist ~loc (List.map wrap handlers)]]]];
+                    Kre.Gateway.make [%e elist ~loc (List.map wrap handlers)]]]];
           [%stri
             let register =
               [%e
                 abstract
                   [%expr
-                    Forge.Gateway.controller ~path:[%e estring ~loc path]
+                    Kre.Gateway.controller ~path:[%e estring ~loc path]
                       [%e applied]]]];
         ]
   | _ -> structure

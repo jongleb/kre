@@ -46,5 +46,5 @@ val make : name:string -> column list -> t
 val ddl : dialect -> t -> string
 val schema : dialect -> t list -> string
 val crud : t -> string
-val now : unit -> Forge_shared.Time.t
-val decode : (module S : Forge_shared.Scalar.S) -> string -> S.t
+val now : unit -> Kre_shared.Time.t
+val decode : (module S : Kre_shared.Scalar.S) -> string -> S.t

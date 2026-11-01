@@ -1,7 +1,7 @@
 let layout ~children = <main>children</main>
 
 let failed error =
-  <p className="error">(React.string (Forge_client.Error.message error))</p>
+  <p className="error">(React.string (Kre_client.Error.message error))</p>
 
 module Adopt = struct
   let[@react.component] make ~(cat : Cat.t) =
@@ -13,7 +13,7 @@ module Adopt = struct
              set_message (fun _ ->
                  Result.fold
                    ~ok:(fun _ -> "adopted")
-                   ~error:Forge_client.Error.message result);
+                   ~error:Kre_client.Error.message result);
              Js.Promise.resolve ())
            (Adoptions_client.adopt ~body:{ Adopt_dto.cat_id = cat.id }))
     in
@@ -35,20 +35,19 @@ module Login = struct
           set_message (fun _ ->
               String.concat ", "
                 (List.map
-                   (fun (error : Forge_shared.Validation.error) ->
-                     error.message)
-                   (Forge_shared.Validation.to_list errors))))
+                   (fun (error : Kre_shared.Validation.error) -> error.message)
+                   (Kre_shared.Validation.to_list errors))))
         ~ok:(fun email ->
           ignore
             (Js.Promise.then_
                (fun result ->
                  Result.fold ~ok:on_login
                    ~error:(fun error ->
-                     set_message (fun _ -> Forge_client.Error.message error))
+                     set_message (fun _ -> Kre_client.Error.message error))
                    result;
                  Js.Promise.resolve ())
                (Auth_client.login ~body:{ Login_dto.email; password })))
-        (Forge_shared.Refined.Email.of_repr email)
+        (Kre_shared.Refined.Email.of_repr email)
     in
     <form onSubmit=submit>
       <input

@@ -1,7 +1,7 @@
 module Make (Settings : Settings.S) = struct
   include
-    Forge.Db.Make
-      (Forge_db_mariadb.Driver)
+    Kre.Db.Make
+      (Kre_db_mariadb.Driver)
       (struct
         let url = Settings.config.database_url
         let size = 4
@@ -10,11 +10,10 @@ module Make (Settings : Settings.S) = struct
   let on_start () =
     with_conn (fun conn ->
         Lwt.map ignore
-          (Forge.Migration.up
-             (module Forge_db_mariadb.Driver)
+          (Kre.Migration.up
+             (module Kre_db_mariadb.Driver)
              conn
-             (Result.get_ok
-                (Forge.Migration.of_files [%embed_dir "migrations"]))))
+             (Result.get_ok (Kre.Migration.of_files [%embed_dir "migrations"]))))
 
   let ping () =
     Lwt.catch
@@ -22,7 +21,7 @@ module Make (Settings : Settings.S) = struct
         with_conn (fun conn ->
             Lwt.map
               (fun _ -> Ok ())
-              (Forge_db_mariadb.Driver.strings conn "SELECT 1")))
+              (Kre_db_mariadb.Driver.strings conn "SELECT 1")))
       (fun exn -> Lwt.return_error (Printexc.to_string exn))
   [@@health "db"]
 end

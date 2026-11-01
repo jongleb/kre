@@ -19,19 +19,19 @@ end)
 
 let outcome = function
   | Ok (cat : Cat.t) -> "ok " ^ Cat.Name.to_repr cat.name
-  | Error (Forge_client.Error.Problem problem) ->
+  | Error (Kre_client.Error.Problem problem) ->
       Printf.sprintf "%d %s" problem.status
         (String.concat ","
            (List.map
-              (fun (error : Forge_shared.Validation.error) ->
+              (fun (error : Kre_shared.Validation.error) ->
                 String.concat "." error.path ^ ":" ^ error.rule)
               problem.errors))
-  | Error error -> Forge_client.Error.message error
+  | Error error -> Kre_client.Error.message error
 
 let () =
   let module Fresh = Cats_service.Make () in
-  Forge_testing.use [ Cats_controller.register (module Fresh) ];
-  Forge_client.Http.headers := [ ("X-User", "ann") ];
+  Kre_testing.use [ Cats_controller.register (module Fresh) ];
+  Kre_client.Http.headers := [ ("X-User", "ann") ];
   Lwt_main.run
     (Alcotest_lwt.run "in-process client"
        [
@@ -67,7 +67,7 @@ let () =
                      Result.fold
                        ~ok:(fun cats ->
                          Printf.sprintf "%d cat" (List.length cats))
-                       ~error:Forge_client.Error.message all;
+                       ~error:Kre_client.Error.message all;
                      outcome missing;
                    ];
                  Lwt.return_unit);

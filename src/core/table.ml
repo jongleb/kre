@@ -196,7 +196,7 @@ let crud table =
     @ [ "-- @count"; Printf.sprintf "SELECT COUNT(*) FROM %s;" table.name; "" ]
     )
 
-let now () = Forge_shared.Time.of_seconds (Unix.gettimeofday ())
+let now () = Kre_shared.Time.of_seconds (Unix.gettimeofday ())
 
-let decode (module S : Forge_shared.Scalar.S) raw =
-  Forge_shared.Validation.ok_exn (S.of_string raw)
+let decode (module S : Kre_shared.Scalar.S) raw =
+  Kre_shared.Validation.ok_exn (S.of_string raw)

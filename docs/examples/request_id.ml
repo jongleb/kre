@@ -7,6 +7,6 @@ let use : Dream.middleware =
   Dream.set_field request field !next_id;
   next request
 
-let current : int Forge.Guard.t =
-  Forge.Guard.field field
-    ~missing:(Forge.Error.internal "Request_id.use is not installed")
+let current : int Kre.Guard.t =
+  Kre.Guard.field field
+    ~missing:(Kre.Error.internal "Request_id.use is not installed")

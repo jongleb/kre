@@ -1,6 +1,6 @@
-module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) :
-  Forge.Job.S =
-  Forge.Job.Make
+module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) :
+  Kre.Job.S =
+  Kre.Job.Make
     (Db)
     (struct
       let poll = 0.1

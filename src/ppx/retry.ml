@@ -51,7 +51,7 @@ let mapper =
               backoff
           in
           let wrap body =
-            pexp_apply ~loc [%expr Forge.Retry.run]
+            pexp_apply ~loc [%expr Kre.Retry.run]
               (Option.fold ~none:[]
                  ~some:(fun pause -> [ (Labelled "backoff", pause) ])
                  pause

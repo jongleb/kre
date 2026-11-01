@@ -1,5 +1,5 @@
 -- migrate:up
-CREATE TABLE forge_jobs (
+CREATE TABLE kre_jobs (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   queue VARCHAR(64) NOT NULL,
   payload TEXT NOT NULL,
@@ -12,4 +12,4 @@ CREATE TABLE forge_jobs (
 );
 
 -- migrate:down
-DROP TABLE forge_jobs;
+DROP TABLE kre_jobs;

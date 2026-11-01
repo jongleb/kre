@@ -1,6 +1,6 @@
 type 'a queue = {
   name : string;
-  codec : (module Forge_shared.Json.S with type t = 'a);
+  codec : (module Kre_shared.Json.S with type t = 'a);
 }
 
 type handler =
@@ -10,7 +10,7 @@ let queue name codec = { name; codec }
 let handle queue run = Handler (queue, run)
 
 let table =
-  Table.make ~name:"forge_jobs"
+  Table.make ~name:"kre_jobs"
     [
       Table.column ~role:Primary_auto "id" Integer Not_null;
       Table.column "queue" (Text (Some 64)) Not_null;
@@ -48,7 +48,7 @@ struct
     let (module J) = queue.codec in
     Lwt.map ignore
       (Db.query
-         "INSERT INTO forge_jobs (queue, payload, status, attempts, run_at) \
+         "INSERT INTO kre_jobs (queue, payload, status, attempts, run_at) \
           VALUES (?, ?, 'queued', 0, ?)"
          [
            Some queue.name;
@@ -61,8 +61,8 @@ struct
     Db.transaction (fun _ ->
         Lwt.bind
           (Db.query
-             "SELECT id, queue, payload, attempts FROM forge_jobs WHERE \
-              (status = 'queued' AND run_at <= ?) OR (status = 'running' AND \
+             "SELECT id, queue, payload, attempts FROM kre_jobs WHERE (status \
+              = 'queued' AND run_at <= ?) OR (status = 'running' AND \
               locked_until < ?) ORDER BY run_at LIMIT 1 FOR UPDATE SKIP LOCKED"
              [ Some (time now); Some (time now) ])
           (function
@@ -71,7 +71,7 @@ struct
                   (fun _ ->
                     Ok (Some (id, queue, payload, 1 + int_of_string attempts)))
                   (Db.query
-                     "UPDATE forge_jobs SET status = 'running', locked_until = \
+                     "UPDATE kre_jobs SET status = 'running', locked_until = \
                       ?, attempts = attempts + 1 WHERE id = ?"
                      [ Some (time (now +. 300.)); Some id ])
             | _ -> Lwt.return_ok None))
@@ -85,15 +85,14 @@ struct
             Lwt.return_error
               (String.concat "; "
                  (List.map
-                    (fun (error : Forge_shared.Validation.error) ->
-                      error.message)
-                    (Forge_shared.Validation.to_list errors))))
+                    (fun (error : Kre_shared.Validation.error) -> error.message)
+                    (Kre_shared.Validation.to_list errors))))
           ~ok:(fun payload ->
             Lwt.catch
               (fun () -> run payload)
               (fun exn -> Lwt.return_error (Printexc.to_string exn)))
           (let (module J) = queue.codec in
-           Forge_shared.Json.parse (module J) (Jsonkit.of_string payload)))
+           Kre_shared.Json.parse (module J) (Jsonkit.of_string payload)))
       (Hashtbl.find_opt handlers queue)
 
   let drain () =
@@ -104,16 +103,16 @@ struct
             Lwt.bind
               (Lwt.bind (perform queue payload) (function
                 | Ok () ->
-                    Db.query "DELETE FROM forge_jobs WHERE id = ?" [ Some id ]
+                    Db.query "DELETE FROM kre_jobs WHERE id = ?" [ Some id ]
                 | Error message when attempts >= Config.attempts ->
                     Db.query
-                      "UPDATE forge_jobs SET status = 'dead', last_error = ?, \
+                      "UPDATE kre_jobs SET status = 'dead', last_error = ?, \
                        locked_until = NULL WHERE id = ?"
                       [ Some message; Some id ]
                 | Error message ->
                     Db.query
-                      "UPDATE forge_jobs SET status = 'queued', last_error = \
-                       ?, locked_until = NULL, run_at = ? WHERE id = ?"
+                      "UPDATE kre_jobs SET status = 'queued', last_error = ?, \
+                       locked_until = NULL, run_at = ? WHERE id = ?"
                       [
                         Some message;
                         Some

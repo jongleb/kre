@@ -16,7 +16,7 @@ type value = {
   type_ : string;  (** The OCaml type as written, e.g. ["Cat.t list"]. *)
   module_ : string;
       (** Its [Json.S] or [Scalar.S] module, e.g.
-          ["Forge_shared.Json.List (Cat)"]. *)
+          ["Kre_shared.Json.List (Cat)"]. *)
   schema : Jsonkit.Jsonschema.t;
 }
 (** A value crossing the wire, described for code generators. *)

@@ -1,21 +1,20 @@
 let url =
-  match Sys.getenv_opt "FORGE_TEST_PG_URL" with
+  match Sys.getenv_opt "KRE_TEST_PG_URL" with
   | Some url -> url
   | None ->
       prerr_endline
-        "set FORGE_TEST_PG_URL, e.g. \
-         postgresql://forge@127.0.0.1:5499/forge_test";
+        "set KRE_TEST_PG_URL, e.g. postgresql://kre@127.0.0.1:5499/kre_test";
       exit 2
 
 module Db =
-  Forge.Db.Make
-    (Forge_db_postgresql.Driver)
+  Kre.Db.Make
+    (Kre_db_postgresql.Driver)
     (struct
       let url = url
       let size = 2
     end)
 
-module Crud = Cats_pg.Make (Forge_db_postgresql.Sql)
+module Crud = Cats_pg.Make (Kre_db_postgresql.Sql)
 
 let tom =
   {
@@ -36,19 +35,18 @@ let () =
   Lwt_main.run
     (Db.with_conn (fun conn ->
          let%lwt () =
-           Forge_db_postgresql.Driver.execute conn
-             "DROP TABLE IF EXISTS forge_migrations"
+           Kre_db_postgresql.Driver.execute conn
+             "DROP TABLE IF EXISTS kre_migrations"
          in
          let%lwt () =
-           Forge_db_postgresql.Driver.execute conn "DROP TABLE IF EXISTS cats"
+           Kre_db_postgresql.Driver.execute conn "DROP TABLE IF EXISTS cats"
          in
          let%lwt () =
-           Forge_db_postgresql.Driver.execute conn
-             "DROP TABLE IF EXISTS forge_jobs"
+           Kre_db_postgresql.Driver.execute conn "DROP TABLE IF EXISTS kre_jobs"
          in
          let%lwt () =
-           Forge_db_postgresql.Driver.execute conn
-             (Forge.Table.ddl Postgresql Forge.Job.table)
+           Kre_db_postgresql.Driver.execute conn
+             (Kre.Table.ddl Postgresql Kre.Job.table)
          in
          let%lwt _ = Crud.create_cats conn in
          let%lwt _ = Crud.create_index_cats_breed conn in
@@ -102,7 +100,7 @@ let () =
           Alcotest.test_case
             "transactions: Error rolls back, Ok commits and goes live" `Quick
             (fun () ->
-              let changes, stop = Forge.Live.subscribe [ "cats" ] in
+              let changes, stop = Kre.Live.subscribe [ "cats" ] in
               let insert result =
                 ignore
                   (Lwt_main.run
@@ -126,16 +124,16 @@ let () =
             "enqueue in a transaction, a failure waits to retry" `Quick
             (fun () ->
               let module Jobs =
-                Forge.Job.Make
+                Kre.Job.Make
                   (Db)
                   (struct
                     let poll = 0.1
                     let attempts = 3
                   end) in
-              let queue = Forge.Job.queue "greet" (module Cat) in
+              let queue = Kre.Job.queue "greet" (module Cat) in
               let seen = ref [] in
               Jobs.register
-                (Forge.Job.handle queue (fun (cat : Cat.t) ->
+                (Kre.Job.handle queue (fun (cat : Cat.t) ->
                      let name = Cat.Name.to_repr cat.name in
                      seen := name :: !seen;
                      Lwt.return
@@ -155,8 +153,8 @@ let () =
               let ran = Lwt_main.run (Jobs.drain ()) in
               let left =
                 Lwt_main.run
-                  (Db.query
-                     "SELECT status, attempts, last_error FROM forge_jobs" [])
+                  (Db.query "SELECT status, attempts, last_error FROM kre_jobs"
+                     [])
               in
               Alcotest.(
                 check (triple int (list string) (list (list (option string)))))
@@ -171,7 +169,7 @@ let () =
           Alcotest.test_case "up, then down" `Quick (fun () ->
               let migrations =
                 Result.get_ok
-                  (Forge.Migration.of_files
+                  (Kre.Migration.of_files
                      [
                        ( "20260101000000_dogs.sql",
                          "-- migrate:up\n\
@@ -184,13 +182,13 @@ let () =
                 Lwt_main.run
                   (Db.with_conn (fun conn ->
                        let%lwt applied =
-                         Forge.Migration.up
-                           (module Forge_db_postgresql.Driver)
+                         Kre.Migration.up
+                           (module Kre_db_postgresql.Driver)
                            conn migrations
                        in
                        let%lwt rolled =
-                         Forge.Migration.down
-                           (module Forge_db_postgresql.Driver)
+                         Kre.Migration.down
+                           (module Kre_db_postgresql.Driver)
                            conn migrations
                        in
                        Lwt.return (List.length applied, Option.is_some rolled)))

@@ -1,4 +1,4 @@
-# Forge — документация
+# Kre — документация
 
 **Что есть и что делается — [FEATURES.md](FEATURES.md).** Все контроллеры-примеры в одном сервере — `examples/showcase`. Приложение целиком — `examples/shelter`: JWT-вход, роли, `[@@authorize]`, `[@@transactional]`, live loaders, MariaDB через sqlgg, клиент на Melange.
 

@@ -10,8 +10,8 @@ let find_one (module Cats : Cats_service.S) ~(cat : (Cat.t[@load Cats.find])) :
 [@@get ":cat"] [@@live [ "cats" ]]
 
 let catalog (module Cats : Cats_service.S)
-    ~(page : (Forge_shared.Page.Request.t[@search])) () :
-    Cat.t Forge_shared.Page.t Lwt.t =
+    ~(page : (Kre_shared.Page.Request.t[@search])) () :
+    Cat.t Kre_shared.Page.t Lwt.t =
   Cats.catalog page
 [@@get "catalog"] [@@live [ "cats" ]] [@@summary "Every cat, a page at a time"]
 
@@ -23,6 +23,6 @@ let create (module Cats : Cats_service.S)
 
 let rename (module Cats : Cats_service.S)
     ~user:(_ : (User.t[@guard Auth.current])) ~(cat : (Cat.t[@load Cats.find]))
-    ~(body : Rename_dto.t) : (Cat.t, Forge.Error.t) result Lwt.t =
+    ~(body : Rename_dto.t) : (Cat.t, Kre.Error.t) result Lwt.t =
   Cats.rename cat.id body
 [@@put ":cat"] [@@authorize fun ~user ~cat -> Auth.owner_or_admin ~user cat]

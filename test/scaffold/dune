@@ -1,6 +1,6 @@
 (cram
  (deps
-  (package forge)
-  (package forge-ppx)
-  (package forge-client)
-  (package forge-cli)))
+  (package kre)
+  (package kre-ppx)
+  (package kre-client)
+  (package kre-cli)))

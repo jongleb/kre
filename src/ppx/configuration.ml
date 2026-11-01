@@ -38,25 +38,25 @@ let structure ~ctxt (_, declarations) =
     let ident path = pmod_ident ~loc { txt = Longident.parse path; loc } in
     match type_.ptyp_desc with
     | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
-        ident "Forge_shared.Scalar.Int"
+        ident "Kre_shared.Scalar.Int"
     | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
-        ident "Forge_shared.Scalar.Int64"
+        ident "Kre_shared.Scalar.Int64"
     | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
-        ident "Forge_shared.Scalar.Float"
+        ident "Kre_shared.Scalar.Float"
     | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-        ident "Forge_shared.Scalar.String"
-    | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> ident "Forge.Config.Flag"
+        ident "Kre_shared.Scalar.String"
+    | Ptyp_constr ({ txt = Lident "bool"; _ }, []) -> ident "Kre.Config.Flag"
     | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
         pmod_ident ~loc { txt = path; loc }
     | _ ->
         Location.raise_errorf ~loc:type_.ptyp_loc
           "unsupported config type %a; use int, int64, float, bool, string, \
-           T.t with T : Forge_shared.Scalar.S, an option or a list of those"
+           T.t with T : Kre_shared.Scalar.S, an option or a list of those"
           Pprintast.core_type type_
   in
   let labels = record ~loc declarations in
   let field_variable (label : label_declaration) =
-    "__forge_config_" ^ label.pld_name.txt
+    "__kre_config_" ^ label.pld_name.txt
   in
   let fields =
     List.map
@@ -78,22 +78,22 @@ let structure ~ctxt (_, declarations) =
                 label.pld_name.txt
           | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), None, _ ->
               [%expr
-                Forge.Config.field [%e name]
+                Kre.Config.field [%e name]
                   [%e pexp_pack ~loc (scalar element)]
-                  Forge.Config.Optional]
+                  Kre.Config.Optional]
           | ( Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]),
               _,
               Some separator ) -> (
               match string_literal separator with
               | separator when String.length separator = 1 ->
                   [%expr
-                    Forge.Config.list [%e name]
+                    Kre.Config.list [%e name]
                       ~separator:[%e echar ~loc separator.[0]]
                       [%e pexp_pack ~loc (scalar element)]
                       [%e
-                        Option.fold ~none:[%expr Forge.Config.Required]
+                        Option.fold ~none:[%expr Kre.Config.Required]
                           ~some:(fun default ->
-                            [%expr Forge.Config.Default [%e default]])
+                            [%expr Kre.Config.Default [%e default]])
                           default]]
               | _ ->
                   Location.raise_errorf ~loc:separator.pexp_loc
@@ -104,26 +104,26 @@ let structure ~ctxt (_, declarations) =
                 label.pld_name.txt
           | _, _, _ ->
               [%expr
-                Forge.Config.field [%e name]
+                Kre.Config.field [%e name]
                   [%e pexp_pack ~loc (scalar label.pld_type)]
                   [%e
-                    Option.fold ~none:[%expr Forge.Config.Required]
+                    Option.fold ~none:[%expr Kre.Config.Required]
                       ~some:(fun default ->
-                        [%expr Forge.Config.Default [%e default]])
+                        [%expr Kre.Config.Default [%e default]])
                       default]]
         in
         [%stri
           let [%p pvar ~loc (field_variable label)] =
             [%e
               Option.fold ~none:field
-                ~some:(fun _ -> [%expr Forge.Config.secret [%e field]])
+                ~some:(fun _ -> [%expr Kre.Config.secret [%e field]])
                 (named "secret" label)]])
       labels
   in
   let binding (label : label_declaration) =
     binding_op ~loc ~op:{ txt = "let+"; loc }
-      ~pat:(pvar ~loc ("__forge_" ^ label.pld_name.txt))
-      ~exp:[%expr Forge.Config.read env [%e evar ~loc (field_variable label)]]
+      ~pat:(pvar ~loc ("__kre_" ^ label.pld_name.txt))
+      ~exp:[%expr Kre.Config.read env [%e evar ~loc (field_variable label)]]
   in
   let load =
     match labels with
@@ -131,7 +131,7 @@ let structure ~ctxt (_, declarations) =
     | first :: rest ->
         [%stri
           let load ?(env = Sys.getenv_opt) () =
-            let open Forge.Config.Syntax in
+            let open Kre.Config.Syntax in
             [%e
               pexp_letop ~loc
                 (letop ~let_:(binding first)
@@ -148,14 +148,14 @@ let structure ~ctxt (_, declarations) =
                         (List.map
                            (fun (label : label_declaration) ->
                              ( { txt = Lident label.pld_name.txt; loc },
-                               evar ~loc ("__forge_" ^ label.pld_name.txt) ))
+                               evar ~loc ("__kre_" ^ label.pld_name.txt) ))
                            labels)
                         None))]]
   in
   fields
   @ [
       load;
-      [%stri let load_exn ?env () = Forge.Config.exit_on_error (load ?env ())];
+      [%stri let load_exn ?env () = Kre.Config.exit_on_error (load ?env ())];
       [%stri
         let pairs (config : t) =
           [%e
@@ -163,21 +163,21 @@ let structure ~ctxt (_, declarations) =
               (List.map
                  (fun (label : label_declaration) ->
                    [%expr
-                     Forge.Config.show
+                     Kre.Config.show
                        [%e evar ~loc (field_variable label)]
                        [%e
                          pexp_field ~loc [%expr config]
                            { txt = Lident label.pld_name.txt; loc }]])
                  labels)]];
-      [%stri let pp ppf config = Forge.Config.pp ppf (pairs config)];
+      [%stri let pp ppf config = Kre.Config.pp ppf (pairs config)];
     ]
 
 let signature ~ctxt (_, declarations) =
   let loc = Expansion_context.Deriver.derived_item_loc ctxt in
   ignore (record ~loc declarations);
   [
-    [%sigi: val load : ?env:Forge.Config.env -> unit -> (t, string list) result];
-    [%sigi: val load_exn : ?env:Forge.Config.env -> unit -> t];
+    [%sigi: val load : ?env:Kre.Config.env -> unit -> (t, string list) result];
+    [%sigi: val load_exn : ?env:Kre.Config.env -> unit -> t];
     [%sigi: val pairs : t -> (string * string) list];
     [%sigi: val pp : Format.formatter -> t -> unit];
   ]

@@ -1,2 +1,2 @@
-val client : Forge.Spec.t -> string
-val routes : Forge.Spec.t list -> string
+val client : Kre.Spec.t -> string
+val routes : Kre.Spec.t list -> string

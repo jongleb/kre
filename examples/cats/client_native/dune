@@ -13,29 +13,21 @@
  (targets cats_client.ml)
  (deps spec.json)
  (action
-  (run
-   %{bin:forge}
-   client
-   --spec
-   spec.json
-   --controller
-   cats
-   --out
-   %{targets})))
+  (run %{bin:kre} client --spec spec.json --controller cats --out %{targets})))
 
 (tests
  (names test_client test_in_process)
  (libraries
-  forge-client.testing
+  kre-client.testing
   cats_server
   cats_shared
-  forge
-  forge.shared
-  forge-client.native
+  kre
+  kre.shared
+  kre-client.native
   dream
   lwt
   lwt.unix
   alcotest
   alcotest-lwt)
  (preprocess
-  (pps lwt_ppx forge-ppx)))
+  (pps lwt_ppx kre-ppx)))

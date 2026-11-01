@@ -1,1 +1,1 @@
-module Make () : Forge.Events.S = Forge.Events.Make ()
+module Make () : Kre.Events.S = Kre.Events.Make ()

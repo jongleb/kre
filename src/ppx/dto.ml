@@ -191,7 +191,7 @@ let rewrite ~known (declaration : type_declaration) =
                         ~rhs:
                           [%expr
                             Error
-                              (Forge_shared.Validation.fail ~rule:"one_of"
+                              (Kre_shared.Validation.fail ~rule:"one_of"
                                  [%e
                                    estring ~loc
                                      ("must be one of "
@@ -199,22 +199,21 @@ let rewrite ~known (declaration : type_declaration) =
                     ])]];
           [%stri
             let [%p pvar ~loc (named type_name "to_json")] =
-             fun __forge_value ->
+             fun __kre_value ->
               Jsonkit.declassify
                 (`String
-                   ([%e evar ~loc (named type_name "to_string")] __forge_value))];
+                   ([%e evar ~loc (named type_name "to_string")] __kre_value))];
           [%stri
             let [%p pvar ~loc (named type_name "of_json")] =
-             fun __forge_json ->
-              match Jsonkit.classify __forge_json with
-              | `String __forge_string ->
-                  Forge_shared.Validation.ok_exn
-                    ([%e evar ~loc (named type_name "of_string")]
-                       __forge_string)
+             fun __kre_json ->
+              match Jsonkit.classify __kre_json with
+              | `String __kre_string ->
+                  Kre_shared.Validation.ok_exn
+                    ([%e evar ~loc (named type_name "of_string")] __kre_string)
               | _ ->
                   raise
-                    (Forge_shared.Validation.Invalid
-                       (Forge_shared.Validation.fail ~rule:"type"
+                    (Kre_shared.Validation.Invalid
+                       (Kre_shared.Validation.fail ~rule:"type"
                           "must be a string"))];
           [%stri
             let [%p
@@ -362,12 +361,12 @@ let rewrite ~known (declaration : type_declaration) =
                           in
                           List.map
                             (fun rule ->
-                              [%expr Forge_shared.Validation.([%e rule])])
+                              [%expr Kre_shared.Validation.([%e rule])])
                             (sequence (expression_payload attribute))
                       | "validate.custom" ->
                           [
                             [%expr
-                              Forge_shared.Validation.rule ~name:"custom"
+                              Kre_shared.Validation.rule ~name:"custom"
                                 [%e expression_payload attribute]];
                           ]
                       | _ -> [])
@@ -394,25 +393,25 @@ let rewrite ~known (declaration : type_declaration) =
             match checked with
             | [] -> []
             | first :: rest ->
-                let variable field = "__forge_" ^ field in
+                let variable field = "__kre_" ^ field in
                 let binding { field = name; key; rules } =
                   binding_op ~loc ~op:{ txt = "let+"; loc }
                     ~pat:(pvar ~loc (variable name))
                     ~exp:
                       [%expr
-                        Forge_shared.Validation.field [%e estring ~loc key]
+                        Kre_shared.Validation.field [%e estring ~loc key]
                           [%e elist ~loc rules]
-                          [%e field ~loc "__forge_value" name]]
+                          [%e field ~loc "__kre_value" name]]
                 in
                 [
                   [%stri
                     let [%p pvar ~loc (named type_name "of_json")] =
-                     fun __forge_json ->
-                      let __forge_value =
-                        [%e evar ~loc (named type_name "of_json")] __forge_json
+                     fun __kre_json ->
+                      let __kre_value =
+                        [%e evar ~loc (named type_name "of_json")] __kre_json
                       in
-                      Forge_shared.Validation.ok_exn
-                        (let open Forge_shared.Validation.Syntax in
+                      Kre_shared.Validation.ok_exn
+                        (let open Kre_shared.Validation.Syntax in
                          [%e
                            pexp_letop ~loc
                              (letop ~let_:(binding first)
@@ -430,7 +429,7 @@ let rewrite ~known (declaration : type_declaration) =
                                         (fun { field = name; _ } ->
                                           (name, evar ~loc (variable name)))
                                         checked)
-                                     [%expr __forge_value]))])];
+                                     [%expr __kre_value]))])];
                 ]
           in
           let excluded =
@@ -462,15 +461,15 @@ let rewrite ~known (declaration : type_declaration) =
                 in
                 [%stri
                   let [%p pvar ~loc to_json] =
-                   fun (__forge_value :
+                   fun (__kre_value :
                          [%t
                            ptyp_constr ~loc { txt = Lident type_name; loc } []]) ->
-                    Forge_shared.Json.omit
+                    Kre_shared.Json.omit
                       [%e elist ~loc (List.map (estring ~loc) excluded)]
                       ([%e evar ~loc to_json]
                          [%e
                            match transformed with
-                           | [] -> [%expr __forge_value]
+                           | [] -> [%expr __kre_value]
                            | transformed ->
                                record
                                  (List.map
@@ -478,10 +477,10 @@ let rewrite ~known (declaration : type_declaration) =
                                       ( name,
                                         [%expr
                                           [%e f]
-                                            [%e field ~loc "__forge_value" name]]
+                                            [%e field ~loc "__kre_value" name]]
                                       ))
                                     transformed)
-                                 [%expr __forge_value]])]
+                                 [%expr __kre_value]])]
                 ::
                 (match excluded with
                 | [] -> []
@@ -489,7 +488,7 @@ let rewrite ~known (declaration : type_declaration) =
                     [
                       [%stri
                         let [%p pvar ~loc schema] =
-                          Forge_shared.Json.write_only
+                          Kre_shared.Json.write_only
                             [%e elist ~loc (List.map (estring ~loc) excluded)]
                             [%e evar ~loc schema]];
                     ])
@@ -502,7 +501,7 @@ let rewrite ~known (declaration : type_declaration) =
                 [
                   [%stri
                     let [%p pvar ~loc (type_name ^ "_of_" ^ name)] =
-                     fun (__forge_source :
+                     fun (__kre_source :
                            [%t ptyp_constr ~loc { txt = Lident name; loc } []])
                          : [%t target] ->
                       [%e
@@ -510,18 +509,17 @@ let rewrite ~known (declaration : type_declaration) =
                           (List.map
                              (fun (label : label_declaration) ->
                                ( label.pld_name.txt,
-                                 field ~loc "__forge_source" label.pld_name.txt
-                               ))
+                                 field ~loc "__kre_source" label.pld_name.txt ))
                              labels)
-                          [%expr __forge_source]]];
+                          [%expr __kre_source]]];
                 ]
             | Some (Partial name) ->
                 let source = ptyp_constr ~loc { txt = Lident name; loc } [] in
                 [
                   [%stri
                     let [%p pvar ~loc (type_name ^ "_apply")] =
-                     fun (__forge_patch : [%t target])
-                         (__forge_source : [%t source]) : [%t source] ->
+                     fun (__kre_patch : [%t target])
+                         (__kre_source : [%t source]) : [%t source] ->
                       [%e
                         record
                           (List.map
@@ -530,14 +528,14 @@ let rewrite ~known (declaration : type_declaration) =
                                  [%expr
                                    Option.value
                                      [%e
-                                       field ~loc "__forge_patch"
+                                       field ~loc "__kre_patch"
                                          label.pld_name.txt]
                                      ~default:
                                        [%e
-                                         field ~loc "__forge_source"
+                                         field ~loc "__kre_source"
                                            label.pld_name.txt]] ))
                              labels)
-                          [%expr __forge_source]]];
+                          [%expr __kre_source]]];
                 ]
           in
           ( {

@@ -129,9 +129,9 @@ let scan path =
         | None, _ ->
             Location.raise_errorf ~loc:module_type.pmty_loc
               "a provider's dependencies are named module types, e.g. (Db : \
-               Forge.Db.S)")
+               Kre.Db.S)")
     | Pmod_functor (Named ({ txt = None; loc }, _), _) ->
-        Location.raise_errorf ~loc "name the dependency: (Db : Forge.Db.S)"
+        Location.raise_errorf ~loc "name the dependency: (Db : Kre.Db.S)"
     | _ -> (`Factory [], module_)
   in
   let rec constraint_ (module_ : module_expr) =
@@ -339,7 +339,7 @@ let scan path =
                 construction;
                 hooks =
                   (match provides with
-                  | "Forge.Job.S" -> [ "on_start"; "on_shutdown" ]
+                  | "Kre.Job.S" -> [ "on_start"; "on_shutdown" ]
                   | _ -> hooks (items body));
                 checks =
                   List.concat_map
@@ -436,14 +436,14 @@ let scan path =
                                                  (Pconst_string
                                                     (expression, _, _)) -> (
                                                  match
-                                                   Forge_shared.Cron.of_string
+                                                   Kre_shared.Cron.of_string
                                                      expression
                                                  with
                                                  | Ok _ ->
                                                      Some
                                                        [%expr
-                                                         Forge.Schedule.Cron
-                                                           (Forge_shared.Cron
+                                                         Kre.Schedule.Cron
+                                                           (Kre_shared.Cron
                                                             .of_string_exn
                                                               [%e
                                                                 estring ~loc
@@ -460,12 +460,12 @@ let scan path =
                                          | "interval" ->
                                              Some
                                                [%expr
-                                                 Forge.Schedule.Every
+                                                 Kre.Schedule.Every
                                                    [%e seconds ()]]
                                          | "after" ->
                                              Some
                                                [%expr
-                                                 Forge.Schedule.After
+                                                 Kre.Schedule.After
                                                    [%e seconds ()]]
                                          | _ -> None)
                                        binding.pvb_attributes)
@@ -701,7 +701,7 @@ let expand ~loc ~input directories =
         List.map
           (fun (listener, topic) ->
             let bus =
-              resolve ~needed:"Forge.Events.S" ~site:provider.loc
+              resolve ~needed:"Kre.Events.S" ~site:provider.loc
                 ~by:provider.name ()
             in
             [%expr
@@ -722,14 +722,14 @@ let expand ~loc ~input directories =
           List.map
             (fun (performer, queue) ->
               let jobs =
-                resolve ~needed:"Forge.Job.S" ~site:provider.loc
-                  ~by:provider.name ()
+                resolve ~needed:"Kre.Job.S" ~site:provider.loc ~by:provider.name
+                  ()
               in
               [%expr
                 [%e
                   pexp_ident ~loc
                     { txt = Ldot (Lident jobs.name, "register"); loc }]
-                  (Forge.Job.handle [%e queue]
+                  (Kre.Job.handle [%e queue]
                      [%e
                        pexp_ident ~loc
                          { txt = Ldot (Lident provider.name, performer); loc }])])
@@ -738,7 +738,7 @@ let expand ~loc ~input directories =
   in
   let wiring =
     [%expr
-      Forge.Wiring.make
+      Kre.Wiring.make
         ~controllers:
           [%e
             elist ~loc
@@ -771,7 +771,7 @@ let expand ~loc ~input directories =
                    List.map
                      (fun (job, timing) ->
                        [%expr
-                         Forge.Schedule.job
+                         Kre.Schedule.job
                            ~name:[%e estring ~loc (provider.name ^ "." ^ job)]
                            [%e timing]
                            [%e
@@ -788,7 +788,7 @@ let expand ~loc ~input directories =
                      (fun (check, name) ->
                        [%expr
                          {
-                           Forge.Actuator.name = [%e estring ~loc name];
+                           Kre.Actuator.name = [%e estring ~loc name];
                            run =
                              [%e
                                pexp_ident ~loc
@@ -811,8 +811,7 @@ let expand ~loc ~input directories =
                             {
                               txt =
                                 Ldot
-                                  ( Lident tasks.file,
-                                    "__forge_command_" ^ command );
+                                  (Lident tasks.file, "__kre_command_" ^ command);
                               loc;
                             })
                          (match needs with
@@ -836,7 +835,7 @@ let expand ~loc ~input directories =
                  (fun provider ->
                    [%expr
                      {
-                       Forge.Actuator.name = [%e estring ~loc provider.name];
+                       Kre.Actuator.name = [%e estring ~loc provider.name];
                        needs =
                          [%e
                            elist ~loc
@@ -857,7 +856,7 @@ let expand ~loc ~input directories =
                   (fun controller ->
                     [%expr
                       {
-                        Forge.Actuator.name =
+                        Kre.Actuator.name =
                           [%e estring ~loc controller.module_name];
                         needs =
                           [%e

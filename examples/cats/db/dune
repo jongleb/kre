@@ -51,7 +51,7 @@
 (executable
  (name schema)
  (modules schema)
- (libraries cats_shared forge))
+ (libraries cats_shared kre))
 
 (library
  (name cats_db)
@@ -59,12 +59,12 @@
  (modules cats_sql cats_crud cats_db_service batch_controller database)
  (flags
   (:standard -w -32-27))
- (libraries cats_server cats_shared forge forge-db-mariadb sqlgg.traits lwt)
+ (libraries cats_server cats_shared kre kre-db-mariadb sqlgg.traits lwt)
  (preprocess
   (per_module
    ((pps lwt_ppx)
     cats_db_service)
-   ((pps lwt_ppx forge-ppx)
+   ((pps lwt_ppx kre-ppx)
     batch_controller
     database)))
  (preprocessor_deps

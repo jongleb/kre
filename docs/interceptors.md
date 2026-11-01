@@ -1,6 +1,6 @@
 # Interceptors
 
-Nest: `NestInterceptor.intercept(context, next)` с RxJS и `@UseInterceptors`. Forge: `Forge.Interceptor.t` — полиморфная функция вокруг **типизированного** результата хендлера, после guards и вокруг разбора параметров (как в Nest):
+Nest: `NestInterceptor.intercept(context, next)` с RxJS и `@UseInterceptors`. Kre: `Kre.Interceptor.t` — полиморфная функция вокруг **типизированного** результата хендлера, после guards и вокруг разбора параметров (как в Nest):
 
 ```ocaml
 type t = { around : 'a. Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t }
@@ -15,32 +15,30 @@ Error: Unbound module Dream
 <!-- $MDX file=examples/audit_controller.ml -->
 ```ocaml
 [@@@controller "audit"]
-[@@@intercept [ Forge.Interceptor.logging ]]
+[@@@intercept [ Kre.Interceptor.logging ]]
 
 let hidden =
-  Forge.Interceptor.map_error (fun (error : Forge.Error.t) ->
+  Kre.Interceptor.map_error (fun (error : Kre.Error.t) ->
       match error.code with
-      | "not_found" -> Forge.Error.forbidden "hidden"
+      | "not_found" -> Kre.Error.forbidden "hidden"
       | _ -> error)
 
 let calls = ref 0
 
 let counted =
-  Forge.Interceptor.tap (fun _ ->
+  Kre.Interceptor.tap (fun _ ->
       incr calls;
       Lwt.return_unit)
 
-let secret ~(id : int) : (string, Forge.Error.t) result Lwt.t =
+let secret ~(id : int) : (string, Kre.Error.t) result Lwt.t =
   Lwt.return
-    (match id with
-    | 1 -> Ok "one"
-    | _ -> Error (Forge.Error.not_found "secret"))
+    (match id with 1 -> Ok "one" | _ -> Error (Kre.Error.not_found "secret"))
 [@@get ":id"] [@@intercept [ hidden; counted ]]
 
 let slow () : string Lwt.t =
   let%lwt () = Lwt_unix.sleep 1.0 in
   Lwt.return "late"
-[@@get "slow"] [@@intercept [ Forge.Interceptor.timeout 0.05 ]]
+[@@get "slow"] [@@intercept [ Kre.Interceptor.timeout 0.05 ]]
 ```
 
 Interceptor не видит сериализованный ответ и не может сломать тип результата. То, что в Nest делают над готовым ответом (обёртка `{ data }`, кэш ответа, заголовки), — `Dream.middleware`:
@@ -61,7 +59,7 @@ let use : Dream.middleware =
 
 ## Повтор
 
-Spring Retry: `@Retryable(maxAttempts = 3, backoff = @Backoff(100))` на методе сервиса. Forge: `[@@retry n]` на любой функции — в сервисе, в хендлере, где угодно. ppx оборачивает тело в `Forge.Retry.run`: если вызов бросил исключение, он повторяется, всего до `n` раз; `[@@backoff s]` — первая пауза в секундах, дальше вдвое больше. После последней попытки исключение уходит дальше как было.
+Spring Retry: `@Retryable(maxAttempts = 3, backoff = @Backoff(100))` на методе сервиса. Kre: `[@@retry n]` на любой функции — в сервисе, в хендлере, где угодно. ppx оборачивает тело в `Kre.Retry.run`: если вызов бросил исключение, он повторяется, всего до `n` раз; `[@@backoff s]` — первая пауза в секундах, дальше вдвое больше. После последней попытки исключение уходит дальше как было.
 
 <!-- $MDX skip -->
 ```ocaml
@@ -69,4 +67,4 @@ let rate ~currency () : float Lwt.t = Exchange_api.rate currency
 [@@retry 3] [@@backoff 0.1]
 ```
 
-Повторяются только исключения. `Error` в `result` — ответ по делу (404, 409), повтор его не исправит. Без ppx — `Forge.Retry.run ~attempts:3 (fun () -> …)`.
+Повторяются только исключения. `Error` в `result` — ответ по делу (404, 409), повтор его не исправит. Без ppx — `Kre.Retry.run ~attempts:3 (fun () -> …)`.

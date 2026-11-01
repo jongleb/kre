@@ -1,1 +1,1 @@
-let respond profile = Forge.Response.json ~status:`OK (module Profile) profile
+let respond profile = Kre.Response.json ~status:`OK (module Profile) profile

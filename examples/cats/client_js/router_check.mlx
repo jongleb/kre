@@ -3,25 +3,25 @@ let id n = Result.get_ok (Cat.Id.of_repr n)
 let errors errors =
   String.concat ","
     (List.map
-       (fun (error : Forge_shared.Validation.error) ->
+       (fun (error : Kre_shared.Validation.error) ->
          String.concat "." error.path ^ ":" ^ error.rule)
-       (Forge_shared.Validation.to_list errors))
+       (Kre_shared.Validation.to_list errors))
 
 let matched path =
   Option.fold ~none:"none"
     ~some:(fun (params : Routes.Cats.params) -> Cat.Id.to_string params.id)
-    (Forge_client.Path.match_ Routes.Cats.params_path path)
+    (Kre_client.Path.match_ Routes.Cats.params_path path)
 
 let searched query =
   Result.fold ~error:errors
     ~ok:(fun (search : Cat_search.t) ->
       Printf.sprintf "%d/%s" search.limit
         (Option.fold ~none:"-" ~some:Cat.Breed.to_repr search.breed))
-    (Forge_client.Search.parse Cat_search.codec query)
+    (Kre_client.Search.parse Cat_search.codec query)
 
 let view url =
   ReactDOMServer.renderToStaticMarkup
-    <Forge_client.Router.View
+    <Kre_client.Router.View
       router=Routes.router server_url=url pending=(React.string "loading")
     />
 
@@ -30,11 +30,11 @@ let () =
     (fun (label, value) -> Js.log (label ^ " " ^ value))
     [
       ( "href",
-        Forge_client.Router.href Routes.Cats.show
+        Kre_client.Router.href Routes.Cats.show
           ~params:{ id = id 42 }
           ~search:() );
       ( "href",
-        Forge_client.Router.href Routes.Cats.index ~params:()
+        Kre_client.Router.href Routes.Cats.index ~params:()
           ~search:
             {
               limit = 5;
@@ -46,7 +46,7 @@ let () =
       ("search", searched "?limit=many");
       ( "link",
         ReactDOMServer.renderToStaticMarkup
-          (Forge_client.Router.link Routes.Cats.show
+          (Kre_client.Router.link Routes.Cats.show
              ~params:{ id = id 3 }
              ~search:() ~children:(React.string "tom")) );
       ("view", view "/cats/3");

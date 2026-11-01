@@ -1,8 +1,8 @@
 (test
  (name test_core)
  (libraries
-  forge
-  forge.shared
+  kre
+  kre.shared
   alcotest
   dream
   routes

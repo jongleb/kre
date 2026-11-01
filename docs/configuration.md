@@ -1,6 +1,6 @@
 # Configuration
 
-Nest: `ConfigModule.forRoot` и схема Joi. Forge: запись с `[@@deriving config]`. `load` читает все поля и сообщает все ошибки сразу, `pp` печатает конфиг со скрытыми секретами.
+Nest: `ConfigModule.forRoot` и схема Joi. Kre: запись с `[@@deriving config]`. `load` читает все поля и сообщает все ошибки сразу, `pp` печатает конфиг со скрытыми секретами.
 
 <!-- $MDX file=../examples/cats/server/config.ml -->
 ```ocaml
@@ -9,7 +9,7 @@ type t = {
   debug : bool; [@env "DEBUG"] [@default false]
   origins : string list; [@env "CORS_ORIGINS"] [@sep ","] [@default []]
   session_secret : string; [@env "SESSION_SECRET"] [@secret]
-  admin_email : Forge_shared.Refined.Email.t option;
+  admin_email : Kre_shared.Refined.Email.t option;
   database_url : string option; [@env "DATABASE_URL"] [@secret]
   web : string;
       [@env "WEB_DIR"]
@@ -18,4 +18,4 @@ type t = {
 [@@deriving config]
 ```
 
-Профили (Spring profiles): `Forge.Config.profile ()` накладывает `config/default.env`, затем `config/$FORGE_ENV.env`, затем реальное окружение — см. `bin/main.ml` в [First steps](first-steps.md). Окружение процесса не меняется.
+Профили (Spring profiles): `Kre.Config.profile ()` накладывает `config/default.env`, затем `config/$KRE_ENV.env`, затем реальное окружение — см. `bin/main.ml` в [First steps](first-steps.md). Окружение процесса не меняется.

@@ -1,9 +1,9 @@
 ; Same sources as ../, built for Melange against jsonkit-melange. Both
-; libraries are named forge_shared so user code sees one Forge_shared module.
+; libraries are named kre_shared so user code sees one Kre_shared module.
 
 (library
- (name forge_shared)
- (public_name forge-client.shared)
+ (name kre_shared)
+ (public_name kre-client.shared)
  (modes melange)
  (libraries jsonkit-melange))
 

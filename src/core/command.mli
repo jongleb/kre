@@ -15,15 +15,15 @@ val make :
   name:string ->
   doc:string ->
   options:string list ->
-  (args -> (unit -> unit Lwt.t, Forge_shared.Validation.t) result) ->
+  (args -> (unit -> unit Lwt.t, Kre_shared.Validation.t) result) ->
   t
 
 val required :
-  (module S : Forge_shared.Scalar.S) ->
-  string -> args -> (S.t, Forge_shared.Validation.t) result
+  (module S : Kre_shared.Scalar.S) ->
+  string -> args -> (S.t, Kre_shared.Validation.t) result
 
 val optional :
-  (module S : Forge_shared.Scalar.S) ->
-  string -> default:S.t -> args -> (S.t, Forge_shared.Validation.t) result
+  (module S : Kre_shared.Scalar.S) ->
+  string -> default:S.t -> args -> (S.t, Kre_shared.Validation.t) result
 
 val invoke : t list -> string list -> invocation

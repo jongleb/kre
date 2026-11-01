@@ -1,6 +1,6 @@
 # Task scheduling
 
-Nest: `@Cron('0 3 * * *')`, `@Interval(30000)`, `@Timeout(5000)`. Spring: `@Scheduled(cron=…, fixedRate=…, initialDelay=…)`. Forge: атрибут на функции провайдера `unit -> unit Lwt.t`.
+Nest: `@Cron('0 3 * * *')`, `@Interval(30000)`, `@Timeout(5000)`. Spring: `@Scheduled(cron=…, fixedRate=…, initialDelay=…)`. Kre: атрибут на функции провайдера `unit -> unit Lwt.t`.
 
 | Атрибут | Когда |
 | --- | --- |

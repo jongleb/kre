@@ -58,7 +58,7 @@ let () =
                          ()))));
           Alcotest.test_case "profile layers: env > <profile>.env > default.env"
             `Quick (fun () ->
-              let dir = Filename.temp_dir "forge" "config" in
+              let dir = Filename.temp_dir "kre" "config" in
               let write name lines =
                 Out_channel.with_open_text (Filename.concat dir name) (fun oc ->
                     List.iter (fun line -> output_string oc (line ^ "\n")) lines)
@@ -67,8 +67,8 @@ let () =
                 [ "# defaults"; "PORT=1"; "DEBUG=no"; "SESSION_SECRET='x'" ];
               write "test.env" [ "export PORT=2"; "DEBUG=\"yes\"" ];
               let layered =
-                Forge.Config.profile ~dir
-                  ~env:(env [ ("FORGE_ENV", "test"); ("DEBUG", "0") ])
+                Kre.Config.profile ~dir
+                  ~env:(env [ ("KRE_ENV", "test"); ("DEBUG", "0") ])
                   ()
               in
               Alcotest.(check (list (option string)))

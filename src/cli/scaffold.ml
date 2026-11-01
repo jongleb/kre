@@ -89,7 +89,7 @@ let generate kind plural ~fields =
       (Ok [])
   in
   Result.bind parsed @@ fun parsed ->
-  let type_of = function "time" -> "Forge_shared.Time.t" | kind -> kind in
+  let type_of = function "time" -> "Kre_shared.Time.t" | kind -> kind in
   let lines render = String.concat "" (List.map render parsed) in
   let substitutions =
     [

@@ -1,4 +1,4 @@
-open Forge_shared
+open Kre_shared
 
 module Name = Refined.String (struct
   let name = "name"
@@ -198,7 +198,7 @@ let error =
         Alcotest.check json "problem"
           (`Assoc
              [
-               ("type", `String "urn:forge:error:validation");
+               ("type", `String "urn:kre:error:validation");
                ("title", `String "Unprocessable Entity");
                ("status", `Int 422);
                ("detail", `String "validation failed");
@@ -214,14 +214,14 @@ let error =
                        ];
                    ] );
              ])
-          (Forge.Error.to_json ~instance:"/cats"
-             (Forge.Error.unprocessable
+          (Kre.Error.to_json ~instance:"/cats"
+             (Kre.Error.unprocessable
                 (Validation.fail ~rule:"range" "must be between 0 and 40"))));
     Alcotest.test_case "to_response" `Quick (fun () ->
         let response =
           Dream.test
             (fun request ->
-              Forge.Error.to_response request (Forge.Error.conflict "taken"))
+              Kre.Error.to_response request (Kre.Error.conflict "taken"))
             (get "/x")
         in
         Alcotest.(check (pair int (option string)))
@@ -239,11 +239,9 @@ let guard =
         Dream.set_field request user "tom";
         let guarded =
           Lwt_main.run
-            (Forge.Guard.both
-               (Forge.Guard.field user
-                  ~missing:(Forge.Error.unauthorized "login"))
-               (Forge.Guard.header "X-Key")
-               request)
+            (Kre.Guard.both
+               (Kre.Guard.field user ~missing:(Kre.Error.unauthorized "login"))
+               (Kre.Guard.header "X-Key") request)
         in
         Alcotest.(check (result (pair string string) reject))
           "both"
@@ -252,24 +250,24 @@ let guard =
     Alcotest.test_case "missing field" `Quick (fun () ->
         let guarded =
           Lwt_main.run
-            (Forge.Guard.field user
-               ~missing:(Forge.Error.unauthorized "login")
+            (Kre.Guard.field user
+               ~missing:(Kre.Error.unauthorized "login")
                (get "/"))
         in
         Alcotest.(check (option string))
           "code" (Some "unauthorized")
           (Option.map
-             (fun (e : Forge.Error.t) -> e.code)
+             (fun (e : Kre.Error.t) -> e.code)
              (Result.fold ~ok:(fun _ -> None) ~error:Option.some guarded)));
   ]
 
 let cats = [ { Cat.id = 1; name = "tom" }; { Cat.id = 2; name = "felix" } ]
 
-let admin : unit Forge.Guard.t =
+let admin : unit Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.fold
-       ~none:(Error (Forge.Error.forbidden "admin only"))
+       ~none:(Error (Kre.Error.forbidden "admin only"))
        ~some:(fun _ -> Ok ())
        (Dream.header request "X-Admin"))
 
@@ -282,51 +280,51 @@ let tag : Dream.middleware =
     (next request)
 
 let controller =
-  Forge.Controller.v ~middleware:[ tag ]
-    ~spec:{ Forge.Spec.prefix = "/cats"; version = None; routes = [] }
+  Kre.Controller.v ~middleware:[ tag ]
+    ~spec:{ Kre.Spec.prefix = "/cats"; version = None; routes = [] }
     [
-      Forge.Route.v `GET
+      Kre.Route.v `GET
         Routes.(
           (s "cats" /? nil)
-          @--> Forge.Route.handle ~status:`OK
-                 (Forge.Route.Json (module Json.List (Cat)))
+          @--> Kre.Route.handle ~status:`OK
+                 (Kre.Route.Json (module Json.List (Cat)))
                  (fun _ -> Lwt.return_ok cats));
-      Forge.Route.v `GET
+      Kre.Route.v `GET
         Routes.(
           (s "cats" / int /? nil) @--> fun id ->
-          Forge.Route.handle ~status:`OK
-            (Forge.Route.Found (module Cat))
+          Kre.Route.handle ~status:`OK
+            (Kre.Route.Found (module Cat))
             (fun _ ->
               Lwt.return_ok (List.find_opt (fun (c : Cat.t) -> c.id = id) cats)));
-      Forge.Route.v `POST
+      Kre.Route.v `POST
         Routes.(
           (s "cats" /? nil)
-          @--> Forge.Route.handle ~status:`Created ~guards:[ admin ]
-                 Forge.Route.Text (fun _ -> Lwt.return_ok "created"));
-      Forge.Route.v `DELETE
+          @--> Kre.Route.handle ~status:`Created ~guards:[ admin ]
+                 Kre.Route.Text (fun _ -> Lwt.return_ok "created"));
+      Kre.Route.v `DELETE
         Routes.(
           (s "cats" / int /? nil) @--> fun _ ->
-          Forge.Route.handle ~status:`No_Content Forge.Route.Unit (fun _ ->
+          Kre.Route.handle ~status:`No_Content Kre.Route.Unit (fun _ ->
               failwith "boom"));
-      Forge.Route.v `PUT
+      Kre.Route.v `PUT
         Routes.(
           (s "cats" / int /? nil) @--> fun _ ->
-          Forge.Route.handle ~status:`OK Forge.Route.Unit (fun _ ->
-              Forge.Error.fail (Forge.Error.conflict "locked")));
+          Kre.Route.handle ~status:`OK Kre.Route.Unit (fun _ ->
+              Kre.Error.fail (Kre.Error.conflict "locked")));
     ]
 
-let app = Dream.test (Forge.App.handler [ controller ])
+let app = Dream.test (Kre.App.handler [ controller ])
 
 let app_tests =
   [
     Alcotest.test_case "empty app answers 404 Problem Details" `Quick (fun () ->
-        let response = Dream.test (Forge.App.handler []) (get "/anything") in
+        let response = Dream.test (Kre.App.handler []) (get "/anything") in
         Alcotest.(check (pair int json))
           "404"
           ( 404,
             `Assoc
               [
-                ("type", `String "urn:forge:error:not_found");
+                ("type", `String "urn:kre:error:not_found");
                 ("title", `String "Not Found");
                 ("status", `Int 404);
                 ("detail", `String "no route for GET /anything");
@@ -371,7 +369,7 @@ let app_tests =
     Alcotest.test_case "custom error handler" `Quick (fun () ->
         let response =
           Dream.test
-            (Forge.App.handler
+            (Kre.App.handler
                ~error_handler:(fun _ _ ->
                  Dream.respond ~status:`Not_Found "nope")
                [])
@@ -410,7 +408,7 @@ let spec =
                                        [
                                          ("type", `String "int");
                                          ( "module",
-                                           `String "Forge_shared.Scalar.Int" );
+                                           `String "Kre_shared.Scalar.Int" );
                                          ("schema", Scalar.Int.t_jsonschema);
                                        ] );
                                  ];
@@ -431,7 +429,7 @@ let spec =
                        ];
                    ] );
              ])
-          (Forge.Spec.to_json
+          (Kre.Spec.to_json
              {
                prefix = "/cats";
                version = None;
@@ -450,7 +448,7 @@ let spec =
                            value =
                              {
                                type_ = "int";
-                               module_ = "Forge_shared.Scalar.Int";
+                               module_ = "Kre_shared.Scalar.Int";
                                schema = Scalar.Int.t_jsonschema;
                              };
                          };
@@ -482,8 +480,8 @@ let migration =
              ( [ "CREATE TABLE a (\nid BIGINT\n)"; "INSERT INTO a VALUES (1)" ],
                [ "DROP TABLE a" ] ))
           (Result.map
-             (fun (m : Forge.Migration.t) -> (m.up, m.down))
-             (Forge.Migration.parse ~version:"0001_a"
+             (fun (m : Kre.Migration.t) -> (m.up, m.down))
+             (Kre.Migration.parse ~version:"0001_a"
                 "-- header\n\
                  -- migrate:up\n\
                  CREATE TABLE a (\n\
@@ -502,7 +500,7 @@ let migration =
           ]
           (List.map
              (fun text ->
-               Result.map ignore (Forge.Migration.parse ~version:"0001_a" text))
+               Result.map ignore (Kre.Migration.parse ~version:"0001_a" text))
              [
                "DROP TABLE a;"; "-- migrate:up\n-- migrate:down\nDROP TABLE a;";
              ]));
@@ -515,8 +513,8 @@ let security =
     Alcotest.test_case "cors: preflight and simple requests" `Quick (fun () ->
         let cors =
           Dream.test
-            (Forge.Cors.middleware
-               ~origins:(Forge.Cors.Only [ "https://cats.io" ]) () ok_handler)
+            (Kre.Cors.middleware ~origins:(Kre.Cors.Only [ "https://cats.io" ])
+               () ok_handler)
         in
         let preflight =
           cors
@@ -554,7 +552,7 @@ let security =
       (fun () ->
         let response =
           Dream.test
-            (Forge.Secure_headers.middleware () (fun _ ->
+            (Kre.Secure_headers.middleware () (fun _ ->
                  Dream.respond
                    ~headers:[ ("X-Frame-Options", "SAMEORIGIN") ]
                    "ok"))
@@ -572,7 +570,7 @@ let security =
         let now = ref 0. in
         let limited =
           Dream.test
-            (Forge.Rate_limit.middleware ~limit:2 ~window:10.
+            (Kre.Rate_limit.middleware ~limit:2 ~window:10.
                ~clock:(fun () -> !now)
                () ok_handler)
         in
@@ -594,12 +592,12 @@ let security =
   ]
 
 let jwt =
-  let token = Forge.Jwt.sign ~secret:"s" ~now:1000. ~expires_in:60. "ann" in
+  let token = Kre.Jwt.sign ~secret:"s" ~now:1000. ~expires_in:60. "ann" in
   let outcome = function
-    | Ok (claims : Forge.Jwt.claims) -> "ok " ^ claims.subject
-    | Error (`Jwt Forge.Jwt.Malformed) -> "malformed"
-    | Error (`Jwt Forge.Jwt.Bad_signature) -> "bad signature"
-    | Error (`Jwt Forge.Jwt.Expired) -> "expired"
+    | Ok (claims : Kre.Jwt.claims) -> "ok " ^ claims.subject
+    | Error (`Jwt Kre.Jwt.Malformed) -> "malformed"
+    | Error (`Jwt Kre.Jwt.Bad_signature) -> "bad signature"
+    | Error (`Jwt Kre.Jwt.Expired) -> "expired"
   in
   [
     Alcotest.test_case "verify" `Quick (fun () ->
@@ -608,26 +606,26 @@ let jwt =
           [ "ok ann"; "bad signature"; "expired"; "malformed"; "bad signature" ]
           (List.map outcome
              [
-               Forge.Jwt.verify ~secret:"s" ~now:1010. token;
-               Forge.Jwt.verify ~secret:"other" ~now:1010. token;
-               Forge.Jwt.verify ~secret:"s" ~now:1061. token;
-               Forge.Jwt.verify ~secret:"s" ~now:1010. "nope";
-               Forge.Jwt.verify ~secret:"s" ~now:1010. (token ^ "x");
+               Kre.Jwt.verify ~secret:"s" ~now:1010. token;
+               Kre.Jwt.verify ~secret:"other" ~now:1010. token;
+               Kre.Jwt.verify ~secret:"s" ~now:1061. token;
+               Kre.Jwt.verify ~secret:"s" ~now:1010. "nope";
+               Kre.Jwt.verify ~secret:"s" ~now:1010. (token ^ "x");
              ]));
     Alcotest.test_case "bearer guard and a role check" `Quick (fun () ->
-        let fresh = Forge.Jwt.sign ~secret:"s" ~expires_in:60. "ann" in
+        let fresh = Kre.Jwt.sign ~secret:"s" ~expires_in:60. "ann" in
         let admin =
-          Forge.Guard.check
-            (fun (claims : Forge.Jwt.claims) ->
+          Kre.Guard.check
+            (fun (claims : Kre.Jwt.claims) ->
               match claims.subject with
               | "root" -> Ok `Admin
-              | _ -> Error (Forge.Error.forbidden "admins only"))
-            (Forge.Jwt.bearer ~secret:"s")
+              | _ -> Error (Kre.Error.forbidden "admins only"))
+            (Kre.Jwt.bearer ~secret:"s")
         in
         let code guard headers =
           Result.fold
             ~ok:(fun _ -> "ok")
-            ~error:(fun (error : Forge.Error.t) -> error.code)
+            ~error:(fun (error : Kre.Error.t) -> error.code)
             (Lwt_main.run (guard (Dream.request ~headers "")))
         in
         Alcotest.(check (list string))
@@ -635,9 +633,9 @@ let jwt =
           [ "ok"; "unauthorized"; "forbidden" ]
           [
             code
-              (Forge.Jwt.bearer ~secret:"s")
+              (Kre.Jwt.bearer ~secret:"s")
               [ ("Authorization", "Bearer " ^ fresh) ];
-            code (Forge.Jwt.bearer ~secret:"s") [];
+            code (Kre.Jwt.bearer ~secret:"s") [];
             code admin [ ("Authorization", "Bearer " ^ fresh) ];
           ]);
   ]
@@ -645,8 +643,8 @@ let jwt =
 let cron =
   let next expression after =
     Option.map int_of_float
-      (Forge_shared.Cron.next
-         (Result.get_ok (Forge_shared.Cron.of_string expression))
+      (Kre_shared.Cron.next
+         (Result.get_ok (Kre_shared.Cron.of_string expression))
          ~after)
   in
   [
@@ -673,7 +671,7 @@ let cron =
                Result.fold
                  ~ok:(fun _ -> "ok")
                  ~error:Fun.id
-                 (Forge_shared.Cron.of_string expression))
+                 (Kre_shared.Cron.of_string expression))
              [ "61 * * * *"; "* * *"; "0 5-2 * * *" ]));
   ]
 
@@ -683,7 +681,7 @@ let cache =
         let now = ref 0. in
         let calls = ref 0 in
         let square =
-          Forge.Cache.memoize ~ttl:10.
+          Kre.Cache.memoize ~ttl:10.
             ~clock:(fun () -> !now)
             (fun n ->
               incr calls;
@@ -706,8 +704,8 @@ let live =
   [
     Alcotest.test_case "writes reach subscribers of that table" `Quick
       (fun () ->
-        let changes, stop = Forge.Live.subscribe [ "cats" ] in
-        List.iter Forge.Live.wrote
+        let changes, stop = Kre.Live.subscribe [ "cats" ] in
+        List.iter Kre.Live.wrote
           [
             "INSERT INTO cats (name) VALUES (?)";
             "UPDATE `shop`.`cats` SET name = ?";
@@ -721,13 +719,13 @@ let live =
           (Lwt_stream.get_available changes));
     Alcotest.test_case "a transaction publishes on Ok, after it ends" `Quick
       (fun () ->
-        let changes, stop = Forge.Live.subscribe [ "cats" ] in
+        let changes, stop = Kre.Live.subscribe [ "cats" ] in
         let during = ref [] in
         let run result =
           ignore
             (Lwt_main.run
-               (Forge.Live.deferred (fun () ->
-                    Forge.Live.wrote "INSERT INTO cats VALUES (1)";
+               (Kre.Live.deferred (fun () ->
+                    Kre.Live.wrote "INSERT INTO cats VALUES (1)";
                     during := !during @ Lwt_stream.get_available changes;
                     Lwt.return result)))
         in
@@ -739,12 +737,12 @@ let live =
           (!during, Lwt_stream.get_available changes));
     Alcotest.test_case "[@@live] must list every table the route reads" `Quick
       (fun () ->
-        Unix.putenv "FORGE_ENV" "test";
+        Unix.putenv "KRE_ENV" "test";
         let answer tables =
           Dream.status
             (Dream.test
-               (Forge.Live.audit tables (fun _ ->
-                    Forge.Live.read
+               (Kre.Live.audit tables (fun _ ->
+                    Kre.Live.read
                       "SELECT c.name FROM (SELECT * FROM cats) c JOIN `users` \
                        u ON u.id = c.owner";
                     Dream.html "ok"))
@@ -755,14 +753,14 @@ let live =
             (fun tables -> Dream.status_to_int (answer tables))
             [ [ "cats" ]; [ "cats"; "users" ] ]
         in
-        Unix.putenv "FORGE_ENV" "dev";
+        Unix.putenv "KRE_ENV" "dev";
         Alcotest.(check (list int)) "statuses" [ 500; 200 ] statuses);
   ]
 
 let table =
   let users =
-    Forge.Table.make ~name:"users"
-      [ Forge.Table.column ~role:Primary_auto "id" Integer Not_null ]
+    Kre.Table.make ~name:"users"
+      [ Kre.Table.column ~role:Primary_auto "id" Integer Not_null ]
   in
   [
     Alcotest.test_case "crud: finders by unique, index and reference" `Quick
@@ -794,21 +792,21 @@ let table =
            @owner_id ORDER BY id;\n\
            -- @count\n\
            SELECT COUNT(*) FROM pets;\n"
-          (Forge.Table.crud
-             (Forge.Table.make ~name:"pets"
+          (Kre.Table.crud
+             (Kre.Table.make ~name:"pets"
                 [
-                  Forge.Table.column ~role:Primary_auto "id" Integer Not_null;
-                  Forge.Table.column ~role:Unique "email" (Text (Some 255))
+                  Kre.Table.column ~role:Primary_auto "id" Integer Not_null;
+                  Kre.Table.column ~role:Unique "email" (Text (Some 255))
                     Not_null;
-                  Forge.Table.column ~role:Index "team" (Text None) Not_null;
-                  Forge.Table.column ~references:users "owner_id" Integer Null;
+                  Kre.Table.column ~role:Index "team" (Text None) Not_null;
+                  Kre.Table.column ~references:users "owner_id" Integer Null;
                 ])));
   ]
 
 let etag =
   let handler =
     Dream.test
-      (Forge.Etag.middleware (fun request ->
+      (Kre.Etag.middleware (fun request ->
            match Dream.target request with
            | "/missing" -> Dream.empty `Not_Found
            | _ -> Dream.html "hello"))
@@ -860,12 +858,12 @@ let retry =
   [
     Alcotest.test_case "retries until it succeeds" `Quick (fun () ->
         let calls, f = flaky 2 in
-        let result = outcome (Forge.Retry.run ~backoff:0.001 ~attempts:3 f) in
+        let result = outcome (Kre.Retry.run ~backoff:0.001 ~attempts:3 f) in
         Alcotest.(check (pair string int))
           "third call" ("ok 3", 3) (result, !calls));
     Alcotest.test_case "gives up with the last exception" `Quick (fun () ->
         let calls, f = flaky 5 in
-        let result = outcome (Forge.Retry.run ~attempts:2 f) in
+        let result = outcome (Kre.Retry.run ~attempts:2 f) in
         Alcotest.(check (pair string int))
           "two calls" ({|Failure("call 2")|}, 2) (result, !calls));
   ]
@@ -873,14 +871,14 @@ let retry =
 let command =
   let ran = ref [] in
   let greet =
-    Forge.Command.make ~name:"greet" ~doc:"Say hello"
-      ~options:[ "name"; "times" ] (fun args ->
-        let open Forge_shared.Validation.Syntax in
+    Kre.Command.make ~name:"greet" ~doc:"Say hello" ~options:[ "name"; "times" ]
+      (fun args ->
+        let open Kre_shared.Validation.Syntax in
         let+ name =
-          Forge.Command.required (module Forge_shared.Scalar.String) "name" args
+          Kre.Command.required (module Kre_shared.Scalar.String) "name" args
         and+ times =
-          Forge.Command.optional
-            (module Forge_shared.Scalar.Int)
+          Kre.Command.optional
+            (module Kre_shared.Scalar.Int)
             "times" ~default:1 args
         in
         fun () ->
@@ -888,7 +886,7 @@ let command =
           Lwt.return_unit)
   in
   let outcome arguments =
-    match Forge.Command.invoke [ greet ] arguments with
+    match Kre.Command.invoke [ greet ] arguments with
     | Serve -> "serve"
     | Usage text -> text
     | Invalid message -> "invalid: " ^ message
@@ -928,16 +926,16 @@ let command =
 let page =
   let decode query =
     Result.fold
-      ~ok:(fun (request : Forge_shared.Page.Request.t) ->
+      ~ok:(fun (request : Kre_shared.Page.Request.t) ->
         Printf.sprintf "%d/%d from %d" request.page request.size
-          (Forge_shared.Page.Request.offset request))
+          (Kre_shared.Page.Request.offset request))
       ~error:(fun errors ->
         String.concat ","
           (List.map
-             (fun (error : Forge_shared.Validation.error) ->
+             (fun (error : Kre_shared.Validation.error) ->
                String.concat "." error.path ^ ":" ^ error.rule)
-             (Forge_shared.Validation.to_list errors)))
-      (Forge_shared.Search.decode Forge_shared.Page.Request.codec query)
+             (Kre_shared.Validation.to_list errors)))
+      (Kre_shared.Search.decode Kre_shared.Page.Request.codec query)
   in
   [
     Alcotest.test_case "a page request parses and checks" `Quick (fun () ->
@@ -950,24 +948,23 @@ let page =
             decode [ ("page", "0"); ("size", "500") ];
           ]);
     Alcotest.test_case "a page in JSON" `Quick (fun () ->
-        let module Pages = Forge_shared.Page.Make (Forge_shared.Scalar.String)
-        in
+        let module Pages = Kre_shared.Page.Make (Kre_shared.Scalar.String) in
         let page =
-          Forge_shared.Page.make
-            (Result.get_ok (Forge_shared.Page.Request.make ~page:2 ~size:2))
+          Kre_shared.Page.make
+            (Result.get_ok (Kre_shared.Page.Request.make ~page:2 ~size:2))
             ~total:5 [ "c"; "d" ]
         in
         Alcotest.(check (pair string int))
           "json and pages"
           ({|{"items":["c","d"],"page":2,"size":2,"total":5}|}, 3)
-          (Jsonkit.to_string (Pages.to_json page), Forge_shared.Page.pages page));
+          (Jsonkit.to_string (Pages.to_json page), Kre_shared.Page.pages page));
   ]
 
 let time =
   let show text =
-    Result.fold ~ok:Forge_shared.Time.to_string
+    Result.fold ~ok:Kre_shared.Time.to_string
       ~error:(fun _ -> "invalid")
-      (Forge_shared.Time.of_string text)
+      (Kre_shared.Time.of_string text)
   in
   [
     Alcotest.test_case "RFC 3339 both ways" `Quick (fun () ->
@@ -984,8 +981,8 @@ let time =
             "invalid";
           ]
           [
-            Forge_shared.Time.to_string (Forge_shared.Time.of_seconds 0.);
-            Forge_shared.Time.to_string (Forge_shared.Time.of_seconds (-1.));
+            Kre_shared.Time.to_string (Kre_shared.Time.of_seconds 0.);
+            Kre_shared.Time.to_string (Kre_shared.Time.of_seconds (-1.));
             show "2000-02-29T12:34:56.789Z";
             show "2026-11-01T09:44:08+03:00";
             show "2026-11-01 06:44:08z";
@@ -1000,27 +997,26 @@ let profiler =
     Alcotest.test_case "requests, their SQL and N+1" `Quick (fun () ->
         let handler =
           Dream.test
-            (Forge.App.handler
-               ~middleware:[ Forge.Profiler.middleware ]
+            (Kre.App.handler
+               ~middleware:[ Kre.Profiler.middleware ]
                [
-                 Forge.Profiler.controller;
-                 Forge.Controller.v
+                 Kre.Profiler.controller;
+                 Kre.Controller.v
                    ~spec:
                      {
-                       Forge.Spec.prefix = "/owners";
+                       Kre.Spec.prefix = "/owners";
                        version = None;
                        routes = [];
                      }
                    [
-                     Forge.Route.v `GET
+                     Kre.Route.v `GET
                        (Routes.( @--> )
                           Routes.(s "owners" /? nil)
-                          (Forge.Route.handle ~status:`OK Forge.Route.Text
-                             (fun _ ->
-                               Forge.Profiler.sql "SELECT * FROM owners";
+                          (Kre.Route.handle ~status:`OK Kre.Route.Text (fun _ ->
+                               Kre.Profiler.sql "SELECT * FROM owners";
                                List.iter
                                  (fun _ ->
-                                   Forge.Profiler.sql
+                                   Kre.Profiler.sql
                                      "SELECT * FROM cats WHERE owner_id = ?")
                                  [ 1; 2; 3 ];
                                Lwt.return_ok "ok")));
@@ -1033,20 +1029,18 @@ let profiler =
             Lwt_main.run (Dream.body response) )
         in
         ignore (get "/owners");
-        let entry = List.hd (Forge.Profiler.recent ()) in
+        let entry = List.hd (Kre.Profiler.recent ()) in
         Alcotest.(check (triple string int (list (pair string int))))
           "entry"
           ("/owners", 4, [ ("SELECT * FROM cats WHERE owner_id = ?", 3) ])
-          ( entry.target,
-            List.length entry.queries,
-            Forge.Profiler.repeated entry );
-        Alcotest.(check int) "page" 200 (fst (get "/__forge/profiler")));
+          (entry.target, List.length entry.queries, Kre.Profiler.repeated entry);
+        Alcotest.(check int) "page" 200 (fst (get "/__kre/profiler")));
   ]
 
 let mail =
-  let email text = Result.get_ok (Forge_shared.Refined.Email.of_repr text) in
+  let email text = Result.get_ok (Kre_shared.Refined.Email.of_repr text) in
   let letter =
-    Forge.Mail.make
+    Kre.Mail.make
       ~from:(email "shelter@cats.test")
       ~to_:(email "ann@cats.test")
       ~cc:[ email "staff@cats.test" ]
@@ -1100,10 +1094,10 @@ let mail =
           let%lwt () = serve () in
           Lwt_io.close output
         in
-        let module Smtp = Forge.Mail.Smtp (struct
+        let module Smtp = Kre.Mail.Smtp (struct
           let host = "127.0.0.1"
           let port = port
-          let helo = "forge.test"
+          let helo = "kre.test"
         end) in
         let sent = Lwt_main.run (Smtp.send letter) in
         Lwt_main.run server;
@@ -1111,7 +1105,7 @@ let mail =
         Alcotest.(check (list string))
           "commands"
           [
-            "EHLO forge.test";
+            "EHLO kre.test";
             "MAIL FROM:<shelter@cats.test>";
             "RCPT TO:<ann@cats.test>";
             "RCPT TO:<staff@cats.test>";
@@ -1129,17 +1123,17 @@ let mail =
             List.mem "Cc: staff@cats.test" body;
           ]);
     Alcotest.test_case "outbox keeps letters" `Quick (fun () ->
-        let module Outbox = Forge.Mail.Outbox () in
+        let module Outbox = Kre.Mail.Outbox () in
         ignore (Lwt_main.run (Outbox.send letter));
         Alcotest.(check (list string))
           "subjects" [ "Привет" ]
           (List.map
-             (fun (letter : Forge.Mail.t) -> letter.subject)
+             (fun (letter : Kre.Mail.t) -> letter.subject)
              (Outbox.sent ())));
   ]
 
 let () =
-  Alcotest.run "forge"
+  Alcotest.run "kre"
     [
       ("Live", live);
       ("Table", table);

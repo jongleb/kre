@@ -12,8 +12,8 @@ type t = {
 type 'a returns =
   | Unit : unit returns
   | Text : string returns
-  | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
-  | Found : (module Forge_shared.Json.S with type t = 'a) -> 'a option returns
+  | Json : (module Kre_shared.Json.S with type t = 'a) -> 'a returns
+  | Found : (module Kre_shared.Json.S with type t = 'a) -> 'a option returns
   | Raw : Dream.response returns
   | Redirect : string -> unit returns
 
@@ -94,8 +94,8 @@ let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
               log ~request "unhandled exception: %s" (Printexc.to_string exn));
           Lwt.return_error (Error.internal "internal server error"))
 
-let events ~status ?guards ?headers ?interceptors
-    (module J : Forge_shared.Json.S) body =
+let events ~status ?guards ?headers ?interceptors (module J : Kre_shared.Json.S)
+    body =
   handle ~status ?guards ?headers ?interceptors Raw (fun request ->
       Lwt.bind (body request) (function
         | Error error -> Lwt.return_error error
@@ -118,7 +118,7 @@ let events ~status ?guards ?headers ?interceptors
                          (fun () -> Dream.flush stream))
                      events))))
 
-let segment (module S : Forge_shared.Scalar.S) label path =
+let segment (module S : Kre_shared.Scalar.S) label path =
   Routes.pattern S.to_string
     (fun s -> Result.to_option (S.of_string s))
     label path
@@ -126,8 +126,8 @@ let segment (module S : Forge_shared.Scalar.S) label path =
 let load ~what find id =
   Lwt.map (Option.to_result ~none:(Error.not_found what)) (find id)
 
-let query (type b) (module S : Forge_shared.Scalar.S)
-    (presence : (S.t, b) Forge_shared.Presence.t) name request :
+let query (type b) (module S : Kre_shared.Scalar.S)
+    (presence : (S.t, b) Kre_shared.Presence.t) name request :
     (b, Error.t) result Lwt.t =
   let parse raw =
     Result.map_error
@@ -136,8 +136,8 @@ let query (type b) (module S : Forge_shared.Scalar.S)
           ~extensions:
             [
               ( "errors",
-                Forge_shared.Validation.to_json
-                  (Forge_shared.Validation.at [ name ] errors) );
+                Kre_shared.Validation.to_json
+                  (Kre_shared.Validation.at [ name ] errors) );
             ]
           ("invalid query parameter " ^ name))
       (S.of_string raw)
@@ -162,13 +162,13 @@ let query (type b) (module S : Forge_shared.Scalar.S)
   in
   Lwt.return parsed
 
-let body (module J : Forge_shared.Json.S) request =
+let body (module J : Kre_shared.Json.S) request =
   Lwt.map
     (fun text ->
       match Jsonkit.of_string text with
       | json ->
           Result.map_error Error.unprocessable
-            (Forge_shared.Json.parse (module J) json)
+            (Kre_shared.Json.parse (module J) json)
       | exception Jsonkit.Of_string_error message ->
           Error (Error.bad_request ("request body is not JSON: " ^ message)))
     (Dream.body request)

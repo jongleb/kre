@@ -1,3 +1,3 @@
-[@@@injectable Forge.Mail.S]
+[@@@injectable Kre.Mail.S]
 
-include Forge.Mail.Outbox ()
+include Kre.Mail.Outbox ()

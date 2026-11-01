@@ -85,11 +85,11 @@ let applied (type conn) (module D : Db.DRIVER with type conn = conn)
   let open Lwt.Syntax in
   let* () =
     D.execute conn
-      "CREATE TABLE IF NOT EXISTS forge_migrations (version VARCHAR(255) NOT \
+      "CREATE TABLE IF NOT EXISTS kre_migrations (version VARCHAR(255) NOT \
        NULL PRIMARY KEY, applied_at TIMESTAMP NOT NULL DEFAULT \
        CURRENT_TIMESTAMP)"
   in
-  D.strings conn "SELECT version FROM forge_migrations ORDER BY version"
+  D.strings conn "SELECT version FROM kre_migrations ORDER BY version"
 
 let status (module D : Db.DRIVER) conn migrations =
   Lwt.map
@@ -117,7 +117,7 @@ let up (module D : Db.DRIVER) conn migrations =
           let* () = Lwt_list.iter_s (D.execute conn) migration.up in
           let+ () =
             D.execute conn
-              ("INSERT INTO forge_migrations (version) VALUES ("
+              ("INSERT INTO kre_migrations (version) VALUES ("
              ^ quote migration.version ^ ")")
           in
           Some migration)
@@ -138,6 +138,6 @@ let down (module D : Db.DRIVER) conn migrations =
       let* () = Lwt_list.iter_s (D.execute conn) last.down in
       let+ () =
         D.execute conn
-          ("DELETE FROM forge_migrations WHERE version = " ^ quote last.version)
+          ("DELETE FROM kre_migrations WHERE version = " ^ quote last.version)
       in
       Some last

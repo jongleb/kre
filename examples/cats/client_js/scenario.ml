@@ -10,27 +10,27 @@ let tom =
 
 let show = function
   | Ok text -> "ok " ^ text
-  | Error (Forge_client.Error.Problem problem) ->
+  | Error (Kre_client.Error.Problem problem) ->
       Printf.sprintf "problem %d %s %s" problem.status problem.type_
         (String.concat ","
            (List.map
-              (fun (error : Forge_shared.Validation.error) ->
+              (fun (error : Kre_shared.Validation.error) ->
                 String.concat "." error.path ^ ":" ^ error.rule)
               problem.errors))
-  | Error error -> "error " ^ Forge_client.Error.message error
+  | Error error -> "error " ^ Kre_client.Error.message error
 
 let () =
-  Forge_client.Http.base_url := "http://127.0.0.1:" ^ argv.(2);
-  Forge_client.Http.headers := [ ("X-User", "ann") ];
+  Kre_client.Http.base_url := "http://127.0.0.1:" ^ argv.(2);
+  Kre_client.Http.headers := [ ("X-User", "ann") ];
   let stop = ref ignore in
   let changed =
     Js.Promise.make (fun ~resolve ~reject:_ ->
         stop :=
-          Forge_client.Live.watch Cats_client.Live.find_all (fun table ->
+          Kre_client.Live.watch Cats_client.Live.find_all (fun table ->
               (resolve table [@u])))
   in
   ignore
-    (let open Forge_client.Promise in
+    (let open Kre_client.Promise in
      let* () =
        Js.Promise.make (fun ~resolve ~reject:_ ->
            ignore

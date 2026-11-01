@@ -1,12 +1,12 @@
 # Testing
 
-Nest: `Test.createTestingModule` с `overrideProvider`. Forge: контейнера нет, подмена — передать другой модуль в `register`; приложение проверяется `Dream.test` без сети.
+Nest: `Test.createTestingModule` с `overrideProvider`. Kre: контейнера нет, подмена — передать другой модуль в `register`; приложение проверяется `Dream.test` без сети.
 
 <!-- $MDX file=../examples/cats/test/test_cats.ml -->
 ```ocaml
 let app =
   let module Fresh = Cats_service.Make () in
-  Dream.test (Forge.App.handler [ Cats_controller.register (module Fresh) ])
+  Dream.test (Kre.App.handler [ Cats_controller.register (module Fresh) ])
 
 let call ?(headers = []) ?(body = "") method_ target =
   let response = app (Dream.request ~method_ ~target ~headers body) in
@@ -121,7 +121,7 @@ let () =
                 "routes"
                 [ ("GET", "/cats"); ("GET", "/cats/:id"); ("POST", "/cats") ]
                 (List.map
-                   (fun (route : Forge.Spec.route) ->
+                   (fun (route : Kre.Spec.route) ->
                      (Dream.method_to_string route.verb, route.path))
                    Cats_controller.spec.routes));
         ] );
@@ -132,7 +132,7 @@ let () =
 
 ## Типизированный клиент без сети
 
-Nest проверяет HTTP через supertest, Spring — через MockMvc: запросы собираются строками. В Forge тест может звать тот же сгенерированный клиент, что и фронтенд. `Forge_testing.use` (библиотека `forge-client.testing`) направляет его запросы прямо в обработчик приложения, без порта и сокета. Неверный путь, поле тела или тип ответа ломают компиляцию теста.
+Nest проверяет HTTP через supertest, Spring — через MockMvc: запросы собираются строками. В Kre тест может звать тот же сгенерированный клиент, что и фронтенд. `Kre_testing.use` (библиотека `kre-client.testing`) направляет его запросы прямо в обработчик приложения, без порта и сокета. Неверный путь, поле тела или тип ответа ломают компиляцию теста.
 
 <!-- $MDX file=../examples/cats/client_native/test_in_process.ml -->
 ```ocaml
@@ -157,19 +157,19 @@ end)
 
 let outcome = function
   | Ok (cat : Cat.t) -> "ok " ^ Cat.Name.to_repr cat.name
-  | Error (Forge_client.Error.Problem problem) ->
+  | Error (Kre_client.Error.Problem problem) ->
       Printf.sprintf "%d %s" problem.status
         (String.concat ","
            (List.map
-              (fun (error : Forge_shared.Validation.error) ->
+              (fun (error : Kre_shared.Validation.error) ->
                 String.concat "." error.path ^ ":" ^ error.rule)
               problem.errors))
-  | Error error -> Forge_client.Error.message error
+  | Error error -> Kre_client.Error.message error
 
 let () =
   let module Fresh = Cats_service.Make () in
-  Forge_testing.use [ Cats_controller.register (module Fresh) ];
-  Forge_client.Http.headers := [ ("X-User", "ann") ];
+  Kre_testing.use [ Cats_controller.register (module Fresh) ];
+  Kre_client.Http.headers := [ ("X-User", "ann") ];
   Lwt_main.run
     (Alcotest_lwt.run "in-process client"
        [
@@ -205,7 +205,7 @@ let () =
                      Result.fold
                        ~ok:(fun cats ->
                          Printf.sprintf "%d cat" (List.length cats))
-                       ~error:Forge_client.Error.message all;
+                       ~error:Kre_client.Error.message all;
                      outcome missing;
                    ];
                  Lwt.return_unit);

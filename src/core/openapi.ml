@@ -3,7 +3,7 @@ let document ~title ~version specs =
     match value.module_ with
     | name
       when String.exists (fun c -> c = ' ' || c = '(') name
-           || String.starts_with ~prefix:"Forge_shared." name ->
+           || String.starts_with ~prefix:"Kre_shared." name ->
         None
     | name -> Some name
   in
@@ -106,7 +106,7 @@ let document ~title ~version specs =
         | [] -> []
         | tables ->
             [
-              ( "x-forge-live",
+              ( "x-kre-live",
                 `List (List.map (fun table -> `String table) tables) );
             ])
       @ Option.fold ~none:[]

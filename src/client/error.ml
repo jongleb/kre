@@ -3,13 +3,13 @@ type problem = {
   type_ : string;
   title : string;
   detail : string;
-  errors : Forge_shared.Validation.error list;
+  errors : Kre_shared.Validation.error list;
 }
 
 type t =
   | Problem of problem
   | Network of string
-  | Decode of Forge_shared.Validation.t
+  | Decode of Kre_shared.Validation.t
 
 let of_response ~status body =
   let text json =
@@ -41,7 +41,7 @@ let of_response ~status body =
           (fun error ->
             let error = fields error in
             {
-              Forge_shared.Validation.path =
+              Kre_shared.Validation.path =
                 List.filter_map text
                   (Option.fold ~none:[] ~some:items (member "path" error));
               rule = string "rule" error ~default:"";
@@ -56,5 +56,5 @@ let message = function
   | Decode errors ->
       String.concat "; "
         (List.map
-           (fun (error : Forge_shared.Validation.error) -> error.message)
-           (Forge_shared.Validation.to_list errors))
+           (fun (error : Kre_shared.Validation.error) -> error.message)
+           (Kre_shared.Validation.to_list errors))

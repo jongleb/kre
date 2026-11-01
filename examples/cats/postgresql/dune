@@ -32,11 +32,11 @@
 
 (executable
  (name test_postgresql)
- (libraries cats_shared forge forge-db-postgresql lwt alcotest)
+ (libraries cats_shared kre kre-db-postgresql lwt alcotest)
  (preprocess
   (pps lwt_ppx)))
 
-; Needs FORGE_TEST_PG_URL, e.g. postgresql://forge@127.0.0.1:5499/forge_test
+; Needs KRE_TEST_PG_URL, e.g. postgresql://kre@127.0.0.1:5499/kre_test
 
 (rule
  (alias pg)

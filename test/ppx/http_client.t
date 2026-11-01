@@ -12,41 +12,37 @@ labels are query parameters.
   module Api(Config:sig val url : string val headers : (string * string) list
                     end) :
     sig
-      val user : login:string -> (User.t, Forge_client.Error.t) result Lwt.t
+      val user : login:string -> (User.t, Kre_client.Error.t) result Lwt.t
       val repos :
         login:string ->
           ?per_page:int ->
-            unit -> (Repo.t list, Forge_client.Error.t) result Lwt.t
+            unit -> (Repo.t list, Kre_client.Error.t) result Lwt.t
       val star :
-        owner:string ->
-          repo:string -> (unit, Forge_client.Error.t) result Lwt.t
+        owner:string -> repo:string -> (unit, Kre_client.Error.t) result Lwt.t
     end =
     struct
       let user ~login =
-        Forge_client.Http.request ~base:Config.url `GET
+        Kre_client.Http.request ~base:Config.url `GET
           ~path:["users";
-                Forge_client.Wire.segment (module Forge_shared.Scalar.String)
-                  login] ~query:[] ~headers:[Config.headers]
-          (Forge_client.Wire.Json (module User))
+                Kre_client.Wire.segment (module Kre_shared.Scalar.String) login]
+          ~query:[] ~headers:[Config.headers]
+          (Kre_client.Wire.Json (module User))
       let repos ~login ?per_page () =
-        Forge_client.Http.request ~base:Config.url `GET
+        Kre_client.Http.request ~base:Config.url `GET
           ~path:["users";
-                Forge_client.Wire.segment (module Forge_shared.Scalar.String)
-                  login;
+                Kre_client.Wire.segment (module Kre_shared.Scalar.String) login;
                 "repos"]
-          ~query:[Forge_client.Wire.query (module Forge_shared.Scalar.Int)
-                    Forge_shared.Presence.Optional "per_page" per_page]
+          ~query:[Kre_client.Wire.query (module Kre_shared.Scalar.Int)
+                    Kre_shared.Presence.Optional "per_page" per_page]
           ~headers:[Config.headers]
-          (Forge_client.Wire.Json (module (Forge_shared.Json.List)(Repo)))
+          (Kre_client.Wire.Json (module (Kre_shared.Json.List)(Repo)))
       let star ~owner ~repo =
-        Forge_client.Http.request ~base:Config.url `PUT
+        Kre_client.Http.request ~base:Config.url `PUT
           ~path:["user";
                 "starred";
-                Forge_client.Wire.segment (module Forge_shared.Scalar.String)
-                  owner;
-                Forge_client.Wire.segment (module Forge_shared.Scalar.String)
-                  repo] ~query:[] ~headers:[Config.headers]
-          Forge_client.Wire.Unit
+                Kre_client.Wire.segment (module Kre_shared.Scalar.String) owner;
+                Kre_client.Wire.segment (module Kre_shared.Scalar.String) repo]
+          ~query:[] ~headers:[Config.headers] Kre_client.Wire.Unit
     end 
 
 A :segment needs its argument; each call needs one verb.

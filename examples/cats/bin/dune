@@ -1,9 +1,9 @@
 (executable
  (name main)
  (modules main web)
- (libraries cats_server cats_shared cats_db forge forge-db-mariadb dream lwt)
+ (libraries cats_server cats_shared cats_db kre kre-db-mariadb dream lwt)
  (preprocess
-  (pps forge-ppx))
+  (pps kre-ppx))
  (preprocessor_deps
   (source_tree ..)))
 

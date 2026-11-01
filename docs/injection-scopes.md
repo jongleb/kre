@@ -1,6 +1,6 @@
 # Injection scopes
 
-Nest: `Scope.DEFAULT | REQUEST | TRANSIENT`. Forge: `DEFAULT` — модуль, `TRANSIENT` — функция, `REQUEST` — значение в `Dream.field`, которое кладёт middleware и читает guard. Сервис, которому нужно значение запроса, получает его аргументом функции, а не конструктора, поэтому «всплытия» скоупа нет.
+Nest: `Scope.DEFAULT | REQUEST | TRANSIENT`. Kre: `DEFAULT` — модуль, `TRANSIENT` — функция, `REQUEST` — значение в `Dream.field`, которое кладёт middleware и читает guard. Сервис, которому нужно значение запроса, получает его аргументом функции, а не конструктора, поэтому «всплытия» скоупа нет.
 
 <!-- $MDX file=examples/request_id.ml -->
 ```ocaml
@@ -13,9 +13,9 @@ let use : Dream.middleware =
   Dream.set_field request field !next_id;
   next request
 
-let current : int Forge.Guard.t =
-  Forge.Guard.field field
-    ~missing:(Forge.Error.internal "Request_id.use is not installed")
+let current : int Kre.Guard.t =
+  Kre.Guard.field field
+    ~missing:(Kre.Error.internal "Request_id.use is not installed")
 ```
 
 <!-- $MDX file=examples/trace_controller.ml -->

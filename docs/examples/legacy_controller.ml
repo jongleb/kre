@@ -12,12 +12,12 @@ let slow () : string Lwt.t =
 let fresh () : string Lwt.t = Lwt.return "fresh"
 [@@get "fresh"] [@@header "Cache-Control", "no-store"]
 
-let gone () : (unit, Forge.Error.t) result Lwt.t =
-  Lwt.return_error (Forge.Error.not_found "gone")
+let gone () : (unit, Kre.Error.t) result Lwt.t =
+  Lwt.return_error (Kre.Error.not_found "gone")
 [@@get "gone"]
 
 let status () : string Lwt.t = Lwt.return "v2" [@@get "status"] [@@version 2]
 
-let plain () : (unit, Forge.Error.t) result Lwt.t =
-  Lwt.return_error (Forge.Error.not_found "plain")
-[@@get "plain"] [@@error_handler Forge.Error.to_response]
+let plain () : (unit, Kre.Error.t) result Lwt.t =
+  Lwt.return_error (Kre.Error.not_found "plain")
+[@@get "plain"] [@@error_handler Kre.Error.to_response]

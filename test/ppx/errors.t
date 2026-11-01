@@ -112,7 +112,7 @@ A handler must return a promise.
   File "input.ml", line 2, characters 11-14:
   2 | let f () : int = 1 [@@get]
                  ^^^
-  Error: handler f must return a promise: t Lwt.t or (t, Forge.Error.t) result Lwt.t, where t is unit, string, Dream.response, T.t, T.t list or T.t option
+  Error: handler f must return a promise: t Lwt.t or (t, Kre.Error.t) result Lwt.t, where t is unit, string, Dream.response, T.t, T.t list or T.t option
   [1]
 
 Unsupported return type.
@@ -125,7 +125,7 @@ Unsupported return type.
   File "input.ml", line 2, characters 11-28:
   2 | let f () : (int * int) Lwt.t = Lwt.return (1, 2) [@@get]
                  ^^^^^^^^^^^^^^^^^
-  Error: unsupported type (int * int); path and query parameters take int, int64, float, bool, string or T.t with T : Forge_shared.Scalar.S; bodies and results also take T.t with T : Forge_shared.Json.S and lists of those
+  Error: unsupported type (int * int); path and query parameters take int, int64, float, bool, string or T.t with T : Kre_shared.Scalar.S; bodies and results also take T.t with T : Kre_shared.Json.S and lists of those
   [1]
 
 Path segment without a parameter.
@@ -177,7 +177,7 @@ Unsupported path type.
   File "input.ml", line 2, characters 6-22:
   2 | let f ~(id : int list) : unit Lwt.t = ignore id; Lwt.return_unit [@@get ":id"]
             ^^^^^^^^^^^^^^^^
-  Error: unsupported type int list; path and query parameters take int, int64, float, bool, string or T.t with T : Forge_shared.Scalar.S; bodies and results also take T.t with T : Forge_shared.Json.S and lists of those
+  Error: unsupported type int list; path and query parameters take int, int64, float, bool, string or T.t with T : Kre_shared.Scalar.S; bodies and results also take T.t with T : Kre_shared.Json.S and lists of those
   [1]
 
 Two bodies.
@@ -203,7 +203,7 @@ Unsupported body type.
   File "input.ml", line 2, characters 6-25:
   2 | let f ~(body : int * int) : unit Lwt.t = ignore body; Lwt.return_unit [@@post]
             ^^^^^^^^^^^^^^^^^^^
-  Error: unsupported type (int * int); path and query parameters take int, int64, float, bool, string or T.t with T : Forge_shared.Scalar.S; bodies and results also take T.t with T : Forge_shared.Json.S and lists of those
+  Error: unsupported type (int * int); path and query parameters take int, int64, float, bool, string or T.t with T : Kre_shared.Scalar.S; bodies and results also take T.t with T : Kre_shared.Json.S and lists of those
   [1]
 
 Positional parameter that is not a request.
@@ -282,7 +282,7 @@ A guard needs an expression.
   File "input.ml", line 2, characters 22-30:
   2 | let f ~(user : User.t [@guard]) () : unit Lwt.t = ignore user; Lwt.return_unit [@@get]
                             ^^^^^^^^
-  Error: [@guard] expects a guard expression of type 'a Forge.Guard.t
+  Error: [@guard] expects a guard expression of type 'a Kre.Guard.t
   [1]
 
 Redirect needs a unit handler.
@@ -311,7 +311,7 @@ Timeout takes seconds as a float.
   Error: [@@timeout] expects seconds as a float: [@@timeout 5.0]
   [1]
 
-[@@transactional] needs a Forge.Db.S dependency, one of them, and [@from Db.tx]
+[@@transactional] needs a Kre.Db.S dependency, one of them, and [@from Db.tx]
 needs [@@transactional].
 
   $ cat > input.ml <<'ML'
@@ -322,11 +322,11 @@ needs [@@transactional].
   File "input.ml", line 2, characters 49-66:
   2 | let f () : unit Lwt.t = Lwt.return_unit [@@post] [@@transactional]
                                                        ^^^^^^^^^^^^^^^^^
-  Error: [@@transactional] runs f in a transaction of a Forge.Db.S dependency; add (module Db : Forge.Db.S with type conn = …)
+  Error: [@@transactional] runs f in a transaction of a Kre.Db.S dependency; add (module Db : Kre.Db.S with type conn = …)
   [1]
   $ cat > input.ml <<'ML'
   > [@@@controller "c"]
-  > let f (module A : Forge.Db.S) (module B : Forge.Db.S) () : unit Lwt.t =
+  > let f (module A : Kre.Db.S) (module B : Kre.Db.S) () : unit Lwt.t =
   >   Lwt.return_unit
   > [@@post] [@@transactional]
   > ML
@@ -334,18 +334,18 @@ needs [@@transactional].
   File "input.ml", line 4, characters 9-26:
   4 | [@@post] [@@transactional]
                ^^^^^^^^^^^^^^^^^
-  Error: [@@transactional] sees several Forge.Db.S dependencies (A, B); pick one with ~(conn : … [@from A.tx])
+  Error: [@@transactional] sees several Kre.Db.S dependencies (A, B); pick one with ~(conn : … [@from A.tx])
   [1]
   $ cat > input.ml <<'ML'
   > [@@@controller "c"]
-  > let f (module Db : Forge.Db.S) ~(conn : Db.conn [@from Db.tx]) () : unit Lwt.t =
+  > let f (module Db : Kre.Db.S) ~(conn : Db.conn [@from Db.tx]) () : unit Lwt.t =
   >   ignore conn; Lwt.return_unit
   > [@@post]
   > ML
   $ ./pp.exe -impl input.ml
-  File "input.ml", line 2, characters 31-62:
-  2 | let f (module Db : Forge.Db.S) ~(conn : Db.conn [@from Db.tx]) () : unit Lwt.t =
-                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "input.ml", line 2, characters 29-60:
+  2 | let f (module Db : Kre.Db.S) ~(conn : Db.conn [@from Db.tx]) () : unit Lwt.t =
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   Error: [@from Db.tx] reads the open transaction; add [@@transactional] to f
   [1]
 

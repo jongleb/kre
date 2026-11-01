@@ -4,11 +4,11 @@
  (name shelter_tables)
  (wrapped false)
  (modules credential)
- (libraries shelter_shared forge dream kdf.pbkdf eqaf)
+ (libraries shelter_shared kre dream kdf.pbkdf eqaf)
  (preprocess
-  (pps forge-ppx)))
+  (pps kre-ppx)))
 
 (executable
  (name schema)
  (modules schema)
- (libraries shelter_shared shelter_tables forge))
+ (libraries shelter_shared shelter_tables kre))

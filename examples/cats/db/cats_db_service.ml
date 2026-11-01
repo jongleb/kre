@@ -1,9 +1,8 @@
 [@@@primary]
 
-module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) =
-struct
-  module Sql = Cats_sql.Make (Forge_db_mariadb.Sql)
-  module Crud = Cats_crud.Make (Forge_db_mariadb.Sql)
+module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct
+  module Sql = Cats_sql.Make (Kre_db_mariadb.Sql)
+  module Crud = Cats_crud.Make (Kre_db_mariadb.Sql)
 
   let reset () =
     Db.with_conn (fun conn ->
@@ -28,8 +27,7 @@ struct
             Lwt.return
               { Cat.id; name = dto.name; age = dto.age; breed = dto.breed }
         | Some (Error _) | None ->
-            Forge.Error.fail
-              (Forge.Error.internal "insert returned no valid id"))
+            Kre.Error.fail (Kre.Error.internal "insert returned no valid id"))
 
   let find_all () = Db.with_conn (fun conn -> Crud.List.all conn Cat.of_row)
 

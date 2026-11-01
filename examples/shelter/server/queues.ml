@@ -1,2 +1,2 @@
-let congratulate : Adoption.t Forge.Job.queue =
-  Forge.Job.queue "congratulate" (module Adoption)
+let congratulate : Adoption.t Kre.Job.queue =
+  Kre.Job.queue "congratulate" (module Adoption)

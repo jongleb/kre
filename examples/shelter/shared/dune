@@ -1,6 +1,6 @@
 (library
  (name shelter_shared)
  (wrapped false)
- (libraries forge forge.shared jsonkit)
+ (libraries kre kre.shared jsonkit)
  (preprocess
-  (pps jsonkit.ppx forge-ppx)))
+  (pps jsonkit.ppx kre-ppx)))

@@ -6,9 +6,9 @@ let () =
     Lwt_main.run
       (let server =
          Dream.serve ~interface:"127.0.0.1" ~port ~stop
-           (Forge.App.handler
+           (Kre.App.handler
               [
-                Forge.Live.controller;
+                Kre.Live.controller;
                 Cats_controller.register (module Cats_service);
               ])
        in
@@ -58,9 +58,9 @@ let () =
               Alcotest.(check string)
                 "transcript"
                 "ok tom\n\
-                 problem 422 urn:forge:error:validation note:max_length\n\
+                 problem 422 urn:kre:error:validation note:max_length\n\
                  ok 1\n\
-                 problem 404 urn:forge:error:not_found \n\
+                 problem 404 urn:kre:error:not_found \n\
                  live cats\n"
                 output);
         ] );

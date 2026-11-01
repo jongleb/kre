@@ -58,25 +58,25 @@ module Sql = struct
       (Sqlgg_mariadb.Default_types (Client))
 
   let select conn sql set_params callback =
-    Forge.Live.read sql;
-    Forge.Profiler.sql sql;
+    Kre.Live.read sql;
+    Kre.Profiler.sql sql;
     select conn sql set_params callback
 
   let select_one conn sql set_params callback =
-    Forge.Live.read sql;
-    Forge.Profiler.sql sql;
+    Kre.Live.read sql;
+    Kre.Profiler.sql sql;
     select_one conn sql set_params callback
 
   let select_one_maybe conn sql set_params callback =
-    Forge.Live.read sql;
-    Forge.Profiler.sql sql;
+    Kre.Live.read sql;
+    Kre.Profiler.sql sql;
     select_one_maybe conn sql set_params callback
 
   let execute conn sql set_params =
     Lwt.map
       (fun response ->
-        Forge.Live.wrote sql;
-        Forge.Profiler.sql sql;
+        Kre.Live.wrote sql;
+        Kre.Profiler.sql sql;
         response)
       (execute conn sql set_params)
 end

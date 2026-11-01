@@ -1,6 +1,6 @@
 # Workflow
 
-Symfony: компонент Workflow. Rails: AASM. Spring: Statemachine. Во всех трёх состояния и переходы описываются строками в конфиге или DSL, а ошибки находит рантайм. В Forge состояния — вариант, переходы — обычные `function` по этим конструкторам:
+Symfony: компонент Workflow. Rails: AASM. Spring: Statemachine. Во всех трёх состояния и переходы описываются строками в конфиге или DSL, а ошибки находит рантайм. В Kre состояния — вариант, переходы — обычные `function` по этим конструкторам:
 
 <!-- $MDX file=examples/order.ml -->
 ```ocaml

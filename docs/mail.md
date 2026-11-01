@@ -1,27 +1,27 @@
 # Mail
 
-Rails: ActionMailer и превью писем. Symfony: Mailer. Nest: `@nestjs-modules/mailer`. Forge: письмо — значение `Forge.Mail.t`, доставка — провайдер `Forge.Mail.S`.
+Rails: ActionMailer и превью писем. Symfony: Mailer. Nest: `@nestjs-modules/mailer`. Kre: письмо — значение `Kre.Mail.t`, доставка — провайдер `Kre.Mail.S`.
 
 ```ocaml
-Forge.Mail.make ~from ~to_ ?cc ~subject ~text ?html ()
+Kre.Mail.make ~from ~to_ ?cc ~subject ~text ?html ()
 ```
 ```mdx-error
-Line 1, characters 1-6:
-Error: Unbound module Forge
+Line 1, characters 1-4:
+Error: Unbound module Kre
 ```
 
-- Адреса — `Forge_shared.Refined.Email.t`, получатель обязателен: письмо без адресата не построить.
-- `Forge.Mail.render` печатает письмо RFC 5322: с `html` — `multipart/alternative`, тема не в ASCII кодируется (`=?UTF-8?B?…?=`).
-- `Forge.Mail.Smtp (Config)` — отправка по SMTP (`EHLO`, `MAIL FROM`, `RCPT TO`, `DATA` с dot-stuffing). Без TLS: для локального relay или Mailpit; STARTTLS — позже.
-- `Forge.Mail.Outbox ()` — письма в памяти и страница `/__forge/mail` с их содержимым, как превью ActionMailer: для dev и тестов.
+- Адреса — `Kre_shared.Refined.Email.t`, получатель обязателен: письмо без адресата не построить.
+- `Kre.Mail.render` печатает письмо RFC 5322: с `html` — `multipart/alternative`, тема не в ASCII кодируется (`=?UTF-8?B?…?=`).
+- `Kre.Mail.Smtp (Config)` — отправка по SMTP (`EHLO`, `MAIL FROM`, `RCPT TO`, `DATA` с dot-stuffing). Без TLS: для локального relay или Mailpit; STARTTLS — позже.
+- `Kre.Mail.Outbox ()` — письма в памяти и страница `/__kre/mail` с их содержимым, как превью ActionMailer: для dev и тестов.
 
 В `examples/shelter` провайдер почты — outbox:
 
 <!-- $MDX file=../examples/shelter/server/mail.ml -->
 ```ocaml
-[@@@injectable Forge.Mail.S]
+[@@@injectable Kre.Mail.S]
 
-include Forge.Mail.Outbox ()
+include Kre.Mail.Outbox ()
 ```
 
 А письмо об усыновлении шлёт обработчик очереди, которому `[%wire]` передал `Mail`:
@@ -32,16 +32,16 @@ module type S = sig
   val congratulate : Adoption.t -> (unit, string) result Lwt.t
 end
 
-module Make (Mail : Forge.Mail.S) : S = struct
+module Make (Mail : Kre.Mail.S) : S = struct
   let congratulate (adoption : Adoption.t) =
     Mail.send
-      (Forge.Mail.make
+      (Kre.Mail.make
          ~from:
-           (Forge_shared.Validation.ok_exn
-              (Forge_shared.Refined.Email.of_repr "shelter@shelter.test"))
+           (Kre_shared.Validation.ok_exn
+              (Kre_shared.Refined.Email.of_repr "shelter@shelter.test"))
          ~to_:
-           (Forge_shared.Validation.ok_exn
-              (Forge_shared.Refined.Email.of_repr "staff@shelter.test"))
+           (Kre_shared.Validation.ok_exn
+              (Kre_shared.Refined.Email.of_repr "staff@shelter.test"))
          ~subject:"A cat found a home"
          ~text:
            (Printf.sprintf "user %s adopted cat %s"
@@ -52,4 +52,4 @@ module Make (Mail : Forge.Mail.S) : S = struct
 end
 ```
 
-Заменить outbox на SMTP — другой провайдер `Forge.Mail.S` (например, `module Make (Settings : Settings.S) = Forge.Mail.Smtp (…)`) с `[@@@primary]`; код `Mailer` не меняется.
+Заменить outbox на SMTP — другой провайдер `Kre.Mail.S` (например, `module Make (Settings : Settings.S) = Kre.Mail.Smtp (…)`) с `[@@@primary]`; код `Mailer` не меняется.

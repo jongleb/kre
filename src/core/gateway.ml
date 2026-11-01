@@ -10,11 +10,10 @@ type t = { handlers : handler list; clients : socket list ref; next : int ref }
 let frame ~event data =
   Jsonkit.to_string (`Assoc [ ("event", `String event); ("data", data) ])
 
-let decode (module J : Forge_shared.Json.S) data =
-  Result.map_error Error.unprocessable (Forge_shared.Json.parse (module J) data)
+let decode (module J : Kre_shared.Json.S) data =
+  Result.map_error Error.unprocessable (Kre_shared.Json.parse (module J) data)
 
-let on event (module J : Forge_shared.Json.S) (module R : Forge_shared.Json.S)
-    run =
+let on event (module J : Kre_shared.Json.S) (module R : Kre_shared.Json.S) run =
   {
     event;
     run =
@@ -27,7 +26,7 @@ let on event (module J : Forge_shared.Json.S) (module R : Forge_shared.Json.S)
               (run socket body));
   }
 
-let notify event (module J : Forge_shared.Json.S) run =
+let notify event (module J : Kre_shared.Json.S) run =
   {
     event;
     run =
@@ -37,10 +36,10 @@ let notify event (module J : Forge_shared.Json.S) run =
         | Ok body -> Lwt_result.map (fun () -> None) (run socket body));
   }
 
-let send socket ~event (module R : Forge_shared.Json.S) value =
+let send socket ~event (module R : Kre_shared.Json.S) value =
   socket.send (frame ~event (R.to_json value))
 
-let broadcast socket ~event (module R : Forge_shared.Json.S) value =
+let broadcast socket ~event (module R : Kre_shared.Json.S) value =
   Lwt_list.iter_p
     (fun peer -> peer.send (frame ~event (R.to_json value)))
     !(socket.peers)

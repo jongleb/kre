@@ -30,9 +30,9 @@ jobs:
       mariadb:
         image: mariadb:11.8
         env:
-          MARIADB_USER: forge
-          MARIADB_PASSWORD: forge
-          MARIADB_DATABASE: forge_test
+          MARIADB_USER: kre
+          MARIADB_PASSWORD: kre
+          MARIADB_DATABASE: kre_test
           MARIADB_ROOT_PASSWORD: root
         ports:
           - 3306:3306
@@ -51,13 +51,13 @@ jobs:
       - run: opam install . --deps-only --with-test --yes
       - run: opam exec -- dune build @examples/cats/db/test/db
         env:
-          FORGE_TEST_DB_URL: mariadb://forge:forge@127.0.0.1:3306/forge_test
+          KRE_TEST_DB_URL: mariadb://kre:kre@127.0.0.1:3306/kre_test
       - run: >-
           mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE shelter_test;
-          GRANT ALL ON shelter_test.* TO 'forge'@'%';"
+          GRANT ALL ON shelter_test.* TO 'kre'@'%';"
       - run: opam exec -- dune build @examples/shelter/test/shelter
         env:
-          FORGE_TEST_SHELTER_URL: mariadb://forge:forge@127.0.0.1:3306/shelter_test
+          KRE_TEST_SHELTER_URL: mariadb://kre:kre@127.0.0.1:3306/shelter_test
 
   postgresql:
     runs-on: ubuntu-latest
@@ -65,13 +65,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: forge
-          POSTGRES_PASSWORD: forge
-          POSTGRES_DB: forge_test
+          POSTGRES_USER: kre
+          POSTGRES_PASSWORD: kre
+          POSTGRES_DB: kre_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U forge" --health-interval=5s
+          --health-cmd="pg_isready -U kre" --health-interval=5s
           --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
@@ -81,4 +81,4 @@ jobs:
       - run: opam install . --deps-only --with-test --yes
       - run: opam exec -- dune build @examples/cats/postgresql/pg
         env:
-          FORGE_TEST_PG_URL: postgresql://forge:forge@127.0.0.1:5432/forge_test
+          KRE_TEST_PG_URL: postgresql://kre:kre@127.0.0.1:5432/kre_test

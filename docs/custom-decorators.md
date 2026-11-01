@@ -1,13 +1,13 @@
 # Custom decorators
 
-Nest: `createParamDecorator` и встроенные `@Req`, `@Ip`, `@Headers`. Forge: любой `'a Forge.Guard.t`, подключённый к параметру через `[@from]` (синоним `[@guard]`). Параметр может быть позиционным, как в Nest.
+Nest: `createParamDecorator` и встроенные `@Req`, `@Ip`, `@Headers`. Kre: любой `'a Kre.Guard.t`, подключённый к параметру через `[@from]` (синоним `[@guard]`). Параметр может быть позиционным, как в Nest.
 
 <!-- $MDX file=examples/decorators.ml -->
 ```ocaml
-let client : string Forge.Guard.t =
+let client : string Kre.Guard.t =
  fun request -> Lwt.return_ok (Dream.client request)
 
-let language : string Forge.Guard.t =
+let language : string Kre.Guard.t =
  fun request ->
   Lwt.return_ok
     (Option.value (Dream.header request "Accept-Language") ~default:"en")

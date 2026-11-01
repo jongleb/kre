@@ -1,6 +1,6 @@
 [@@@controller "signup"]
 
-let create (module Bus : Forge.Events.S) ~(body : Signup.t) () : unit Lwt.t =
+let create (module Bus : Kre.Events.S) ~(body : Signup.t) () : unit Lwt.t =
   Bus.publish Topics.user_signed_up body
 [@@post]
 

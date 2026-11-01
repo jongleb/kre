@@ -33,16 +33,14 @@ alone.
   let app =
     let module Repo = (Repo.Make)() in
       let module Report = ((Report.Make)(Repo))(Clock) in
-        Forge.Wiring.make
+        Kre.Wiring.make
           ~controllers:[Reports_controller.register (module Report)]
           ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ~health:[]
           ~commands:[]
-          ~beans:[{ Forge.Actuator.name = "Clock"; needs = [] };
-                 { Forge.Actuator.name = "Repo"; needs = [] };
-                 { Forge.Actuator.name = "Report"; needs = ["Repo"; "Clock"] };
-                 {
-                   Forge.Actuator.name = "Reports_controller";
-                   needs = ["Report"]
+          ~beans:[{ Kre.Actuator.name = "Clock"; needs = [] };
+                 { Kre.Actuator.name = "Repo"; needs = [] };
+                 { Kre.Actuator.name = "Report"; needs = ["Repo"; "Clock"] };
+                 { Kre.Actuator.name = "Reports_controller"; needs = ["Report"]
                  }] ()
 
 A dependency nobody provides is a build error.
@@ -96,7 +94,7 @@ An [@@on_event] listener needs a bus provider.
   > ML
   $ ../ppx/pp.exe -impl main.ml
   File "./app/clock.ml", line 1, characters 0-47:
-  Error: Clock needs Forge.Events.S, but no provider gives it: add a module with Make or module type S that implements it
+  Error: Clock needs Kre.Events.S, but no provider gives it: add a module with Make or module type S that implements it
   [1]
 A cron expression is checked at build time.
 
@@ -122,7 +120,7 @@ interface (Spring @ConditionalOnMissingBean, Nest @Optional).
   $ ../ppx/pp.exe -impl main.ml | grep -i clock
     let module Frozen_clock = (Frozen_clock.Make)() in
         let module Report = ((Report.Make)(Repo))(Frozen_clock) in
-            ~beans:[{ Forge.Actuator.name = "Frozen_clock"; needs = [] };
+            ~beans:[{ Kre.Actuator.name = "Frozen_clock"; needs = [] };
                      needs = ["Repo"; "Frozen_clock"]
   $ cat > app/system_clock.ml <<'ML'
   > module Make () : Clock.S = struct let now () = Unix.gettimeofday () end
@@ -130,5 +128,5 @@ interface (Spring @ConditionalOnMissingBean, Nest @Optional).
   $ ../ppx/pp.exe -impl main.ml | grep -i clock
       let module System_clock = (System_clock.Make)() in
         let module Report = ((Report.Make)(Repo))(System_clock) in
-                   { Forge.Actuator.name = "System_clock"; needs = [] };
+                   { Kre.Actuator.name = "System_clock"; needs = [] };
                      needs = ["Repo"; "System_clock"]

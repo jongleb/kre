@@ -1,6 +1,6 @@
 let controllers =
   [
-    Forge.Live.controller;
+    Kre.Live.controller;
     Cats_controller.register (module Cats_service);
     Admin_controller.register (module Fake_cats);
     Notes_controller.register ();
@@ -18,12 +18,12 @@ let controllers =
   ]
 
 let () =
-  Forge.App.run
+  Kre.App.run
     ~middleware:
       [
         Dream.logger;
-        Forge.Secure_headers.middleware ();
-        Forge.Cors.middleware ();
-        Forge.Rate_limit.middleware ~limit:600 ~window:60. ();
+        Kre.Secure_headers.middleware ();
+        Kre.Cors.middleware ();
+        Kre.Rate_limit.middleware ~limit:600 ~window:60. ();
       ]
     ~error_handler:Error_pages.handler controllers

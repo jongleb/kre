@@ -5,7 +5,7 @@ let call ?(headers = []) ?(body = "") handler method_ target =
   ( Dream.status_to_int (Dream.status response),
     Lwt_main.run (Dream.body response) )
 
-let app controllers = Forge.App.handler controllers
+let app controllers = Kre.App.handler controllers
 
 let () =
   Alcotest.run "docs"
@@ -70,7 +70,7 @@ let () =
                 "page"
                 (404, "<h1>Nothing here</h1>")
                 (call
-                   (Forge.App.handler ~error_handler:Error_pages.handler [])
+                   (Kre.App.handler ~error_handler:Error_pages.handler [])
                    `GET "/missing"));
           Alcotest.test_case "redirect, timeout, header, controller filter"
             `Quick (fun () ->
@@ -274,7 +274,7 @@ let () =
               let inbox = ref [] in
               let client name =
                 fst
-                  (Forge.Gateway.connect chat ~send:(fun frame ->
+                  (Kre.Gateway.connect chat ~send:(fun frame ->
                        inbox := (name ^ " " ^ frame) :: !inbox;
                        Lwt.return_unit))
               in

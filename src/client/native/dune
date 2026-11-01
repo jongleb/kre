@@ -2,9 +2,9 @@
 ; compile unchanged against either library.
 
 (library
- (name forge_client)
- (public_name forge-client.native)
- (libraries forge.shared jsonkit cohttp-lwt-unix lwt uri))
+ (name kre_client)
+ (public_name kre-client.native)
+ (libraries kre.shared jsonkit cohttp-lwt-unix lwt uri))
 
 (copy_files#
  (files ../{error,wire}.{ml,mli}))

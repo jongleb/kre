@@ -1,7 +1,7 @@
 (library
- (name forge_client)
- (public_name forge-client)
+ (name kre_client)
+ (public_name kre-client)
  (modes melange)
- (libraries forge-client.shared jsonkit-melange reason-react)
+ (libraries kre-client.shared jsonkit-melange reason-react)
  (preprocess
   (pps melange.ppx reason-react-ppx)))

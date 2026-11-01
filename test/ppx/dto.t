@@ -9,7 +9,7 @@
   > }
   > [@@deriving dto ~strict]
   > ML
-  $ ./pp.exe -impl input.ml | sed -n '1,7p;/^let of_json __forge_json/,$p'
+  $ ./pp.exe -impl input.ml | sed -n '1,7p;/^let of_json __kre_json/,$p'
   type t =
     {
     name: string [@key "fullName"][@validate min_length 1; max_length 8];
@@ -17,37 +17,36 @@
       [@validate.custom fun s -> if s = "x" then Error "no x" else Ok s];
     age: int }[@@deriving (json, jsonschema)][@@disallow_extra_fields ]
   include
-  let of_json __forge_json =
-    let __forge_value = of_json __forge_json in
-    Forge_shared.Validation.ok_exn
-      (let open Forge_shared.Validation.Syntax in
-         let+ __forge_name =
-           Forge_shared.Validation.field "fullName"
-             [(let open Forge_shared.Validation in min_length 1);
-             (let open Forge_shared.Validation in max_length 8)]
-             __forge_value.name
-         and+ __forge_tag =
-           Forge_shared.Validation.field "tag"
-             [Forge_shared.Validation.rule ~name:"custom"
+  let of_json __kre_json =
+    let __kre_value = of_json __kre_json in
+    Kre_shared.Validation.ok_exn
+      (let open Kre_shared.Validation.Syntax in
+         let+ __kre_name =
+           Kre_shared.Validation.field "fullName"
+             [(let open Kre_shared.Validation in min_length 1);
+             (let open Kre_shared.Validation in max_length 8)] __kre_value.name
+         and+ __kre_tag =
+           Kre_shared.Validation.field "tag"
+             [Kre_shared.Validation.rule ~name:"custom"
                 (fun s -> if s = "x" then Error "no x" else Ok s)]
-             __forge_value.tag in
-         { __forge_value with name = __forge_name; tag = __forge_tag })
+             __kre_value.tag in
+         { __kre_value with name = __kre_name; tag = __kre_tag })
 
 Every field checked: no record update.
 
   $ cat > input.ml <<'ML'
   > type pet = { name : string [@validate max_length 8] } [@@deriving dto]
   > ML
-  $ ./pp.exe -impl input.ml | sed -n '/^let pet_of_json __forge_json/,$p'
-  let pet_of_json __forge_json =
-    let __forge_value = pet_of_json __forge_json in
-    Forge_shared.Validation.ok_exn
-      (let open Forge_shared.Validation.Syntax in
-         let+ __forge_name =
-           Forge_shared.Validation.field "name"
-             [(let open Forge_shared.Validation in max_length 8)]
-             __forge_value.name
-          in { name = __forge_name })
+  $ ./pp.exe -impl input.ml | sed -n '/^let pet_of_json __kre_json/,$p'
+  let pet_of_json __kre_json =
+    let __kre_value = pet_of_json __kre_json in
+    Kre_shared.Validation.ok_exn
+      (let open Kre_shared.Validation.Syntax in
+         let+ __kre_name =
+           Kre_shared.Validation.field "name"
+             [(let open Kre_shared.Validation in max_length 8)]
+             __kre_value.name
+          in { name = __kre_name })
 
 Options other than ~strict are for phase 2.
 
@@ -97,18 +96,18 @@ segment and a [@column string] in a table. [@key] renames a case.
     | "on hold" -> Ok On_hold
     | _ ->
         Error
-          (Forge_shared.Validation.fail ~rule:"one_of"
+          (Kre_shared.Validation.fail ~rule:"one_of"
              "must be one of available, adopted, on hold")
-  let to_json __forge_value =
-    Jsonkit.declassify (`String (to_string __forge_value))
-  let of_json __forge_json =
-    match Jsonkit.classify __forge_json with
-    | `String __forge_string ->
-        Forge_shared.Validation.ok_exn (of_string __forge_string)
+  let to_json __kre_value =
+    Jsonkit.declassify (`String (to_string __kre_value))
+  let of_json __kre_json =
+    match Jsonkit.classify __kre_json with
+    | `String __kre_string ->
+        Kre_shared.Validation.ok_exn (of_string __kre_string)
     | _ ->
         raise
-          (Forge_shared.Validation.Invalid
-             (Forge_shared.Validation.fail ~rule:"type" "must be a string"))
+          (Kre_shared.Validation.Invalid
+             (Kre_shared.Validation.fail ~rule:"type" "must be a string"))
   let t_jsonschema =
     `Assoc
       [("type", (`String "string"));

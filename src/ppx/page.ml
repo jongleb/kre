@@ -16,35 +16,34 @@ let scalar (type_ : core_type) =
   let loc = type_.ptyp_loc in
   let ident path = pmod_ident ~loc { txt = Longident.parse path; loc } in
   match type_.ptyp_desc with
-  | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
-      ident "Forge_shared.Scalar.Int"
+  | Ptyp_constr ({ txt = Lident "int"; _ }, []) -> ident "Kre_shared.Scalar.Int"
   | Ptyp_constr ({ txt = Lident "int64"; _ }, []) ->
-      ident "Forge_shared.Scalar.Int64"
+      ident "Kre_shared.Scalar.Int64"
   | Ptyp_constr ({ txt = Lident "float"; _ }, []) ->
-      ident "Forge_shared.Scalar.Float"
+      ident "Kre_shared.Scalar.Float"
   | Ptyp_constr ({ txt = Lident "bool"; _ }, []) ->
-      ident "Forge_shared.Scalar.Bool"
+      ident "Kre_shared.Scalar.Bool"
   | Ptyp_constr ({ txt = Lident "string"; _ }, []) ->
-      ident "Forge_shared.Scalar.String"
+      ident "Kre_shared.Scalar.String"
   | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
       pmod_ident ~loc { txt = path; loc }
   | _ ->
       Location.raise_errorf ~loc
         "unsupported type %a; use int, int64, float, bool, string or T.t with \
-         T : Forge_shared.Scalar.S"
+         T : Kre_shared.Scalar.S"
         Pprintast.core_type type_
 
 let applicative ~loc ~read labels =
   let binding (label : label_declaration) =
     binding_op ~loc ~op:{ txt = "let+"; loc }
-      ~pat:(pvar ~loc ("__forge_" ^ label.pld_name.txt))
+      ~pat:(pvar ~loc ("__kre_" ^ label.pld_name.txt))
       ~exp:(read label)
   in
   match labels with
   | [] -> Location.raise_errorf ~loc "the record needs at least one field"
   | first :: rest ->
       [%expr
-        let open Forge_shared.Validation.Syntax in
+        let open Kre_shared.Validation.Syntax in
         [%e
           pexp_letop ~loc
             (letop ~let_:(binding first)
@@ -58,7 +57,7 @@ let applicative ~loc ~read labels =
                     (List.map
                        (fun (label : label_declaration) ->
                          ( { txt = Lident label.pld_name.txt; loc },
-                           evar ~loc ("__forge_" ^ label.pld_name.txt) ))
+                           evar ~loc ("__kre_" ^ label.pld_name.txt) ))
                        labels)
                     None))]]
 
@@ -102,18 +101,18 @@ let params ~ctxt (_, declarations) path =
   [
     [%stri
       let [%p pvar ~loc (value_name name "path")] :
-          [%t ptyp_constr ~loc { txt = Lident name; loc } []]
-          Forge_client.Path.t =
-        Forge_client.Path.make [%e estring ~loc pattern]
-          ~decode:(fun __forge_pairs ->
+          [%t ptyp_constr ~loc { txt = Lident name; loc } []] Kre_client.Path.t
+          =
+        Kre_client.Path.make [%e estring ~loc pattern]
+          ~decode:(fun __kre_pairs ->
             [%e
               applicative ~loc labels ~read:(fun label ->
                   [%expr
-                    Forge_client.Path.param
+                    Kre_client.Path.param
                       [%e pexp_pack ~loc (scalar label.pld_type)]
                       [%e estring ~loc label.pld_name.txt]
-                      __forge_pairs])])
-          ~encode:(fun __forge_params ->
+                      __kre_pairs])])
+          ~encode:(fun __kre_params ->
             [%e
               elist ~loc
                 (List.map
@@ -121,7 +120,7 @@ let params ~ctxt (_, declarations) path =
                      [%expr
                        [%e estring ~loc label.pld_name.txt],
                        let module M = [%m scalar label.pld_type] in
-                       M.to_string [%e field ~loc "__forge_params" label]])
+                       M.to_string [%e field ~loc "__kre_params" label]])
                    labels)])];
   ]
 
@@ -129,7 +128,7 @@ let search ~ctxt (_, declarations) =
   let loc = Expansion_context.Deriver.derived_item_loc ctxt in
   let name, labels = record ~loc ~deriver:"search" declarations in
   let variable (label : label_declaration) =
-    "__forge_field_" ^ label.pld_name.txt
+    "__kre_field_" ^ label.pld_name.txt
   in
   let fields =
     List.map
@@ -153,18 +152,18 @@ let search ~ctxt (_, declarations) =
                  absent list is []"
                 label.pld_name.txt
           | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), None ->
-              ([%expr Forge_shared.Search.Optional], element)
+              ([%expr Kre_shared.Search.Optional], element)
           | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]), None ->
-              ([%expr Forge_shared.Search.Repeated], element)
+              ([%expr Kre_shared.Search.Repeated], element)
           | _, Some default ->
-              ([%expr Forge_shared.Search.Default [%e default]], label.pld_type)
-          | _, None -> ([%expr Forge_shared.Search.Required], label.pld_type)
+              ([%expr Kre_shared.Search.Default [%e default]], label.pld_type)
+          | _, None -> ([%expr Kre_shared.Search.Required], label.pld_type)
         in
         value_binding ~loc
           ~pat:(pvar ~loc (variable label))
           ~expr:
             [%expr
-              Forge_shared.Search.field
+              Kre_shared.Search.field
                 [%e estring ~loc label.pld_name.txt]
                 [%e pexp_pack ~loc (scalar element)]
                 [%e presence]])
@@ -174,27 +173,27 @@ let search ~ctxt (_, declarations) =
     [%stri
       let [%p pvar ~loc (value_name name "codec")] :
           [%t ptyp_constr ~loc { txt = Lident name; loc } []]
-          Forge_shared.Search.t =
+          Kre_shared.Search.t =
         [%e
           pexp_let ~loc Nonrecursive fields
             [%expr
-              Forge_shared.Search.make
-                ~parse:(fun __forge_pairs ->
+              Kre_shared.Search.make
+                ~parse:(fun __kre_pairs ->
                   [%e
                     applicative ~loc labels ~read:(fun label ->
                         [%expr
-                          Forge_shared.Search.read
+                          Kre_shared.Search.read
                             [%e evar ~loc (variable label)]
-                            __forge_pairs])])
-                ~print:(fun __forge_search ->
+                            __kre_pairs])])
+                ~print:(fun __kre_search ->
                   [%e
                     elist ~loc
                       (List.map
                          (fun label ->
                            [%expr
-                             Forge_shared.Search.show
+                             Kre_shared.Search.show
                                [%e evar ~loc (variable label)]
-                               [%e field ~loc "__forge_search" label]])
+                               [%e field ~loc "__kre_search" label]])
                          labels)])]]];
   ]
 
@@ -209,4 +208,4 @@ let path =
             "[%%path %S] has parameters; declare them with type params = { … } \
              [@@@@deriving params ~path:%S]"
             pattern pattern
-      | None -> [%expr Forge_client.Path.static [%e estring ~loc pattern]])
+      | None -> [%expr Kre_client.Path.static [%e estring ~loc pattern]])

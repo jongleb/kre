@@ -1,18 +1,18 @@
-module Id = Forge_shared.Id.Make ()
+module Id = Kre_shared.Id.Make ()
 
-module Name = Forge_shared.Refined.String (struct
+module Name = Kre_shared.Refined.String (struct
   let name = "name"
   let min = 1
   let max = 64
 end)
 
-module Age = Forge_shared.Refined.Int (struct
+module Age = Kre_shared.Refined.Int (struct
   let name = "age"
   let min = 0
   let max = 40
 end)
 
-module Breed = Forge_shared.Refined.Enum (struct
+module Breed = Kre_shared.Refined.Enum (struct
   let name = "breed"
   let values = [ "siamese"; "persian"; "maine coon" ]
 end)

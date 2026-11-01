@@ -1,6 +1,6 @@
 [@@@controller "uploads"]
 
-let avatar ~(file : (Forge.Upload.t[@file "avatar"]))
+let avatar ~(file : (Kre.Upload.t[@file "avatar"]))
     ~(title : (string[@form "title"])) ~(tags : (string list[@form "tag"])) () :
     string Lwt.t =
   Lwt.return

@@ -1,4 +1,4 @@
 val parse :
-  's Forge_shared.Search.t -> string -> ('s, Forge_shared.Validation.t) result
+  's Kre_shared.Search.t -> string -> ('s, Kre_shared.Validation.t) result
 
-val print : 's Forge_shared.Search.t -> 's -> string
+val print : 's Kre_shared.Search.t -> 's -> string

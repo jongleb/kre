@@ -1,6 +1,6 @@
 # Guards
 
-Nest: `CanActivate` и `@UseGuards`. Forge: guard — функция `Dream.request -> ('a, Forge.Error.t) result Lwt.t` (`'a Forge.Guard.t`). `[@@@guards [ g ]]` и `[@@guards [ g ]]` только проверяют (`unit Forge.Guard.t`); параметр `[@guard g]` проверяет **и** передаёт хендлеру результат.
+Nest: `CanActivate` и `@UseGuards`. Kre: guard — функция `Dream.request -> ('a, Kre.Error.t) result Lwt.t` (`'a Kre.Guard.t`). `[@@@guards [ g ]]` и `[@@guards [ g ]]` только проверяют (`unit Kre.Guard.t`); параметр `[@guard g]` проверяет **и** передаёт хендлеру результат.
 
 Лучше всего, когда guard возвращает доказательство — значение типа, который нельзя получить иначе:
 
@@ -16,26 +16,26 @@ end = struct
   let of_header = function Some "admin" -> Some Admin | Some _ | None -> None
 end
 
-let admin : Admin.t Forge.Guard.t =
+let admin : Admin.t Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.to_result
-       ~none:(Forge.Error.forbidden "admins only")
+       ~none:(Kre.Error.forbidden "admins only")
        (Admin.of_header (Dream.header request "X-Role")))
 
-let signed_in : unit Forge.Guard.t =
+let signed_in : unit Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.fold
-       ~none:(Error (Forge.Error.unauthorized "sign in first"))
+       ~none:(Error (Kre.Error.unauthorized "sign in first"))
        ~some:(fun _ -> Ok ())
        (Dream.header request "X-User"))
 
-let user : string Forge.Guard.t =
+let user : string Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.to_result
-       ~none:(Forge.Error.unauthorized "sign in first")
+       ~none:(Kre.Error.unauthorized "sign in first")
        (Dream.header request "X-User"))
 ```
 
@@ -64,7 +64,7 @@ let owns ~user ~id =
   Lwt.return
     (match List.assoc_opt id owners with
     | Some owner when String.equal owner user -> Ok ()
-    | Some _ | None -> Error (Forge.Error.forbidden "not your note"))
+    | Some _ | None -> Error (Kre.Error.forbidden "not your note"))
 
 let read ~(user : (string[@guard Roles.user])) ~(id : int) : string Lwt.t =
   Lwt.return (Printf.sprintf "note %d for %s" id user)

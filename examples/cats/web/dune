@@ -1,7 +1,7 @@
 (melange.emit
  (target js)
  (modules app)
- (libraries cats_client_js forge-client reason-react)
+ (libraries cats_client_js kre-client reason-react)
  (module_systems
   (es6 mjs))
  (preprocess

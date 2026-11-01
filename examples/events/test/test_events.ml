@@ -1,11 +1,11 @@
 let () =
   let app = [%wire] in
   let actuator =
-    Forge.Actuator.make ~checks:app.health ~beans:app.beans app.controllers
+    Kre.Actuator.make ~checks:app.health ~beans:app.beans app.controllers
   in
   let handler =
     Dream.test
-      (Forge.App.handler ~middleware:[ actuator.metrics ]
+      (Kre.App.handler ~middleware:[ actuator.metrics ]
          (actuator.controller :: app.controllers))
   in
   let call method_ target body =
@@ -49,7 +49,7 @@ let () =
                   snd health;
                   string_of_bool
                     (List.exists
-                       (String.starts_with ~prefix:"forge_requests_total")
+                       (String.starts_with ~prefix:"kre_requests_total")
                        (String.split_on_char '\n' metrics));
                   string_of_bool
                     (Yojson.Basic.Util.(

@@ -6,7 +6,7 @@ let owns ~user ~id =
   Lwt.return
     (match List.assoc_opt id owners with
     | Some owner when String.equal owner user -> Ok ()
-    | Some _ | None -> Error (Forge.Error.forbidden "not your note"))
+    | Some _ | None -> Error (Kre.Error.forbidden "not your note"))
 
 let read ~(user : (string[@guard Roles.user])) ~(id : int) : string Lwt.t =
   Lwt.return (Printf.sprintf "note %d for %s" id user)

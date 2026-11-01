@@ -1,6 +1,6 @@
 # HTTP-клиент
 
-Nest: `HttpModule` и axios. Spring: `@HttpExchange` на интерфейсе. Symfony: HttpClient. В Forge чужой API описывается сигнатурой, а `[%http_client: …]` делает из неё функтор над адресом и заголовками (как `forRoot`):
+Nest: `HttpModule` и axios. Spring: `@HttpExchange` на интерфейсе. Symfony: HttpClient. В Kre чужой API описывается сигнатурой, а `[%http_client: …]` делает из неё функтор над адресом и заголовками (как `forRoot`):
 
 <!-- $MDX skip -->
 ```ocaml
@@ -19,8 +19,8 @@ end)
 let%lwt user = Github.user ~login:"octocat"
 ```
 
-- Метка, совпадающая с `:сегментом`, идёт в путь; `~body` — тело JSON; остальные метки — query (`?x` — необязательный). Значения разбираются теми же `Forge_shared.Scalar` и dto, что и у контроллеров.
-- Ответ — `(T, Forge_client.Error.t) result Lwt.t` (в Melange — `Js.Promise.t`): `T list`, `unit`, `string`, `T.t` с dto, `T.t M.t` через `M.Make`. Ошибки чужого сервера в формате Problem Details разбираются, остальные — `Problem` со статусом.
-- Это те же `Forge_client.Http` и `Wire`, что у сгенерированных клиентов, поэтому `Forge_testing.use` отправляет вызовы в обработчик приложения без сети, а `Forge_client.Http.transport` можно подменить в тестах.
+- Метка, совпадающая с `:сегментом`, идёт в путь; `~body` — тело JSON; остальные метки — query (`?x` — необязательный). Значения разбираются теми же `Kre_shared.Scalar` и dto, что и у контроллеров.
+- Ответ — `(T, Kre_client.Error.t) result Lwt.t` (в Melange — `Js.Promise.t`): `T list`, `unit`, `string`, `T.t` с dto, `T.t M.t` через `M.Make`. Ошибки чужого сервера в формате Problem Details разбираются, остальные — `Problem` со статусом.
+- Это те же `Kre_client.Http` и `Wire`, что у сгенерированных клиентов, поэтому `Kre_testing.use` отправляет вызовы в обработчик приложения без сети, а `Kre_client.Http.transport` можно подменить в тестах.
 
 Пример и тест — `examples/cats/client_native/test_in_process.ml`.

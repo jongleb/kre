@@ -12,11 +12,9 @@ time.
   > ML
   $ ./pp.exe -impl input.ml
   let fetch ~city () : string Lwt.t=
-    Forge.Retry.run ~backoff:0.1 ~attempts:3 (fun () -> Weather.get city)
+    Kre.Retry.run ~backoff:0.1 ~attempts:3 (fun () -> Weather.get city)
   module Service =
-    struct
-      let ping () = Forge.Retry.run ~attempts:2 (fun () -> Http.ping ())
-    end
+    struct let ping () = Kre.Retry.run ~attempts:2 (fun () -> Http.ping ()) end
 
 Errors say where it goes.
 

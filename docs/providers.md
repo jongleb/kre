@@ -1,6 +1,6 @@
 # Providers
 
-Nest: `@Injectable()` класс-синглтон, который контейнер внедряет в конструктор контроллера. Forge: модуль. Его `.mli` с `module type S` — контракт, состояние — значения верхнего уровня, внедрение — параметр `(module Cats : Cats_service.S)` у хендлера.
+Nest: `@Injectable()` класс-синглтон, который контейнер внедряет в конструктор контроллера. Kre: модуль. Его `.mli` с `module type S` — контракт, состояние — значения верхнего уровня, внедрение — параметр `(module Cats : Cats_service.S)` у хендлера.
 
 <!-- $MDX file=../examples/cats/server/cats_service.mli -->
 ```ocaml
@@ -34,7 +34,7 @@ module Make () = struct
     last_id := Some id;
     let cat = { Cat.id; name; age; breed } in
     Dynarray.add_last cats cat;
-    Forge.Live.publish [ "cats" ];
+    Kre.Live.publish [ "cats" ];
     Lwt.return cat
 
   let find_all () = Lwt.return (Dynarray.to_list cats)

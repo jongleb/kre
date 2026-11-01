@@ -1,4 +1,4 @@
-# Forge
+# Kre
 
 NestJS-like full-stack framework in OCaml 5.5: Dream on the server, Melange on
 the client. `DESIGN.md` is the source of truth: the plan, the target `.mli`s,
@@ -14,10 +14,10 @@ dune build @all && dune test && dune build @fmt
 
 ## Layout
 
-- `src/shared` — `Forge_shared` (Validation, Json, Scalar, Refined), built twice:
-  native (`forge.shared`) and Melange (`src/shared/melange`,
-  `forge-client.shared`) from the same sources via `copy_files#`.
-- `src/core` — `Forge` server runtime (Error, Response, Guard, Spec, Route,
+- `src/shared` — `Kre_shared` (Validation, Json, Scalar, Refined), built twice:
+  native (`kre.shared`) and Melange (`src/shared/melange`,
+  `kre-client.shared`) from the same sources via `copy_files#`.
+- `src/core` — `Kre` server runtime (Error, Response, Guard, Spec, Route,
   Controller, App).
 - `src/ppx`, `src/client`, `src/cli` — phase 1.
 - `test/core` — alcotest; `test/ppx` — expect tests; `test/e2e` — phase 1.
@@ -35,16 +35,16 @@ dune build @all && dune test && dune build @fmt
   parse don't validate, no boolean blindness, no aliases of any kind, no
   single-use top-level helpers, option combinators over `match`, comments only
   on types/constructors/fields/modules.
-- Every public module has an `.mli`; `Forge.*` signatures are exactly those in
-  `DESIGN.md` → "Forge.Core". Changing one means editing that section in the
+- Every public module has an `.mli`; `Kre.*` signatures are exactly those in
+  `DESIGN.md` → "Kre.Core". Changing one means editing that section in the
   same commit.
 - No `assert false`, no `failwith` in library code, no `Obj.magic`.
 - Dream is not wrapped: `Dream.request`, `Dream.middleware`, `Dream.response`
-  belong in Forge signatures.
-- Generated ppx code only calls `Forge.Route` / `Forge_shared.*`; logic lives in
+  belong in Kre signatures.
+- Generated ppx code only calls `Kre.Route` / `Kre_shared.*`; logic lives in
   the runtime where it can be tested without the ppx.
 - ppx errors: `Location.raise_errorf` on the offending node, text "what is
-  wrong → what to do". Generated names start with `__forge_`.
+  wrong → what to do". Generated names start with `__kre_`.
 - ocamlformat 0.29, profile `default`; CI fails on unformatted code.
 - JSX only in `.mlx` files (dune dialect, `ocamlformat-mlx`); no hand-written
   `[@JSX]` or `React.createElement`.

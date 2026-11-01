@@ -1,5 +1,5 @@
-let client (spec : Forge.Spec.t) =
-  let request (route : Forge.Spec.route) =
+let client (spec : Kre.Spec.t) =
+  let request (route : Kre.Spec.route) =
     let segments =
       List.filter
         (fun segment -> segment <> "")
@@ -7,7 +7,7 @@ let client (spec : Forge.Spec.t) =
     in
     let path_param name =
       List.find_map
-        (fun (param : Forge.Spec.param) ->
+        (fun (param : Kre.Spec.param) ->
           match param.location with
           | Path when String.equal param.name name -> Some param
           | Path | Query _ | Header _ | Cookie _ | Search -> None)
@@ -20,8 +20,8 @@ let client (spec : Forge.Spec.t) =
           | [ ""; name ], _ ->
               Option.fold
                 ~none:(Printf.sprintf "%S" segment)
-                ~some:(fun (param : Forge.Spec.param) ->
-                  Printf.sprintf "Forge_client.Wire.segment (module %s) %s"
+                ~some:(fun (param : Kre.Spec.param) ->
+                  Printf.sprintf "Kre_client.Wire.segment (module %s) %s"
                     param.value.module_ param.label)
                 (path_param name)
           | _, literal -> Printf.sprintf "%S" literal)
@@ -29,7 +29,7 @@ let client (spec : Forge.Spec.t) =
     in
     let sent kind =
       List.filter_map
-        (fun (param : Forge.Spec.param) ->
+        (fun (param : Kre.Spec.param) ->
           match (param.location, kind) with
           | Query presence, `Query | Header presence, `Header ->
               Some (param, presence)
@@ -39,7 +39,7 @@ let client (spec : Forge.Spec.t) =
     let queries = sent `Query and headers = sent `Header in
     let searched =
       List.filter_map
-        (fun (param : Forge.Spec.param) ->
+        (fun (param : Kre.Spec.param) ->
           match param.location with
           | Search -> Some param
           | Path | Query _ | Header _ | Cookie _ -> None)
@@ -47,13 +47,13 @@ let client (spec : Forge.Spec.t) =
     in
     let arguments =
       List.filter_map
-        (fun (param : Forge.Spec.param) ->
+        (fun (param : Kre.Spec.param) ->
           match param.location with
           | Path | Search -> Some ("~" ^ param.label)
           | Query _ | Header _ | Cookie _ -> None)
         route.params
       @ List.map
-          (fun ((param : Forge.Spec.param), (presence : Forge.Spec.presence)) ->
+          (fun ((param : Kre.Spec.param), (presence : Kre.Spec.presence)) ->
             match presence with
             | Optional -> "?" ^ param.label
             | Required | Repeated -> "~" ^ param.label)
@@ -64,7 +64,7 @@ let client (spec : Forge.Spec.t) =
       match
         ( arguments,
           List.find_opt
-            (fun ((_ : Forge.Spec.param), (presence : Forge.Spec.presence)) ->
+            (fun ((_ : Kre.Spec.param), (presence : Kre.Spec.presence)) ->
               match presence with
               | Optional -> true
               | Required | Repeated -> false)
@@ -76,10 +76,10 @@ let client (spec : Forge.Spec.t) =
     let pairs argument sent extra =
       match
         List.map
-          (fun ((param : Forge.Spec.param), (presence : Forge.Spec.presence)) ->
+          (fun ((param : Kre.Spec.param), (presence : Kre.Spec.presence)) ->
             Printf.sprintf
-              "        Forge_client.Wire.query (module %s) \
-               Forge_shared.Presence.%s %S %s;\n"
+              "        Kre_client.Wire.query (module %s) \
+               Kre_shared.Presence.%s %S %s;\n"
               param.value.module_
               (match presence with
               | Required -> "Required"
@@ -98,33 +98,31 @@ let client (spec : Forge.Spec.t) =
       [
         Printf.sprintf "let %s %s =\n" route.name
           (String.concat " " (arguments @ unit));
-        Printf.sprintf "  Forge_client.Http.request `%s\n"
+        Printf.sprintf "  Kre_client.Http.request `%s\n"
           (Dream.method_to_string route.verb);
         Printf.sprintf "    ~path:[ %s ]\n" (String.concat "; " path);
         pairs "query" queries
           (List.map
-             (fun (param : Forge.Spec.param) ->
-               Printf.sprintf "        Forge_client.Wire.search %s.codec %s;\n"
+             (fun (param : Kre.Spec.param) ->
+               Printf.sprintf "        Kre_client.Wire.search %s.codec %s;\n"
                  param.value.module_ param.label)
              searched);
         pairs "headers" headers [];
         Option.fold ~none:""
-          ~some:(fun (body : Forge.Spec.value) ->
-            Printf.sprintf
-              "    ~body:(Forge_client.Wire.body (module %s) body)\n"
+          ~some:(fun (body : Kre.Spec.value) ->
+            Printf.sprintf "    ~body:(Kre_client.Wire.body (module %s) body)\n"
               body.module_)
           route.body;
         Printf.sprintf "    %s\n"
           (match route.returns with
-          | Unit -> "Forge_client.Wire.Unit"
-          | Text -> "Forge_client.Wire.Text"
-          | Raw -> "Forge_client.Wire.Raw"
+          | Unit -> "Kre_client.Wire.Unit"
+          | Text -> "Kre_client.Wire.Text"
+          | Raw -> "Kre_client.Wire.Raw"
           | Json value | Events value ->
-              Printf.sprintf "(Forge_client.Wire.Json (module %s))"
-                value.module_);
+              Printf.sprintf "(Kre_client.Wire.Json (module %s))" value.module_);
       ]
   in
-  let route (route : Forge.Spec.route) =
+  let route (route : Kre.Spec.route) =
     match route.returns with
     | Events _ ->
         Printf.sprintf
@@ -134,14 +132,12 @@ let client (spec : Forge.Spec.t) =
   in
   String.concat "\n"
     (Printf.sprintf
-       "(* Generated by forge client from the %s controller; do not edit. *)\n"
+       "(* Generated by kre client from the %s controller; do not edit. *)\n"
        spec.prefix
      :: List.map route spec.routes
     @
     match
-      List.filter
-        (fun (route : Forge.Spec.route) -> route.live <> [])
-        spec.routes
+      List.filter (fun (route : Kre.Spec.route) -> route.live <> []) spec.routes
     with
     | [] -> []
     | live ->
@@ -151,7 +147,7 @@ let client (spec : Forge.Spec.t) =
            module Live = struct\n"
           ^ String.concat ""
               (List.map
-                 (fun (route : Forge.Spec.route) ->
+                 (fun (route : Kre.Spec.route) ->
                    Printf.sprintf "  let %s = [ %s ]\n" route.name
                      (String.concat "; "
                         (List.map (Printf.sprintf "%S") route.live)))
@@ -162,9 +158,9 @@ let client (spec : Forge.Spec.t) =
 let routes specs =
   String.concat ""
     (List.concat_map
-       (fun (spec : Forge.Spec.t) ->
+       (fun (spec : Kre.Spec.t) ->
          List.map
-           (fun (route : Forge.Spec.route) ->
+           (fun (route : Kre.Spec.route) ->
              Printf.sprintf "%-7s %-32s %s %d\n"
                (Dream.method_to_string route.verb)
                route.path route.name

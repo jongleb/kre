@@ -1,7 +1,7 @@
 (test
  (name test_events)
- (libraries events_server forge dream alcotest lwt lwt.unix yojson)
+ (libraries events_server kre dream alcotest lwt lwt.unix yojson)
  (preprocess
-  (pps forge-ppx))
+  (pps kre-ppx))
  (preprocessor_deps
   (source_tree ..)))

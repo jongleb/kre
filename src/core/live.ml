@@ -103,7 +103,7 @@ let audit declared next request =
             in
             failure message response)
   in
-  match Sys.getenv_opt "FORGE_ENV" with
+  match Sys.getenv_opt "KRE_ENV" with
   | Some "test" ->
       checked (fun message _ ->
           Error.to_response request (Error.internal message))
@@ -115,11 +115,11 @@ let audit declared next request =
 
 let controller =
   Controller.v
-    ~spec:{ Spec.prefix = "/__forge"; version = None; routes = [] }
+    ~spec:{ Spec.prefix = "/__kre"; version = None; routes = [] }
     [
       Route.v `GET
         (Routes.( @--> )
-           Routes.(s "__forge" / s "live" /? nil)
+           Routes.(s "__kre" / s "live" /? nil)
            (Route.handle ~status:`OK Route.Raw (fun request ->
                 let changes, stop = subscribe (Dream.queries request "table") in
                 Lwt.map Result.ok

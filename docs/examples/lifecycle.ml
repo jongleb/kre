@@ -1,5 +1,5 @@
 let main () =
-  Forge.App.run
+  Kre.App.run
     ~on_start:(fun () ->
       Dream.log "warming caches";
       Lwt.return_unit)

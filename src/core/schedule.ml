@@ -1,4 +1,4 @@
-type timing = Every of float | After of float | Cron of Forge_shared.Cron.t
+type timing = Every of float | After of float | Cron of Kre_shared.Cron.t
 type job = { name : string; timing : timing; run : unit -> unit Lwt.t }
 
 let job ~name timing run = { name; timing; run }
@@ -18,7 +18,7 @@ let start jobs =
   in
   let rec cron schedule job =
     let now = Unix.gettimeofday () in
-    match Forge_shared.Cron.next schedule ~after:now with
+    match Kre_shared.Cron.next schedule ~after:now with
     | None -> Lwt.return_unit
     | Some at ->
         let* () = Lwt_unix.sleep (at -. now) in

@@ -18,9 +18,9 @@ let find_all (module Cats : Cats_service.S) ~(search : (Cat_search.t[@search]))
 [@@get] [@@summary "List cats"] [@@live [ "cats" ]]
 
 let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
-    (Cat.t, Forge.Error.t) result Lwt.t =
+    (Cat.t, Kre.Error.t) result Lwt.t =
   let%lwt cat = Cats.find id in
-  Lwt.return (Option.to_result cat ~none:(Forge.Error.not_found "cat"))
+  Lwt.return (Option.to_result cat ~none:(Kre.Error.not_found "cat"))
 [@@get ":id"]
 [@@etag]
 [@@summary "Find a cat"]

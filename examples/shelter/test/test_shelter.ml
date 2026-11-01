@@ -1,7 +1,7 @@
 let app = [%wire]
 
 let handler =
-  Dream.test (Forge.App.handler (Forge.Live.controller :: app.controllers))
+  Dream.test (Kre.App.handler (Kre.Live.controller :: app.controllers))
 
 let call ?token ?(body = "") method_ target =
   let response =
@@ -48,15 +48,15 @@ let () =
   Lwt_main.run
     (let%lwt () = app.on_start () in
      let%lwt conn =
-       Forge_db_mariadb.Driver.connect Settings.config.database_url
+       Kre_db_mariadb.Driver.connect Settings.config.database_url
      in
      let%lwt () =
        Lwt_list.iter_s
          (fun table ->
-           Forge_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
-         [ "forge_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
+           Kre_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
+         [ "kre_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
      in
-     Forge_db_mariadb.Driver.close conn);
+     Kre_db_mariadb.Driver.close conn);
   let boss = token "boss@shelter.test" in
   let ann = token "ann@shelter.test" in
   let bob = token "bob@shelter.test" in
@@ -152,9 +152,7 @@ let () =
                 List.map (number "id")
                   (Yojson.Basic.Util.to_list (snd (call `GET "/cats")))
               in
-              let changes, stop =
-                Forge.Live.subscribe [ "cats"; "adoptions" ]
-              in
+              let changes, stop = Kre.Live.subscribe [ "cats"; "adoptions" ] in
               let first = adopt ann (List.nth ids 0) in
               let published = Lwt_stream.get_available changes in
               let again = adopt bob (List.nth ids 0) in
@@ -196,7 +194,7 @@ let () =
                 in
                 List.length
                   (List.filter
-                     (fun (letter : Forge.Mail.t) ->
+                     (fun (letter : Kre.Mail.t) ->
                        String.starts_with ~prefix:user letter.text)
                      (Mail.sent ()))
               in
@@ -216,7 +214,7 @@ let () =
           Alcotest.test_case "seed and signup run with wired providers" `Quick
             (fun () ->
               let run arguments =
-                match Forge.Command.invoke app.commands arguments with
+                match Kre.Command.invoke app.commands arguments with
                 | Run command -> Lwt_main.run (command ())
                 | Serve | Usage _ | Invalid _ -> Alcotest.fail "not a command"
               in

@@ -1,5 +1,5 @@
 {
-  "name": "forge",
+  "name": "kre",
   "private": true,
   "description": "JS dependencies of the Melange examples and tests",
   "dependencies": {

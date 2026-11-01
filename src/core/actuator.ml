@@ -135,15 +135,14 @@ let make ?(checks = []) ?(info = []) ?(env = []) ?(beans = [])
                (Hashtbl.fold
                   (fun (method_, status) count lines ->
                     Printf.sprintf
-                      "forge_requests_total{method=\"%s\",status=\"%d\"} %d"
+                      "kre_requests_total{method=\"%s\",status=\"%d\"} %d"
                       method_ status count
                     :: lines)
                   requests []
                @ Hashtbl.fold
                    (fun method_ total lines ->
-                     Printf.sprintf
-                       "forge_request_seconds_sum{method=\"%s\"} %f" method_
-                       total
+                     Printf.sprintf "kre_request_seconds_sum{method=\"%s\"} %f"
+                       method_ total
                      :: lines)
                    seconds []
                @ [

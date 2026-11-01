@@ -1,8 +1,8 @@
 (library
- (name forge_db_postgresql)
- (public_name forge-db-postgresql)
+ (name kre_db_postgresql)
+ (public_name kre-db-postgresql)
  (libraries
-  forge
+  kre
   postgresql
   sqlgg.traits
   sqlgg.json_path

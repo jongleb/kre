@@ -1,10 +1,10 @@
 let () =
-  Forge_client.Http.headers := [ ("X-User", "web") ];
+  Kre_client.Http.headers := [ ("X-User", "web") ];
   Option.iter
     (fun root ->
       ReactDOM.Client.render
         (ReactDOM.Client.createRoot root)
-        <Forge_client.Router.View
+        <Kre_client.Router.View
           router=Cats_client_js.Routes.router pending=(React.string "Loading…")
         />)
     (ReactDOM.querySelector "#root")

@@ -1,6 +1,6 @@
 (library
  (name cats_server)
  (wrapped false)
- (libraries cats_shared forge forge.shared dream lwt routes)
+ (libraries cats_shared kre kre.shared dream lwt routes)
  (preprocess
-  (pps lwt_ppx forge-ppx)))
+  (pps lwt_ppx kre-ppx)))

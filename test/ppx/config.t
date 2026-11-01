@@ -20,44 +20,44 @@ config with secrets hidden.
   include
     struct
       let _ = fun (_ : t) -> ()
-      let __forge_config_port =
-        Forge.Config.field "PORT" (module Forge_shared.Scalar.Int)
-          (Forge.Config.Default 8080)
-      let _ = __forge_config_port
-      let __forge_config_secret =
-        Forge.Config.secret
-          (Forge.Config.field "SECRET" (module Forge_shared.Scalar.String)
-             Forge.Config.Required)
-      let _ = __forge_config_secret
-      let __forge_config_tags =
-        Forge.Config.list "TAGS" ~separator:',' (module
-          Forge_shared.Scalar.String) (Forge.Config.Default [])
-      let _ = __forge_config_tags
-      let __forge_config_admin =
-        Forge.Config.field "ADMIN" (module Email) Forge.Config.Optional
-      let _ = __forge_config_admin
+      let __kre_config_port =
+        Kre.Config.field "PORT" (module Kre_shared.Scalar.Int)
+          (Kre.Config.Default 8080)
+      let _ = __kre_config_port
+      let __kre_config_secret =
+        Kre.Config.secret
+          (Kre.Config.field "SECRET" (module Kre_shared.Scalar.String)
+             Kre.Config.Required)
+      let _ = __kre_config_secret
+      let __kre_config_tags =
+        Kre.Config.list "TAGS" ~separator:',' (module Kre_shared.Scalar.String)
+          (Kre.Config.Default [])
+      let _ = __kre_config_tags
+      let __kre_config_admin =
+        Kre.Config.field "ADMIN" (module Email) Kre.Config.Optional
+      let _ = __kre_config_admin
       let load ?(env= Sys.getenv_opt) () =
-        let open Forge.Config.Syntax in
-          let+ __forge_port = Forge.Config.read env __forge_config_port
-          and+ __forge_secret = Forge.Config.read env __forge_config_secret
-          and+ __forge_tags = Forge.Config.read env __forge_config_tags
-          and+ __forge_admin = Forge.Config.read env __forge_config_admin in
+        let open Kre.Config.Syntax in
+          let+ __kre_port = Kre.Config.read env __kre_config_port
+          and+ __kre_secret = Kre.Config.read env __kre_config_secret
+          and+ __kre_tags = Kre.Config.read env __kre_config_tags
+          and+ __kre_admin = Kre.Config.read env __kre_config_admin in
           {
-            port = __forge_port;
-            secret = __forge_secret;
-            tags = __forge_tags;
-            admin = __forge_admin
+            port = __kre_port;
+            secret = __kre_secret;
+            tags = __kre_tags;
+            admin = __kre_admin
           }
       let _ = load
-      let load_exn ?env () = Forge.Config.exit_on_error (load ?env ())
+      let load_exn ?env () = Kre.Config.exit_on_error (load ?env ())
       let _ = load_exn
       let pairs (config : t) =
-        [Forge.Config.show __forge_config_port config.port;
-        Forge.Config.show __forge_config_secret config.secret;
-        Forge.Config.show __forge_config_tags config.tags;
-        Forge.Config.show __forge_config_admin config.admin]
+        [Kre.Config.show __kre_config_port config.port;
+        Kre.Config.show __kre_config_secret config.secret;
+        Kre.Config.show __kre_config_tags config.tags;
+        Kre.Config.show __kre_config_admin config.admin]
       let _ = pairs
-      let pp ppf config = Forge.Config.pp ppf (pairs config)
+      let pp ppf config = Kre.Config.pp ppf (pairs config)
       let _ = pp
     end[@@ocaml.doc "@inline"][@@merlin.hide ]
 
@@ -115,5 +115,5 @@ Unsupported field type.
   File "input.ml", line 1, characters 15-24:
   1 | type t = { a : int * int } [@@deriving config]
                      ^^^^^^^^^
-  Error: unsupported config type (int * int); use int, int64, float, bool, string, T.t with T : Forge_shared.Scalar.S, an option or a list of those
+  Error: unsupported config type (int * int); use int, int64, float, bool, string, T.t with T : Kre_shared.Scalar.S, an option or a list of those
   [1]

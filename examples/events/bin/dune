@@ -1,7 +1,7 @@
 (executable
  (name main)
- (libraries events_server forge dream)
+ (libraries events_server kre dream)
  (preprocess
-  (pps forge-ppx))
+  (pps kre-ppx))
  (preprocessor_deps
   (source_tree ..)))

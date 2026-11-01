@@ -1,4 +1,4 @@
 (library
- (name forge_shared)
- (public_name forge.shared)
+ (name kre_shared)
+ (public_name kre.shared)
  (libraries jsonkit))

@@ -1,5 +1,5 @@
 (cram
  (deps
-  (package forge)
-  (package forge-ppx)
-  (package forge-client)))
+  (package kre)
+  (package kre-ppx)
+  (package kre-client)))

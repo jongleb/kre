@@ -6,13 +6,11 @@ type entry = {
   queries : string list;
 }
 
-(** Whether this process profiles: only under [FORGE_ENV=dev] or unset. *)
+(** Whether this process profiles: only under [KRE_ENV=dev] or unset. *)
 type mode = On | Off
 
 let mode () =
-  match Sys.getenv_opt "FORGE_ENV" with
-  | None | Some "dev" -> On
-  | Some _ -> Off
+  match Sys.getenv_opt "KRE_ENV" with None | Some "dev" -> On | Some _ -> Off
 
 let log : string list ref Lwt.key = Lwt.new_key ()
 let entries = ref []
@@ -31,7 +29,7 @@ let repeated entry =
 
 let middleware next request =
   match
-    (mode (), String.starts_with ~prefix:"/__forge/" (Dream.target request))
+    (mode (), String.starts_with ~prefix:"/__kre/" (Dream.target request))
   with
   | Off, _ | On, true -> next request
   | On, false ->
@@ -57,7 +55,7 @@ let controller =
   let page path respond =
     Route.v `GET
       (Routes.( @--> )
-         Routes.(s "__forge" / s path /? nil)
+         Routes.(s "__kre" / s path /? nil)
          (Route.handle ~status:`OK Route.Raw (fun _ ->
               match mode () with
               | Off ->
@@ -66,7 +64,7 @@ let controller =
               | On -> Lwt.map Result.ok (respond ()))))
   in
   Controller.v
-    ~spec:{ Spec.prefix = "/__forge"; version = None; routes = [] }
+    ~spec:{ Spec.prefix = "/__kre"; version = None; routes = [] }
     [
       page "profiler.json" (fun () ->
           Dream.json
@@ -101,7 +99,7 @@ let controller =
           Dream.html
             (String.concat ""
                ([
-                  "<!doctype html><meta charset=utf-8><title>Forge \
+                  "<!doctype html><meta charset=utf-8><title>Kre \
                    profiler</title>";
                   "<style>body{font:14px system-ui;margin:24px}td{padding:4px \
                    8px;vertical-align:top}.n1{color:#b00}code{font-size:12px}</style>";

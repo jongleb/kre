@@ -1,7 +1,7 @@
 Every route of the showcase, straight from the controllers' specs.
 
   $ ./main.exe --emit-spec spec.json
-  $ forge routes --spec spec.json
+  $ kre routes --spec spec.json
   GET     /cats                            find_all 200
   GET     /cats/:id                        find_one 200
   POST    /cats                            create 201

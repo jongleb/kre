@@ -1,6 +1,6 @@
 # Custom providers
 
-Nest: `useValue`, `useClass`, `useFactory`. Forge: любой другой модуль той же сигнатуры. Подмена — передать его в `register`.
+Nest: `useValue`, `useClass`, `useFactory`. Kre: любой другой модуль той же сигнатуры. Подмена — передать его в `register`.
 
 <!-- $MDX file=examples/fake_cats.mli -->
 ```ocaml
@@ -30,4 +30,4 @@ let controllers ~fake =
   | `Real -> [ Cats_controller.register (module Cats_service) ]
 ```
 
-Фабрика (`useFactory`) — обычный код в `main.ml` до `Forge.App.run`: прочитать конфиг, открыть пул, применить функтор.
+Фабрика (`useFactory`) — обычный код в `main.ml` до `Kre.App.run`: прочитать конфиг, открыть пул, применить функтор.

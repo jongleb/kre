@@ -4,9 +4,9 @@
  (name shelter_shared_js)
  (wrapped false)
  (modes melange)
- (libraries forge-client.shared jsonkit-melange)
+ (libraries kre-client.shared jsonkit-melange)
  (preprocess
-  (pps melange.ppx jsonkit-melange.ppx forge-ppx -- -melange)))
+  (pps melange.ppx jsonkit-melange.ppx kre-ppx -- -melange)))
 
 (copy_files#
  (files ../*.ml))

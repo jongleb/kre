@@ -8,6 +8,5 @@ module Sql :
      and type Types.Bool.t = bool
      and type Types.Float.t = float
 
-module Driver : Forge.Db.DRIVER with type conn = Postgresql.connection
-(** The [Forge.Db] driver: a libpq URL, [postgresql://user:pass@host:port/db].
-*)
+module Driver : Kre.Db.DRIVER with type conn = Postgresql.connection
+(** The [Kre.Db] driver: a libpq URL, [postgresql://user:pass@host:port/db]. *)

@@ -4,7 +4,7 @@ type 'a queue
 type handler
 (** What runs a queue's payloads; [[@@job q]] on a provider function. *)
 
-val queue : string -> (module Forge_shared.Json.S with type t = 'a) -> 'a queue
+val queue : string -> (module Kre_shared.Json.S with type t = 'a) -> 'a queue
 val handle : 'a queue -> ('a -> (unit, string) result Lwt.t) -> handler
 val table : Table.t
 

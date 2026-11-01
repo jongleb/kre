@@ -1,9 +1,9 @@
 [@@@gateway "chat"]
 
-let say (socket : Forge.Gateway.socket) ~(body : Chat_line.t) :
-    Chat_line.t Lwt.t =
+let say (socket : Kre.Gateway.socket) ~(body : Chat_line.t) : Chat_line.t Lwt.t
+    =
   let%lwt () =
-    Forge.Gateway.broadcast socket ~event:"said" (module Chat_line) body
+    Kre.Gateway.broadcast socket ~event:"said" (module Chat_line) body
   in
   Lwt.return { body with text = "ack: " ^ body.text }
 [@@subscribe "say"]

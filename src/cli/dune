@@ -11,7 +11,7 @@
 
 (executable
  (name main)
- (public_name forge)
+ (public_name kre)
  (modules main generate scaffold templates)
- (package forge-cli)
- (libraries forge forge-db-mariadb cmdliner yojson dream lwt))
+ (package kre-cli)
+ (libraries kre kre-db-mariadb cmdliner yojson dream lwt))

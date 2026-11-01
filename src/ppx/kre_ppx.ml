@@ -1,12 +1,12 @@
 let () =
-  Ppxlib.Driver.register_transformation "forge.preprocess"
+  Ppxlib.Driver.register_transformation "kre.preprocess"
     ~preprocess_impl:(fun items ->
       Dto.structure (Command.structure (Retry.structure items)))
     ~preprocess_intf:Dto.signature;
-  Ppxlib.Driver.register_transformation "forge.controller"
+  Ppxlib.Driver.register_transformation "kre.controller"
     ~impl:Controller.transform;
-  Ppxlib.Driver.register_transformation "forge.gateway" ~impl:Gateway.transform;
-  Ppxlib.Driver.register_transformation "forge.path"
+  Ppxlib.Driver.register_transformation "kre.gateway" ~impl:Gateway.transform;
+  Ppxlib.Driver.register_transformation "kre.path"
     ~rules:
       [
         Ppxlib.Context_free.Rule.extension Page.path;

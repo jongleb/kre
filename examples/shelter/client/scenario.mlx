@@ -2,7 +2,7 @@ external argv : string array = "argv" [@@mel.scope "process"]
 
 let account email =
   {
-    Login_dto.email = Result.get_ok (Forge_shared.Refined.Email.of_repr email);
+    Login_dto.email = Result.get_ok (Kre_shared.Refined.Email.of_repr email);
     password = "whiskers1";
   }
 
@@ -14,28 +14,28 @@ let kitten name =
 
 let show = function
   | Ok text -> "ok " ^ text
-  | Error (Forge_client.Error.Problem problem) ->
+  | Error (Kre_client.Error.Problem problem) ->
       Printf.sprintf "problem %d %s" problem.status problem.type_
-  | Error error -> "error " ^ Forge_client.Error.message error
+  | Error error -> "error " ^ Kre_client.Error.message error
 
 let sign_in = function
   | Ok (session : Session.t) ->
-      Forge_client.Http.headers :=
+      Kre_client.Http.headers :=
         [ ("Authorization", "Bearer " ^ session.token) ];
       Ok (User.Role.to_string session.user.role)
   | Error error -> Error error
 
 let () =
-  Forge_client.Http.base_url := "http://127.0.0.1:" ^ argv.(2);
+  Kre_client.Http.base_url := "http://127.0.0.1:" ^ argv.(2);
   let stop = ref ignore in
   let changed =
     Js.Promise.make (fun ~resolve ~reject:_ ->
         stop :=
-          Forge_client.Live.watch Cats_client.Live.available (fun table ->
+          Kre_client.Live.watch Cats_client.Live.available (fun table ->
               (resolve table [@u])))
   in
   ignore
-    (let open Forge_client.Promise in
+    (let open Kre_client.Promise in
      let* () =
        Js.Promise.make (fun ~resolve ~reject:_ ->
            ignore

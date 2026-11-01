@@ -1,7 +1,7 @@
 type t = {
-  from : Forge_shared.Refined.Email.t;
-  to_ : Forge_shared.Refined.Email.t;
-  cc : Forge_shared.Refined.Email.t list;
+  from : Kre_shared.Refined.Email.t;
+  to_ : Kre_shared.Refined.Email.t;
+  cc : Kre_shared.Refined.Email.t list;
   subject : string;
   text : string;
   html : string option;
@@ -10,7 +10,7 @@ type t = {
 let make ~from ~to_ ?(cc = []) ~subject ~text ?html () =
   { from; to_; cc; subject; text; html }
 
-let address email = Forge_shared.Refined.Email.to_string email
+let address email = Kre_shared.Refined.Email.to_string email
 
 let lines letter =
   let encoded header =
@@ -68,7 +68,7 @@ let lines letter =
         @ body letter.text)
       ~some:(fun html ->
         let boundary =
-          "forge-" ^ Digest.to_hex (Digest.string (letter.text ^ html))
+          "kre-" ^ Digest.to_hex (Digest.string (letter.text ^ html))
         in
         [
           "Content-Type: multipart/alternative; boundary=\"" ^ boundary ^ "\"";
@@ -188,11 +188,11 @@ module Outbox () = struct
 
   let controller =
     Controller.v
-      ~spec:{ Spec.prefix = "/__forge"; version = None; routes = [] }
+      ~spec:{ Spec.prefix = "/__kre"; version = None; routes = [] }
       [
         Route.v `GET
           (Routes.( @--> )
-             Routes.(s "__forge" / s "mail" /? nil)
+             Routes.(s "__kre" / s "mail" /? nil)
              (Route.handle ~status:`OK Route.Raw (fun _ ->
                   Lwt.map Result.ok
                     (Dream.html

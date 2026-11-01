@@ -29,7 +29,7 @@ val unauthorized : string -> t
 val forbidden : string -> t
 val not_found : string -> t
 val conflict : string -> t
-val unprocessable : Forge_shared.Validation.t -> t
+val unprocessable : Kre_shared.Validation.t -> t
 val internal : string -> t
 val to_json : instance:string -> t -> Jsonkit.t
 val to_response : Dream.request -> t -> Dream.response Lwt.t

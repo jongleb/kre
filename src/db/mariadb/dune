@@ -1,4 +1,4 @@
 (library
- (name forge_db_mariadb)
- (public_name forge-db-mariadb)
- (libraries forge mariadb sqlgg.traits sqlgg.mariadb lwt lwt.unix uri))
+ (name kre_db_mariadb)
+ (public_name kre-db-mariadb)
+ (libraries kre mariadb sqlgg.traits sqlgg.mariadb lwt lwt.unix uri))

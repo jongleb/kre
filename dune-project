@@ -16,7 +16,7 @@
   (preprocess
    (run mlx-pp %{input-file}))))
 
-(name forge)
+(name kre)
 
 (generate_opam_files true)
 
@@ -30,7 +30,7 @@
 (license ISC)
 
 (package
- (name forge)
+ (name kre)
  (synopsis "NestJS-like server runtime on Dream")
  (depends
   (ocaml
@@ -48,8 +48,8 @@
   (alcotest-lwt :with-test)))
 
 (package
- (name forge-ppx)
- (synopsis "Forge ppx: controller, dto, config, table")
+ (name kre-ppx)
+ (synopsis "Kre ppx: controller, dto, config, table")
  (depends
   (ocaml
    (and
@@ -62,8 +62,8 @@
   (ppx_expect :with-test)))
 
 (package
- (name forge-client)
- (synopsis "Forge Melange client: Http, Router, Path, Search")
+ (name kre-client)
+ (synopsis "Kre Melange client: Http, Router, Path, Search")
  (depends
   (ocaml
    (and
@@ -73,7 +73,7 @@
    (>= 7.0.0))
   (jsonkit-melange
    (>= 1.1.0))
-  (forge
+  (kre
    (= :version))
   cohttp-lwt-unix
   lwt
@@ -88,8 +88,8 @@
     :with-test))))
 
 (package
- (name forge-cli)
- (synopsis "The forge command-line tool")
+ (name kre-cli)
+ (synopsis "The kre command-line tool")
  (depends
   (ocaml
    (and
@@ -97,22 +97,22 @@
     (< 5.6)))
   (cmdliner
    (>= 2.0.0))
-  (forge
+  (kre
    (= :version))
   yojson
   dream
-  (forge-db-mariadb
+  (kre-db-mariadb
    (= :version))))
 
 (package
- (name forge-db-mariadb)
- (synopsis "MariaDB driver and sqlgg traits for Forge.Db")
+ (name kre-db-mariadb)
+ (synopsis "MariaDB driver and sqlgg traits for Kre.Db")
  (depends
   (ocaml
    (and
     (>= 5.5)
     (< 5.6)))
-  (forge
+  (kre
    (= :version))
   (mariadb
    (>= 2.2.0))
@@ -122,14 +122,14 @@
   uri))
 
 (package
- (name forge-db-postgresql)
- (synopsis "PostgreSQL driver (libpq) and sqlgg traits for Forge.Db")
+ (name kre-db-postgresql)
+ (synopsis "PostgreSQL driver (libpq) and sqlgg traits for Kre.Db")
  (depends
   (ocaml
    (and
     (>= 5.5)
     (< 5.6)))
-  (forge
+  (kre
    (= :version))
   (postgresql
    (>= 5.0))

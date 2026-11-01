@@ -4,7 +4,7 @@ type response = { status : int; body : string }
 type 'a returns =
   | Unit : unit returns
   | Text : string returns
-  | Json : (module Forge_shared.Json.S with type t = 'a) -> 'a returns
+  | Json : (module Kre_shared.Json.S with type t = 'a) -> 'a returns
   | Raw : response returns
 
 let method_name = function
@@ -26,11 +26,10 @@ let encode text =
          | c -> Printf.sprintf "%%%02X" (Char.code c))
        (List.init (String.length text) (String.get text)))
 
-let segment (module S : Forge_shared.Scalar.S) value =
-  encode (S.to_string value)
+let segment (module S : Kre_shared.Scalar.S) value = encode (S.to_string value)
 
-let query (type b) (module S : Forge_shared.Scalar.S)
-    (presence : (S.t, b) Forge_shared.Presence.t) name (value : b) =
+let query (type b) (module S : Kre_shared.Scalar.S)
+    (presence : (S.t, b) Kre_shared.Presence.t) name (value : b) =
   List.map
     (fun value -> (name, S.to_string value))
     (match presence with
@@ -38,7 +37,7 @@ let query (type b) (module S : Forge_shared.Scalar.S)
     | Optional -> Option.to_list value
     | Repeated -> value)
 
-let body (module J : Forge_shared.Json.S) value =
+let body (module J : Kre_shared.Json.S) value =
   Jsonkit.to_string (J.to_json value)
 
 let url ~base ~path ~query =
@@ -66,10 +65,10 @@ let decode (type a) (returns : a returns) response : (a, Error.t) result =
           | json ->
               Result.map_error
                 (fun errors -> Error.Decode errors)
-                (Forge_shared.Json.parse (module J) json)
+                (Kre_shared.Json.parse (module J) json)
           | exception Jsonkit.Of_string_error message ->
               Error
-                (Error.Decode
-                   (Forge_shared.Validation.fail ~rule:"json" message))))
+                (Error.Decode (Kre_shared.Validation.fail ~rule:"json" message))
+          ))
 
-let search codec value = Forge_shared.Search.encode codec value
+let search codec value = Kre_shared.Search.encode codec value

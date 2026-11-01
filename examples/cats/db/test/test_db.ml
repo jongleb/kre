@@ -1,15 +1,14 @@
 let url =
-  match Sys.getenv_opt "FORGE_TEST_DB_URL" with
+  match Sys.getenv_opt "KRE_TEST_DB_URL" with
   | Some url -> url
   | None ->
       prerr_endline
-        "set FORGE_TEST_DB_URL, e.g. \
-         mariadb://forge:forge@127.0.0.1:3399/forge_test";
+        "set KRE_TEST_DB_URL, e.g. mariadb://kre:kre@127.0.0.1:3399/kre_test";
       exit 2
 
 module Db =
-  Forge.Db.Make
-    (Forge_db_mariadb.Driver)
+  Kre.Db.Make
+    (Kre_db_mariadb.Driver)
     (struct
       let url = url
       let size = 2
@@ -18,7 +17,7 @@ module Db =
 module Cats = Cats_db_service.Make (Db)
 
 let app =
-  Dream.test (Forge.App.handler [ Cats_controller.register (module Cats) ])
+  Dream.test (Kre.App.handler [ Cats_controller.register (module Cats) ])
 
 let call ?(headers = []) ?(body = "") method_ target =
   let response = app (Dream.request ~method_ ~target ~headers body) in
@@ -57,7 +56,7 @@ let () =
             `Quick (fun () ->
               let batch =
                 Dream.test
-                  (Forge.App.handler [ Batch_controller.register (module Db) ])
+                  (Kre.App.handler [ Batch_controller.register (module Db) ])
               in
               let post note =
                 Dream.status_to_int
@@ -79,7 +78,7 @@ let () =
                   List.length (Lwt_main.run (Cats.find_all ())) ));
           Alcotest.test_case "crud: for_insert, for_update, delete" `Quick
             (fun () ->
-              let module Crud = Cats_crud.Make (Forge_db_mariadb.Sql) in
+              let module Crud = Cats_crud.Make (Kre_db_mariadb.Sql) in
               let tom = Option.get (Lwt_main.run (Cats.find Cat.Id.first)) in
               let name conn id =
                 Lwt.map
@@ -113,8 +112,8 @@ let () =
                         Lwt.return [ first; renamed; gone ]))));
           Alcotest.test_case "live: committed writes reach subscribers" `Quick
             (fun () ->
-              let module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) in
-              let changes, stop = Forge.Live.subscribe [ "cats" ] in
+              let module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) in
+              let changes, stop = Kre.Live.subscribe [ "cats" ] in
               let insert result =
                 ignore
                   (Lwt_main.run
@@ -136,7 +135,7 @@ let () =
               let attempt =
                 Lwt_main.run
                   (Db.transaction (fun conn ->
-                       let module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) in
+                       let module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) in
                        let%lwt _ =
                          Sql.insert conn ~name:"ghost" ~age:1L ~breed:"persian"
                        in
@@ -148,8 +147,8 @@ let () =
                   List.length (Lwt_main.run (Cats.find_all ())) ));
           Alcotest.test_case "with_conn and transaction join an open one" `Quick
             (fun () ->
-              let module Sql = Cats_sql.Make (Forge_db_mariadb.Sql) in
-              let changes, stop = Forge.Live.subscribe [ "cats" ] in
+              let module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) in
+              let changes, stop = Kre.Live.subscribe [ "cats" ] in
               let attempt =
                 Lwt_main.run
                   (Db.transaction (fun _ ->

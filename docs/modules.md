@@ -1,12 +1,12 @@
 # Modules
 
-Nest: `@Module({ imports, providers, controllers, exports })`. В OCaml это уже есть: модуль — единица кода, `.mli` — exports, библиотека dune — граница пакета, `bin/main.ml` — сборка приложения. Отдельной сущности «модуль Forge» нет.
+Nest: `@Module({ imports, providers, controllers, exports })`. В OCaml это уже есть: модуль — единица кода, `.mli` — exports, библиотека dune — граница пакета, `bin/main.ml` — сборка приложения. Отдельной сущности «модуль Kre» нет.
 
 Провайдер с зависимостями — функтор: его аргументы и есть `imports`.
 
 <!-- $MDX file=../examples/cats/db/cats_db_service.mli -->
 ```ocaml
-module Make (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) : sig
+module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) : sig
   include Cats_service.S
 
   val reset : unit -> unit Lwt.t
@@ -22,15 +22,15 @@ end
 let () =
   let app = [%wire] in
   let actuator =
-    Forge.Actuator.make ~checks:app.health ~beans:app.beans
+    Kre.Actuator.make ~checks:app.health ~beans:app.beans
       ~env:(Config.pairs Settings.config)
       app.controllers
   in
-  Forge.App.run ~port:Settings.config.port
+  Kre.App.run ~port:Settings.config.port
     ~middleware:
       [ Dream.logger; actuator.metrics; Web.use ~dir:Settings.config.web ]
     ~on_start:app.on_start ~on_shutdown:app.on_shutdown
-    (actuator.controller :: Forge.Live.controller :: app.controllers)
+    (actuator.controller :: Kre.Live.controller :: app.controllers)
 ```
 
 Провайдер базы с хуком `on_start` (миграции при старте):
@@ -39,8 +39,8 @@ let () =
 ```ocaml
 module Make (Settings : Settings.S) = struct
   include
-    Forge.Db.Make
-      (Forge_db_mariadb.Driver)
+    Kre.Db.Make
+      (Kre_db_mariadb.Driver)
       (struct
         let url = Settings.database_url
         let size = 4
@@ -49,11 +49,10 @@ module Make (Settings : Settings.S) = struct
   let on_start () =
     with_conn (fun conn ->
         Lwt.map ignore
-          (Forge.Migration.up
-             (module Forge_db_mariadb.Driver)
+          (Kre.Migration.up
+             (module Kre_db_mariadb.Driver)
              conn
-             (Result.get_ok
-                (Forge.Migration.of_files [%embed_dir "migrations"]))))
+             (Result.get_ok (Kre.Migration.of_files [%embed_dir "migrations"]))))
 
   let ping () =
     Lwt.catch
@@ -61,7 +60,7 @@ module Make (Settings : Settings.S) = struct
         with_conn (fun conn ->
             Lwt.map
               (fun _ -> Ok ())
-              (Forge_db_mariadb.Driver.strings conn "SELECT 1")))
+              (Kre_db_mariadb.Driver.strings conn "SELECT 1")))
       (fun exn -> Lwt.return_error (Printexc.to_string exn))
   [@@health "db"]
 end

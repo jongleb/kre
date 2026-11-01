@@ -8,24 +8,24 @@ end = struct
   let of_header = function Some "admin" -> Some Admin | Some _ | None -> None
 end
 
-let admin : Admin.t Forge.Guard.t =
+let admin : Admin.t Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.to_result
-       ~none:(Forge.Error.forbidden "admins only")
+       ~none:(Kre.Error.forbidden "admins only")
        (Admin.of_header (Dream.header request "X-Role")))
 
-let signed_in : unit Forge.Guard.t =
+let signed_in : unit Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.fold
-       ~none:(Error (Forge.Error.unauthorized "sign in first"))
+       ~none:(Error (Kre.Error.unauthorized "sign in first"))
        ~some:(fun _ -> Ok ())
        (Dream.header request "X-User"))
 
-let user : string Forge.Guard.t =
+let user : string Kre.Guard.t =
  fun request ->
   Lwt.return
     (Option.to_result
-       ~none:(Forge.Error.unauthorized "sign in first")
+       ~none:(Kre.Error.unauthorized "sign in first")
        (Dream.header request "X-User"))

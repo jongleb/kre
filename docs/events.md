@@ -1,16 +1,16 @@
 # Events
 
-Nest: `EventEmitter2` и `@OnEvent('user.created')`. Spring: `ApplicationEventPublisher` и `@EventListener`. Forge: типизированный топик, шина-провайдер и `[@@on_event]`.
+Nest: `EventEmitter2` и `@OnEvent('user.created')`. Spring: `ApplicationEventPublisher` и `@EventListener`. Kre: типизированный топик, шина-провайдер и `[@@on_event]`.
 
-- Топик — значение с типом события: `Forge.Events.topic "user.signed_up" : Signup.t Forge.Events.topic`. Опубликовать в него событие другого типа нельзя.
-- Шина — провайдер `Forge.Events.Make ()`; кто публикует, получает её параметром (`(module Bus : Forge.Events.S)`).
+- Топик — значение с типом события: `Kre.Events.topic "user.signed_up" : Signup.t Kre.Events.topic`. Опубликовать в него событие другого типа нельзя.
+- Шина — провайдер `Kre.Events.Make ()`; кто публикует, получает её параметром (`(module Bus : Kre.Events.S)`).
 - Слушатель — функция провайдера с `[@@on_event Topics.user_signed_up]`. `[%wire]` при сборке подписывает её на шину; нет шины — ошибка компиляции.
 - `publish` вызывает слушателей параллельно; исключение слушателя пишется в лог и не ломает публикацию.
 
 <!-- $MDX file=../examples/events/server/topics.ml -->
 ```ocaml
-let user_signed_up : Signup.t Forge.Events.topic =
-  Forge.Events.topic "user.signed_up"
+let user_signed_up : Signup.t Kre.Events.topic =
+  Kre.Events.topic "user.signed_up"
 ```
 
 <!-- $MDX file=../examples/events/server/mailer.ml -->
@@ -48,7 +48,7 @@ end
 ```ocaml
 [@@@controller "signup"]
 
-let create (module Bus : Forge.Events.S) ~(body : Signup.t) () : unit Lwt.t =
+let create (module Bus : Kre.Events.S) ~(body : Signup.t) () : unit Lwt.t =
   Bus.publish Topics.user_signed_up body
 [@@post]
 

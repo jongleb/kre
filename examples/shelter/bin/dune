@@ -1,8 +1,8 @@
 (executable
  (name main)
- (libraries shelter_server shelter_shared forge forge-db-mariadb dream lwt)
+ (libraries shelter_server shelter_shared kre kre-db-mariadb dream lwt)
  (preprocess
-  (pps forge-ppx))
+  (pps kre-ppx))
  (preprocessor_deps
   (source_tree ..)))
 

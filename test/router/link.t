@@ -8,17 +8,17 @@ A link to a route is checked against the route's params and search types.
   > (library
   >  (name pages)
   >  (modes melange)
-  >  (libraries forge-client reason-react)
-  >  (preprocess (pps melange.ppx reason-react-ppx forge-ppx)))
+  >  (libraries kre-client reason-react)
+  >  (preprocess (pps melange.ppx reason-react-ppx kre-ppx)))
   > EOF2
   $ cat > pages.ml <<'EOF2'
-  > let root = Forge_client.Router.root ()
+  > let root = Kre_client.Router.root ()
   > type params = { id : int } [@@deriving params ~path:"/cats/:id"]
   > let show =
-  >   Forge_client.Router.child root ~path:params_path ~search:Forge_shared.Search.none
-  >     ~loader:Forge_client.Router.no_data
+  >   Kre_client.Router.child root ~path:params_path ~search:Kre_shared.Search.none
+  >     ~loader:Kre_client.Router.no_data
   >     ~component:(fun ~data:() ~params:_ ~search:() -> React.null)
-  > let ok = Forge_client.Router.link show ~params:{ id = 1 } ~search:() ~children:React.null
+  > let ok = Kre_client.Router.link show ~params:{ id = 1 } ~search:() ~children:React.null
   > EOF2
   $ dune build 2>&1 && echo compiles
   compiles
@@ -26,7 +26,7 @@ A link to a route is checked against the route's params and search types.
 Wrong params do not compile.
 
   $ cat >> pages.ml <<'EOF2'
-  > let wrong = Forge_client.Router.link show ~params:() ~search:() ~children:React.null
+  > let wrong = Kre_client.Router.link show ~params:() ~search:() ~children:React.null
   > EOF2
   $ dune build 2>&1 | grep -A1 "^Error"
   Error: This expression should not be a unit literal, the expected type is

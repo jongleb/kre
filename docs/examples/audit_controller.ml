@@ -1,27 +1,25 @@
 [@@@controller "audit"]
-[@@@intercept [ Forge.Interceptor.logging ]]
+[@@@intercept [ Kre.Interceptor.logging ]]
 
 let hidden =
-  Forge.Interceptor.map_error (fun (error : Forge.Error.t) ->
+  Kre.Interceptor.map_error (fun (error : Kre.Error.t) ->
       match error.code with
-      | "not_found" -> Forge.Error.forbidden "hidden"
+      | "not_found" -> Kre.Error.forbidden "hidden"
       | _ -> error)
 
 let calls = ref 0
 
 let counted =
-  Forge.Interceptor.tap (fun _ ->
+  Kre.Interceptor.tap (fun _ ->
       incr calls;
       Lwt.return_unit)
 
-let secret ~(id : int) : (string, Forge.Error.t) result Lwt.t =
+let secret ~(id : int) : (string, Kre.Error.t) result Lwt.t =
   Lwt.return
-    (match id with
-    | 1 -> Ok "one"
-    | _ -> Error (Forge.Error.not_found "secret"))
+    (match id with 1 -> Ok "one" | _ -> Error (Kre.Error.not_found "secret"))
 [@@get ":id"] [@@intercept [ hidden; counted ]]
 
 let slow () : string Lwt.t =
   let%lwt () = Lwt_unix.sleep 1.0 in
   Lwt.return "late"
-[@@get "slow"] [@@intercept [ Forge.Interceptor.timeout 0.05 ]]
+[@@get "slow"] [@@intercept [ Kre.Interceptor.timeout 0.05 ]]

@@ -31,14 +31,14 @@ let () =
                 (Unix.environment ()))
        in
        let%lwt () = ready 100 in
-       let%lwt conn = Forge_db_mariadb.Driver.connect database_url in
+       let%lwt conn = Kre_db_mariadb.Driver.connect database_url in
        let%lwt () =
          Lwt_list.iter_s
            (fun table ->
-             Forge_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
-           [ "forge_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
+             Kre_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
+           [ "kre_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
        in
-       let%lwt () = Forge_db_mariadb.Driver.close conn in
+       let%lwt () = Kre_db_mariadb.Driver.close conn in
        let%lwt output =
          Lwt_process.pread
            ( "",
@@ -64,9 +64,9 @@ let () =
                 "transcript"
                 "boss ok admin\n\
                  ann ok member\n\
-                 ann admits problem 403 urn:forge:error:forbidden\n\
+                 ann admits problem 403 urn:kre:error:forbidden\n\
                  ann adopts ok tom\n\
-                 again problem 409 urn:forge:error:conflict\n\
+                 again problem 409 urn:kre:error:conflict\n\
                  available ok felix\n\
                  live cats\n\
                  login <form><input type=\"email\" value=\"\"/><input \

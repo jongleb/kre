@@ -1,9 +1,9 @@
 # Exception filters
 
-Nest: `HttpException` и фильтры. Forge: значение `Forge.Error.t` — статус (только 4xx/5xx), код, текст, расширения — сериализуется как RFC 9457 Problem Details (`application/problem+json`). Хендлер возвращает `(_, Forge.Error.t) result` или вызывает `Forge.Error.fail`; любое другое исключение превращается в 500 с записью в лог.
+Nest: `HttpException` и фильтры. Kre: значение `Kre.Error.t` — статус (только 4xx/5xx), код, текст, расширения — сериализуется как RFC 9457 Problem Details (`application/problem+json`). Хендлер возвращает `(_, Kre.Error.t) result` или вызывает `Kre.Error.fail`; любое другое исключение превращается в 500 с записью в лог.
 
 ```json
-{ "type": "urn:forge:error:not_found", "title": "Not Found", "status": 404,
+{ "type": "urn:kre:error:not_found", "title": "Not Found", "status": 404,
   "detail": "cat", "instance": "/cats/7" }
 ```
 
@@ -11,11 +11,11 @@ Nest: `HttpException` и фильтры. Forge: значение `Forge.Error.t`
 
 <!-- $MDX file=examples/error_pages.ml -->
 ```ocaml
-let handler : Forge.Error.handler =
+let handler : Kre.Error.handler =
  fun request error ->
   match error.code with
   | "not_found" -> Dream.html ~status:`Not_Found "<h1>Nothing here</h1>"
-  | _ -> Forge.Error.to_response request error
+  | _ -> Kre.Error.to_response request error
 ```
 
-Подключение: `Forge.App.run ~error_handler:Error_pages.handler …`.
+Подключение: `Kre.App.run ~error_handler:Error_pages.handler …`.

@@ -69,7 +69,7 @@ struct
                 Lwt.reraise exn))
 
   let query sql params = with_conn (fun conn -> Driver.query conn sql params)
-  let field : conn Dream.field = Dream.new_field ~name:"forge.transaction" ()
+  let field : conn Dream.field = Dream.new_field ~name:"kre.transaction" ()
 
   let tx =
     Guard.field field

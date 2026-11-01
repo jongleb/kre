@@ -1,28 +1,27 @@
 module type S = sig
-  val signup : Login_dto.t -> (User.t, Forge.Error.t) result Lwt.t
+  val signup : Login_dto.t -> (User.t, Kre.Error.t) result Lwt.t
   val login : Login_dto.t -> User.t option Lwt.t
 end
 
 module Make
     (Settings : Settings.S)
-    (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t) : S = struct
-  module Sql = Shelter_sql.Make (Forge_db_mariadb.Sql)
-  module Users = Users_crud.Make (Forge_db_mariadb.Sql)
-  module Credentials = Credentials_crud.Make (Forge_db_mariadb.Sql)
+    (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) : S = struct
+  module Sql = Shelter_sql.Make (Kre_db_mariadb.Sql)
+  module Users = Users_crud.Make (Kre_db_mariadb.Sql)
+  module Credentials = Credentials_crud.Make (Kre_db_mariadb.Sql)
 
   let signup ({ email; password } : Login_dto.t) =
     Db.transaction (fun conn ->
-        let address = Forge_shared.Refined.Email.to_string email in
+        let address = Kre_shared.Refined.Email.to_string email in
         match%lwt Users.Single.by_email conn ~email:address User.of_row with
-        | Some _ ->
-            Lwt.return_error (Forge.Error.conflict "this email is taken")
+        | Some _ -> Lwt.return_error (Kre.Error.conflict "this email is taken")
         | None ->
             let role =
               Option.fold ~none:User.Role.Member
                 ~some:(fun admin ->
                   match
                     String.equal address
-                      (Forge_shared.Refined.Email.to_string admin)
+                      (Kre_shared.Refined.Email.to_string admin)
                   with
                   | true -> User.Role.Admin
                   | false -> Member)
@@ -43,7 +42,7 @@ module Make
     Db.with_conn (fun conn ->
         let%lwt credential =
           Sql.Single.credential_by_email conn
-            ~email:(Forge_shared.Refined.Email.to_string email)
+            ~email:(Kre_shared.Refined.Email.to_string email)
             Credential.of_row
         in
         Option.fold ~none:Lwt.return_none

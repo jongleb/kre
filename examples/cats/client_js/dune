@@ -3,7 +3,7 @@
  (deps ../client_native/spec.json)
  (action
   (run
-   %{bin:forge}
+   %{bin:kre}
    client
    --spec
    ../client_native/spec.json
@@ -18,12 +18,12 @@
  (modules cats_client scenario pages routes router_check)
  (libraries
   cats_shared_js
-  forge-client
-  forge-client.shared
+  kre-client
+  kre-client.shared
   jsonkit-melange
   reason-react)
  (preprocess
-  (pps melange.ppx reason-react-ppx forge-ppx)))
+  (pps melange.ppx reason-react-ppx kre-ppx)))
 
 (melange.emit
  (target js)
@@ -36,6 +36,6 @@
  (modules run_scenario)
  (deps
   (alias melange))
- (libraries cats_server forge dream lwt lwt.unix alcotest)
+ (libraries cats_server kre dream lwt lwt.unix alcotest)
  (preprocess
   (pps lwt_ppx)))

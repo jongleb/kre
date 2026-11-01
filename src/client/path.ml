@@ -2,7 +2,7 @@ type segment = Literal of string | Param of string
 
 type 'p t = {
   segments : segment list;
-  decode : (string * string) list -> ('p, Forge_shared.Validation.t) result;
+  decode : (string * string) list -> ('p, Kre_shared.Validation.t) result;
   encode : 'p -> (string * string) list;
 }
 
@@ -24,11 +24,11 @@ let static pattern =
 
 let make pattern ~decode ~encode = { segments = parse pattern; decode; encode }
 
-let param (module S : Forge_shared.Scalar.S) name pairs =
+let param (module S : Kre_shared.Scalar.S) name pairs =
   Option.fold
-    ~none:(Error (Forge_shared.Validation.fail ~rule:"missing" ("no :" ^ name)))
+    ~none:(Error (Kre_shared.Validation.fail ~rule:"missing" ("no :" ^ name)))
     ~some:(fun raw ->
-      Result.map_error (Forge_shared.Validation.at [ name ]) (S.of_string raw))
+      Result.map_error (Kre_shared.Validation.at [ name ]) (S.of_string raw))
     (List.assoc_opt name pairs)
 
 let match_ path url =

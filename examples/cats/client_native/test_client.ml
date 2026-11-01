@@ -2,12 +2,12 @@ let port = 18000 + (Unix.getpid () mod 1000)
 
 let ok = function
   | Ok value -> value
-  | Error error -> Alcotest.fail (Forge_client.Error.message error)
+  | Error error -> Alcotest.fail (Kre_client.Error.message error)
 
 let problem = function
   | Ok _ -> Alcotest.fail "expected a problem"
-  | Error (Forge_client.Error.Problem problem) -> problem
-  | Error error -> Alcotest.fail (Forge_client.Error.message error)
+  | Error (Kre_client.Error.Problem problem) -> problem
+  | Error error -> Alcotest.fail (Kre_client.Error.message error)
 
 let tom =
   {
@@ -42,34 +42,34 @@ let tests =
         in
         Alcotest.(check (pair int string))
           "problem"
-          (404, "urn:forge:error:not_found")
+          (404, "urn:kre:error:not_found")
           (let problem = problem missing in
            (problem.status, problem.type_));
         Lwt.return_unit);
     Alcotest_lwt.test_case "unreachable server is a network error" `Quick
       (fun _ () ->
-        let base = !Forge_client.Http.base_url in
-        Forge_client.Http.base_url := "http://127.0.0.1:1";
+        let base = !Kre_client.Http.base_url in
+        Kre_client.Http.base_url := "http://127.0.0.1:1";
         let%lwt result =
           Cats_client.find_all ~search:{ Cat_search.limit = 20; breed = None }
         in
-        Forge_client.Http.base_url := base;
+        Kre_client.Http.base_url := base;
         Alcotest.(check bool)
           "network" true
           (match result with
-          | Error (Forge_client.Error.Network _) -> true
+          | Error (Kre_client.Error.Network _) -> true
           | _ -> false);
         Lwt.return_unit);
   ]
 
 let () =
-  Forge_client.Http.base_url := Printf.sprintf "http://127.0.0.1:%d" port;
-  Forge_client.Http.headers := [ ("X-User", "ann") ];
+  Kre_client.Http.base_url := Printf.sprintf "http://127.0.0.1:%d" port;
+  Kre_client.Http.headers := [ ("X-User", "ann") ];
   let stop, stopper = Lwt.wait () in
   Lwt_main.run
     (let server =
        Dream.serve ~interface:"127.0.0.1" ~port ~stop
-         (Forge.App.handler [ Cats_controller.register (module Cats_service) ])
+         (Kre.App.handler [ Cats_controller.register (module Cats_service) ])
      in
      let%lwt () = Lwt_unix.sleep 0.2 in
      let%lwt () =

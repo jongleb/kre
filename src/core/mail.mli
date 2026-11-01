@@ -1,7 +1,7 @@
 type t = private {
-  from : Forge_shared.Refined.Email.t;
-  to_ : Forge_shared.Refined.Email.t;
-  cc : Forge_shared.Refined.Email.t list;
+  from : Kre_shared.Refined.Email.t;
+  to_ : Kre_shared.Refined.Email.t;
+  cc : Kre_shared.Refined.Email.t list;
   subject : string;
   text : string;
   html : string option;  (** Sent as multipart/alternative next to [text]. *)
@@ -9,9 +9,9 @@ type t = private {
 (** A letter; at least one recipient by construction. *)
 
 val make :
-  from:Forge_shared.Refined.Email.t ->
-  to_:Forge_shared.Refined.Email.t ->
-  ?cc:Forge_shared.Refined.Email.t list ->
+  from:Kre_shared.Refined.Email.t ->
+  to_:Kre_shared.Refined.Email.t ->
+  ?cc:Kre_shared.Refined.Email.t list ->
   subject:string ->
   text:string ->
   ?html:string ->

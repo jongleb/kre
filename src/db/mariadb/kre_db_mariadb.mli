@@ -11,5 +11,5 @@ module Sql :
      and type Types.Bool.t = bool
      and type Types.Float.t = float
 
-module Driver : Forge.Db.DRIVER with type conn = Client.t
-(** The [Forge.Db] driver: [mariadb://user:pass@host:port/db?socket=path]. *)
+module Driver : Kre.Db.DRIVER with type conn = Client.t
+(** The [Kre.Db] driver: [mariadb://user:pass@host:port/db?socket=path]. *)

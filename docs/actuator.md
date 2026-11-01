@@ -1,6 +1,6 @@
 # Actuator и health checks
 
-Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Forge: `Forge.Actuator.make` — контроллер под `/actuator` и middleware метрик.
+Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Kre: `Kre.Actuator.make` — контроллер под `/actuator` и middleware метрик.
 
 | Путь | Что |
 | --- | --- |
@@ -41,23 +41,23 @@ graph TD
 let () =
   let app = [%wire] in
   let actuator =
-    Forge.Actuator.make ~checks:app.health ~beans:app.beans
+    Kre.Actuator.make ~checks:app.health ~beans:app.beans
       ~env:(Config.pairs Settings.config)
       app.controllers
   in
-  Forge.App.run ~port:Settings.config.port
+  Kre.App.run ~port:Settings.config.port
     ~middleware:
       [ Dream.logger; actuator.metrics; Web.use ~dir:Settings.config.web ]
     ~on_start:app.on_start ~on_shutdown:app.on_shutdown
-    (actuator.controller :: Forge.Live.controller :: app.controllers)
+    (actuator.controller :: Kre.Live.controller :: app.controllers)
 ```
 
 <!-- $MDX file=../examples/cats/db/database.ml -->
 ```ocaml
 module Make (Settings : Settings.S) = struct
   include
-    Forge.Db.Make
-      (Forge_db_mariadb.Driver)
+    Kre.Db.Make
+      (Kre_db_mariadb.Driver)
       (struct
         let url = Settings.database_url
         let size = 4
@@ -66,11 +66,10 @@ module Make (Settings : Settings.S) = struct
   let on_start () =
     with_conn (fun conn ->
         Lwt.map ignore
-          (Forge.Migration.up
-             (module Forge_db_mariadb.Driver)
+          (Kre.Migration.up
+             (module Kre_db_mariadb.Driver)
              conn
-             (Result.get_ok
-                (Forge.Migration.of_files [%embed_dir "migrations"]))))
+             (Result.get_ok (Kre.Migration.of_files [%embed_dir "migrations"]))))
 
   let ping () =
     Lwt.catch
@@ -78,7 +77,7 @@ module Make (Settings : Settings.S) = struct
         with_conn (fun conn ->
             Lwt.map
               (fun _ -> Ok ())
-              (Forge_db_mariadb.Driver.strings conn "SELECT 1")))
+              (Kre_db_mariadb.Driver.strings conn "SELECT 1")))
       (fun exn -> Lwt.return_error (Printexc.to_string exn))
   [@@health "db"]
 end

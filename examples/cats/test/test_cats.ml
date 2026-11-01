@@ -1,6 +1,6 @@
 let app =
   let module Fresh = Cats_service.Make () in
-  Dream.test (Forge.App.handler [ Cats_controller.register (module Fresh) ])
+  Dream.test (Kre.App.handler [ Cats_controller.register (module Fresh) ])
 
 let call ?(headers = []) ?(body = "") method_ target =
   let response = app (Dream.request ~method_ ~target ~headers body) in
@@ -115,7 +115,7 @@ let () =
                 "routes"
                 [ ("GET", "/cats"); ("GET", "/cats/:id"); ("POST", "/cats") ]
                 (List.map
-                   (fun (route : Forge.Spec.route) ->
+                   (fun (route : Kre.Spec.route) ->
                      (Dream.method_to_string route.verb, route.path))
                    Cats_controller.spec.routes));
         ] );

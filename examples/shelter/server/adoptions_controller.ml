@@ -1,9 +1,9 @@
 [@@@controller "adoptions"]
 
 let adopt (module Adoptions : Adoptions_service.S)
-    (module Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
+    (module Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t)
     ~(user : (User.t[@guard Auth.current])) ~(body : Adopt_dto.t) :
-    (Adoption.t, Forge.Error.t) result Lwt.t =
+    (Adoption.t, Kre.Error.t) result Lwt.t =
   Adoptions.adopt body.cat_id user.id
 [@@post] [@@status 201] [@@transactional] [@@summary "Take a cat home"]
 
