@@ -55,7 +55,9 @@ let () =
        Lwt_list.iter_s
          (fun table ->
            Kre_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
-         [ "kre_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
+         [
+           "kre_jobs"; "kre_tokens"; "adoptions"; "credentials"; "cats"; "users";
+         ]
      in
      Kre_db_mariadb.Driver.close conn);
   let boss = token "boss@shelter.test" in
@@ -72,6 +74,27 @@ let () =
                    (fun token ->
                      text "role" (snd (call ~token `GET "/auth/me")))
                    [ boss; ann ]));
+          Alcotest.test_case "API tokens and [@@ability]" `Quick (fun () ->
+              let issue abilities =
+                text "token"
+                  (snd
+                     (call ~token:ann
+                        ~body:
+                          (Printf.sprintf {|{"abilities":[%s]}|}
+                             (String.concat ","
+                                (List.map (Printf.sprintf "%S") abilities)))
+                        `POST "/tokens"))
+              in
+              let reader = issue [ "cats:read" ] in
+              let writer = issue [ "cats:write" ] in
+              Alcotest.(check (list int))
+                "statuses" [ 200; 403; 401; 401 ]
+                [
+                  fst (call ~token:reader `GET "/api/cats");
+                  fst (call ~token:writer `GET "/api/cats");
+                  fst (call ~token:"forged" `GET "/api/cats");
+                  fst (call `GET "/api/cats");
+                ]);
           Alcotest.test_case "[@@check]: an email signs up once" `Quick
             (fun () ->
               let status, json =

@@ -226,3 +226,16 @@ be lost: a build error.
   File "./app/system_clock.ml", lines 1-4, characters 0-3:
   Error: System_clock is picked by KRE_ENV at start-up and seen only as Clock.S, so its on_start, on_shutdown and [@@on_event], [@@job], [@@health] or schedule functions would never run; move them to a provider of their own
   [1]
+
+A controller with [@@ability] needs Kre.Token.S.
+
+  $ rm app/test_clock.ml
+  $ cat > app/tokens.ml <<'ML'
+  > module Make (Repo : Repo.S) : Kre.Token.S = struct end
+  > ML
+  $ cat > app/api_controller.ml <<'ML'
+  > [@@@controller "api"]
+  > let ping () : string Lwt.t = Lwt.return "pong" [@@get] [@@ability "ping"]
+  > ML
+  $ ../ppx/pp.exe -impl main.ml | grep 'Api_controller.register'
+              ~controllers:[Api_controller.register (module Tokens);

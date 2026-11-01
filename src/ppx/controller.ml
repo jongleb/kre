@@ -79,6 +79,8 @@ type handler = {
   transaction : longident option;
       (** [[@@transactional]]: the [Kre.Db.S] dependency, or [M] of
           [[@from M.tx]]. *)
+  ability : expression option;
+      (** [[@@ability "cats:write"]]: what the bearer token must allow. *)
 }
 
 let string_payload (attribute : attribute) =
@@ -793,6 +795,30 @@ let transform structure =
                        labels))
                 (attribute_of binding kind)
             in
+            let ability =
+              Option.map
+                (fun (attribute : attribute) ->
+                  match attribute.attr_payload with
+                  | PStr
+                      [
+                        {
+                          pstr_desc =
+                            Pstr_eval
+                              ( ({
+                                   pexp_desc = Pexp_constant (Pconst_string _);
+                                   _;
+                                 } as ability),
+                                _ );
+                          _;
+                        };
+                      ] ->
+                      ability
+                  | _ ->
+                      Location.raise_errorf ~loc:attribute.attr_loc
+                        "[@@@@ability] names what the token must allow: \
+                         [@@@@ability \"cats:write\"]")
+                (attribute_of binding "ability")
+            in
             {
               name;
               verb;
@@ -923,7 +949,15 @@ let transform structure =
                           Location.raise_errorf ~loc:attribute.attr_loc
                             "[@@@@signed] takes the signing secret: \
                              [@@@@signed Settings.config.signing_key]")
-                    (attribute_of binding "signed");
+                    (attribute_of binding "signed")
+                @ Option.fold ~none:[]
+                    ~some:(fun ability ->
+                      [
+                        [%expr
+                          Kre.Guard.map ignore (Tokens.ability [%e ability])];
+                      ])
+                    ability;
+              ability;
               arguments;
               shape;
               outcome;
@@ -1057,6 +1091,7 @@ let transform structure =
               "redirect";
               "timeout";
               "transactional";
+              "ability";
               "authorize";
               "sse";
               "intercept";
@@ -1151,6 +1186,35 @@ let transform structure =
                 | _ -> dependencies)
               []
               (List.concat_map (fun handler -> handler.arguments) handlers)
+          in
+          let dependencies =
+            match
+              ( List.find_map (fun handler -> handler.ability) handlers,
+                List.assoc_opt "Tokens" dependencies )
+            with
+            | None, _ -> dependencies
+            | Some _, None ->
+                dependencies
+                @ [
+                    ( "Tokens",
+                      ( [%pat? (module Tokens : Kre.Token.S)],
+                        [%type: (module Kre.Token.S)] ) );
+                  ]
+            | Some ability, Some (_, package) -> (
+                match package.ptyp_desc with
+                | Ptyp_package
+                    ({ txt = Ldot (Ldot (Lident "Kre", "Token"), "S"); _ }, [])
+                  ->
+                    dependencies
+                | Ptyp_package ({ txt; _ }, _) ->
+                    Location.raise_errorf ~loc:ability.pexp_loc
+                      "[@@@@ability] checks tokens with a dependency named \
+                       Tokens, but Tokens here is %s; rename that dependency"
+                      (Longident.name txt)
+                | _ ->
+                    Location.raise_errorf ~loc:ability.pexp_loc
+                      "[@@@@ability] checks tokens with a dependency named \
+                       Tokens; rename the other Tokens")
           in
           let methods handler =
             match handler.verb with

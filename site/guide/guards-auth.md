@@ -133,6 +133,28 @@ A link in an email — confirm the address, download the invoice — must work w
 
 The signature covers the path and every query parameter, so `/downloads/8` with the signature of `/downloads/7` is refused, and so is the right link one second after it expires.
 
+## API tokens and abilities
+
+Scripts and integrations call the API with long-lived tokens instead of a session. `Kre.Token.Make (Db)` keeps them in the `kre_tokens` table: the token is shown once when issued, and only its SHA-256 is stored, with the owner and a list of abilities. The shelter makes it a provider in one line:
+
+<<< @/../examples/shelter/server/tokens.ml
+
+A signed-in user issues one for themselves:
+
+<<< @/../examples/shelter/server/tokens_controller.ml
+
+`[@@ability "cats:read"]` on a route admits only a bearer token that allows it. The controller does not mention the token store; the attribute adds a `Tokens : Kre.Token.S` dependency, and `[%wire]` passes it in:
+
+<<< @/../examples/shelter/server/api_controller.ml
+
+| Request | Answer |
+| --- | --- |
+| `Authorization: Bearer <token>` with `cats:read` (or `*`) | the handler runs |
+| a token without `cats:read` | 403 |
+| an unknown or revoked token, or none | 401 |
+
+`Tokens.tokens ~owner` lists a user's tokens and `Tokens.revoke id` deletes one. `Tokens.current` and `Tokens.ability "…"` are ordinary guards, so a handler that needs the token itself takes `~(token : (Kre.Token.t [@guard Tokens.current]))`.
+
 ## Authorization over typed arguments
 
 A guard sees only the request. An ownership check needs the parsed arguments: who is asking, and for which record. `[@@authorize]` takes a literal function whose labels name the handler's arguments; it runs after every parameter is parsed and before the handler body.

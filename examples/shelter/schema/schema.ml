@@ -9,7 +9,10 @@ let () =
              tables)
     | [| _; "migration"; set |] ->
         let tables =
-          match set with "jobs" -> [ Kre.Job.table ] | _ -> tables
+          match set with
+          | "jobs" -> [ Kre.Job.table ]
+          | "tokens" -> [ Kre.Token.table ]
+          | _ -> tables
         in
         String.concat "\n"
           [

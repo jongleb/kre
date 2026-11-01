@@ -305,12 +305,16 @@ graph TD
   Adoptions_service --> Jobs
   Mail
   Mailer --> Mail
+  Tokens --> Database
   Users_service --> Settings
   Users_service --> Database
   Adoptions_controller --> Adoptions_service
   Adoptions_controller --> Database
+  Api_controller --> Cats_service
+  Api_controller --> Tokens
   Auth_controller --> Users_service
   Cats_controller --> Cats_service
+  Tokens_controller --> Tokens
 ```
 
 The graph is computed by the compiler, so it is exactly what was applied. See [Actuator & profiler](/tooling/observability).

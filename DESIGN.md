@@ -787,6 +787,20 @@ module Wiring : sig
   val profile : unit -> string                       (* KRE_ENV или "dev" — для [@@@profile] *)
 end
 
+(* Kre.Token — API-токены; [@@ability "x"] зовёт Tokens.ability "x" *)
+module Token : sig
+  val table : Table.t
+  type t = private { id : string; owner : string; abilities : string list }
+  module type S = sig
+    val issue : owner:string -> abilities:string list -> (string * t) Lwt.t
+    val tokens : owner:string -> t list Lwt.t
+    val revoke : string -> unit Lwt.t
+    val current : t Guard.t
+    val ability : string -> t Guard.t
+  end
+  module Make (Db : Db.S) : S
+end
+
 (* Kre.Lock — фаза 3: замки в базе; [@@lock "name"] зовёт Lock.exclusive *)
 module Lock : sig
   val table : Table.t
@@ -1724,7 +1738,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S`, кроме самого провайдера и обёрток | ✅ |
 | 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` (`Kre.Wiring.profile`); нужен провайдер без профиля; хуки в группе — ошибка сборки | ✅ |
 | 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (таблица `kre_locks`: вставка или захват просроченной строки, проверка владельца, снятие в `finalize`, TTL 600 с) — функция не идёт на двух серверах сразу, занятый замок — пропуск | ✅ |
-| 33 | токены API с правами | `Kre.Token` (таблица `kre_tokens`, хеш токена, права) + `[@@ability "cats:write"]` | 4 |
+| 33 | токены API с правами | `Kre.Token.Make (Db)` (таблица `kre_tokens`: ULID, владелец, SHA-256 токена, права через пробел; `*` — всё) + `[@@ability "cats:write"]` — гард `Tokens.ability`, зависимость `Tokens : Kre.Token.S` добавляется в `register` и в `[%wire]`; 401 без токена, 403 без права | ✅ |
 | 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` и `…/:id/delete`; только loopback; `[%wire]` сам добавляет его в `app.controllers` | ✅ |
 | 35 | precognition | заголовок `Precognition: true` на POST/PUT/PATCH/DELETE — разбор, guards, `[@@authorize]` и `[@@check]` без вызова хендлера: 204 `Precognition-Success: true` или та же ошибка (`Kre.Route.precognition`) | ✅ |
 | 36 | `#[ApiResource]` | `[%%resource …]` — CRUD-контроллер над таблицей: страницы, фильтры, показ, создание, удаление | 4 |

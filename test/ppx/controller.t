@@ -283,3 +283,25 @@ A controller with every kind of parameter.
                      let* () = Kre.Route.precognition __kre_request
                       in
                      Kre.Route.ok (remove (module Cats) ~id:__kre_arg_id ()))))]
+
+[@@ability] checks the bearer API token; the controller gets a Tokens
+dependency for it.
+
+  $ cat > api_controller.ml <<'ML'
+  > [@@@controller "api"]
+  > let ping () : string Lwt.t = Lwt.return "pong" [@@get] [@@ability "ping"]
+  > ML
+  $ ./pp.exe -impl api_controller.ml | grep -E 'register|Tokens'
+           guards = ["Kre.Guard.map ignore (Tokens.ability \"ping\")"]
+  let register ((module Tokens)  : (module Kre.Token.S)) =
+               ~guards:[Kre.Guard.map ignore (Tokens.ability "ping")]
+  $ cat > api_controller.ml <<'ML'
+  > [@@@controller "api"]
+  > let ping (module Tokens : Clock.S) () : string Lwt.t = Lwt.return "pong" [@@get] [@@ability "ping"]
+  > ML
+  $ ./pp.exe -impl api_controller.ml
+  File "api_controller.ml", line 2, characters 92-98:
+  2 | let ping (module Tokens : Clock.S) () : string Lwt.t = Lwt.return "pong" [@@get] [@@ability "ping"]
+                                                                                                  ^^^^^^
+  Error: [@@ability] checks tokens with a dependency named Tokens, but Tokens here is Clock.S; rename that dependency
+  [1]

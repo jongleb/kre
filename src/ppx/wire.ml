@@ -276,53 +276,76 @@ let scan path =
             module_name = name;
             site = attribute.attr_loc;
             needs =
-              List.fold_left
-                (fun needs (item : structure_item) ->
-                  match item.pstr_desc with
-                  | Pstr_value (_, bindings) ->
-                      List.fold_left
-                        (fun needs (binding : value_binding) ->
-                          match binding.pvb_expr.pexp_desc with
-                          | Pexp_function (params, _, _)
-                            when List.exists
-                                   (fun (attribute : attribute) ->
-                                     List.mem attribute.attr_name.txt
-                                       [
-                                         "get";
-                                         "post";
-                                         "put";
-                                         "patch";
-                                         "delete";
-                                         "head";
-                                         "options";
-                                         "all";
-                                         "subscribe";
-                                       ])
-                                   binding.pvb_attributes ->
-                              List.fold_left
-                                (fun needs (param : function_param) ->
-                                  match param.pparam_desc with
-                                  | Pparam_val
-                                      ( Nolabel,
-                                        _,
-                                        {
-                                          ppat_desc =
-                                            Ppat_constraint
-                                              ( { ppat_desc = Ppat_unpack _; _ },
-                                                type_ );
-                                          _;
-                                        } ) -> (
-                                      match package type_ with
-                                      | Some needed
-                                        when not (List.mem needed needs) ->
-                                          needs @ [ needed ]
-                                      | Some _ | None -> needs)
-                                  | _ -> needs)
-                                needs params
-                          | _ -> needs)
-                        needs bindings
-                  | _ -> needs)
-                [] structure;
+              ( List.fold_left
+                  (fun needs (item : structure_item) ->
+                    match item.pstr_desc with
+                    | Pstr_value (_, bindings) ->
+                        List.fold_left
+                          (fun needs (binding : value_binding) ->
+                            match binding.pvb_expr.pexp_desc with
+                            | Pexp_function (params, _, _)
+                              when List.exists
+                                     (fun (attribute : attribute) ->
+                                       List.mem attribute.attr_name.txt
+                                         [
+                                           "get";
+                                           "post";
+                                           "put";
+                                           "patch";
+                                           "delete";
+                                           "head";
+                                           "options";
+                                           "all";
+                                           "subscribe";
+                                         ])
+                                     binding.pvb_attributes ->
+                                List.fold_left
+                                  (fun needs (param : function_param) ->
+                                    match param.pparam_desc with
+                                    | Pparam_val
+                                        ( Nolabel,
+                                          _,
+                                          {
+                                            ppat_desc =
+                                              Ppat_constraint
+                                                ( {
+                                                    ppat_desc = Ppat_unpack _;
+                                                    _;
+                                                  },
+                                                  type_ );
+                                            _;
+                                          } ) -> (
+                                        match package type_ with
+                                        | Some needed
+                                          when not (List.mem needed needs) ->
+                                            needs @ [ needed ]
+                                        | Some _ | None -> needs)
+                                    | _ -> needs)
+                                  needs params
+                            | _ -> needs)
+                          needs bindings
+                    | _ -> needs)
+                  [] structure
+              |> fun needs ->
+                match
+                  ( List.find_map
+                      (fun (item : structure_item) ->
+                        match item.pstr_desc with
+                        | Pstr_value (_, bindings) ->
+                            List.find_map
+                              (fun (binding : value_binding) ->
+                                List.find_opt
+                                  (fun (attribute : attribute) ->
+                                    String.equal attribute.attr_name.txt
+                                      "ability")
+                                  binding.pvb_attributes)
+                              bindings
+                        | _ -> None)
+                      structure,
+                    List.find_opt (String.equal "Kre.Token.S") needs )
+                with
+                | Some _, None -> needs @ [ "Kre.Token.S" ]
+                | Some _, Some _ | None, _ -> needs );
           }
     | None -> (
         let provides =
