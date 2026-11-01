@@ -117,6 +117,14 @@ The login side is a plain controller. `Auth.session` signs the token:
 
 <<< @/../examples/shelter/server/auth_controller.ml
 
+## Requiring a role
+
+When a handler only needs the check, not the value, put the guard in `[@@role]`. It runs with the other handler guards, and its evidence is dropped:
+
+<<< @/../examples/shelter/server/cats_controller.ml{18-21}
+
+`[@@role g]` takes any `'a Kre.Guard.t`, so the same `Auth.admin` serves as a parameter when the handler does need the `Admin.t`, and as a role when it does not.
+
 ## Authorization over typed arguments
 
 A guard sees only the request. An ownership check needs the parsed arguments: who is asking, and for which record. `[@@authorize]` takes a literal function whose labels name the handler's arguments; it runs after every parameter is parsed and before the handler body.

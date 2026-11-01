@@ -1676,6 +1676,30 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 
 Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.
 
+### Волна 4: ещё из PHP-мира (Laravel, Symfony, Doctrine, API Platform)
+
+| # | Что | Kre | Статус |
+| --- | --- | --- | --- |
+| 18 | `#[IsGranted]` | `[@@role g]` — guard любого типа, значение не нужно хендлеру | ✅ |
+| 19 | валидация с базой (`#[UniqueEntity]`) | `[@@check f]` — проверка над разобранными аргументами, `Error` → 422 с путями полей | 4 |
+| 20 | подписанные ссылки | `[@@signed]` + `Kre.Signed.url` — HMAC и срок в query, иначе 403 | 4 |
+| 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют `Kre_shared.Slug` | 4 |
+| 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` + `Kre.Ulid.next ()`, `[@ulid]` в `table` — `CHAR(26)` без автоинкремента | 4 |
+| 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`) | 4 |
+| 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud` | 4 |
+| 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg | 4 |
+| 26 | связи и жадная загрузка | `[@references M]` + `by_<fk>_any` (`IN @ids`) в `Table.crud`, `Kre.Table.group` — дети многих родителей одним запросом | 4 |
+| 27 | `#[Embedded]` | `[@embedded]` — запись того же `type … and …` хранится столбцами `<поле>_<подполе>` | 4 |
+| 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и схема на каждое представление | 4 |
+| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал | 4 |
+| 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S` | 4 |
+| 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` | 4 |
+| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` — функция не идёт на двух серверах сразу | 4 |
+| 33 | токены API с правами | `Kre.Token` (таблица `kre_tokens`, хеш токена, права) + `[@@ability "cats:write"]` | 4 |
+| 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs`: очереди, упавшие задачи, повтор и удаление | 4 |
+| 35 | precognition | заголовок `Precognition: true` — разбор, guards и `[@@check]` без вызова хендлера: 204 или 422 | 4 |
+| 36 | `#[ApiResource]` | `[%%resource …]` — CRUD-контроллер над таблицей: страницы, фильтры, показ, создание, удаление | 4 |
+
 ## Фазы и критерии приёмки
 
 Фаза закрыта, когда её критерий выполнен в CI. Порядок внутри фазы — сверху вниз; каждая строка — отдельная задача для Claude Code с собственным PR.

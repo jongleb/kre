@@ -15,11 +15,10 @@ let catalog (module Cats : Cats_service.S)
   Cats.catalog page
 [@@get "catalog"] [@@live [ "cats" ]] [@@summary "Every cat, a page at a time"]
 
-let create (module Cats : Cats_service.S)
-    ~admin:(_ : (Auth.Admin.t[@guard Auth.admin])) ~(body : Create_cat_dto.t) :
+let create (module Cats : Cats_service.S) ~(body : Create_cat_dto.t) :
     Cat.t Lwt.t =
   Cats.create body
-[@@post] [@@status 201] [@@summary "Admit a cat"]
+[@@post] [@@status 201] [@@role Auth.admin] [@@summary "Admit a cat"]
 
 let rename (module Cats : Cats_service.S)
     ~user:(_ : (User.t[@guard Auth.current])) ~(cat : (Cat.t[@load Cats.find]))

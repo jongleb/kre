@@ -794,7 +794,17 @@ let transform structure =
               guards =
                 controller_guards
                 @ Option.fold ~none:[] ~some:list_payload
-                    (attribute_of binding "guards");
+                    (attribute_of binding "guards")
+                @ Option.fold ~none:[]
+                    ~some:(fun (attribute : attribute) ->
+                      match attribute.attr_payload with
+                      | PStr [ { pstr_desc = Pstr_eval (guard, _); _ } ] ->
+                          [ [%expr Kre.Guard.map ignore [%e guard]] ]
+                      | _ ->
+                          Location.raise_errorf ~loc:attribute.attr_loc
+                            "[@@@@role] takes a guard whose value the handler \
+                             does not need: [@@@@role Auth.admin]")
+                    (attribute_of binding "role");
               arguments;
               shape;
               outcome;
@@ -975,6 +985,7 @@ let transform structure =
               "status";
               "use";
               "guards";
+              "role";
               "header";
               "redirect";
               "timeout";
