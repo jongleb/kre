@@ -4,8 +4,8 @@ synopsis: "Kre server runtime on Dream"
 maintainer: ["Gleb"]
 authors: ["Gleb"]
 license: "ISC"
-homepage: "https://github.com/jongleber/kre"
-bug-reports: "https://github.com/jongleber/kre/issues"
+homepage: "https://github.com/jongleb/kre"
+bug-reports: "https://github.com/jongleb/kre/issues"
 depends: [
   "dune" {>= "3.21"}
   "ocaml" {>= "5.5" & < "5.6"}
@@ -13,8 +13,15 @@ depends: [
   "routes" {>= "2.0.0"}
   "lwt"
   "jsonkit" {>= "1.1.0"}
+  "yojson"
+  "digestif"
+  "eqaf"
+  "base64"
   "alcotest" {with-test}
   "alcotest-lwt" {with-test}
+  "lwt_ppx" {with-test}
+  "mdx" {>= "2.5.0" & with-test}
+  "kdf" {with-test}
   "odoc" {with-doc}
 ]
 build: [
@@ -31,5 +38,5 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/jongleber/kre.git"
+dev-repo: "git+https://github.com/jongleb/kre.git"
 x-maintenance-intent: ["(latest)"]

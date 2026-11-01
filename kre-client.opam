@@ -4,8 +4,8 @@ synopsis: "Kre Melange client: Http, Router, Path, Search"
 maintainer: ["Gleb"]
 authors: ["Gleb"]
 license: "ISC"
-homepage: "https://github.com/jongleber/kre"
-bug-reports: "https://github.com/jongleber/kre/issues"
+homepage: "https://github.com/jongleb/kre"
+bug-reports: "https://github.com/jongleb/kre/issues"
 depends: [
   "dune" {>= "3.21"}
   "ocaml" {>= "5.5" & < "5.6"}
@@ -34,5 +34,5 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/jongleber/kre.git"
+dev-repo: "git+https://github.com/jongleb/kre.git"
 x-maintenance-intent: ["(latest)"]

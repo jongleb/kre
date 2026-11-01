@@ -27,7 +27,7 @@ Kre targets **OCaml 5.5**: modular explicits like `(module Cats : Cats_service.S
 Clone the repository and create a local switch inside it:
 
 ```sh
-git clone https://github.com/jongleber/kre.git
+git clone https://github.com/jongleb/kre.git
 cd kre
 opam switch create . 5.5.1 --deps-only --with-test   # a local switch in _opam/
 eval $(opam env --switch=. --set-switch)

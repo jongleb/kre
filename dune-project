@@ -21,7 +21,7 @@
 (generate_opam_files true)
 
 (source
- (github jongleber/kre))
+ (github jongleb/kre))
 
 (authors "Gleb")
 
@@ -44,8 +44,18 @@
   lwt
   (jsonkit
    (>= 1.1.0))
+  yojson
+  digestif
+  eqaf
+  base64
   (alcotest :with-test)
-  (alcotest-lwt :with-test)))
+  (alcotest-lwt :with-test)
+  (lwt_ppx :with-test)
+  (mdx
+   (and
+    (>= 2.5.0)
+    :with-test))
+  (kdf :with-test)))
 
 (package
  (name kre-ppx)
