@@ -2,6 +2,6 @@
  (name kre_ppx)
  (public_name kre-ppx)
  (kind ppx_rewriter)
- (libraries ppxlib kre.shared)
+ (libraries ppxlib kre.shared kre.text)
  (preprocess
   (pps ppxlib.metaquot)))

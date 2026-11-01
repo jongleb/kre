@@ -20,4 +20,4 @@
  (modules test_text)
  (deps
   (alias melange))
- (libraries kre.shared alcotest unix))
+ (libraries kre.shared alcotest unix yojson))

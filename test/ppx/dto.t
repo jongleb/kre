@@ -166,3 +166,20 @@ A grouped field must be an option: other views leave it out.
                          ^^^^^^^^^^^^^^^
   Error: [@view] goes on a DTO type T.t: (Member.t [@view "admin"])
   [1]
+
+A [@validate pattern "…"] literal is compiled at build time.
+
+  $ cat > slug.ml <<'ML'
+  > type t = { slug : string [@validate pattern "^[a-z0-9-]+$"] } [@@deriving dto]
+  > ML
+  $ ./pp.exe -impl slug.ml | grep -c 'Validation in pattern'
+  1
+  $ cat > slug.ml <<'ML'
+  > type t = { slug : string [@validate pattern "^(cat$"] } [@@deriving dto]
+  > ML
+  $ ./pp.exe -impl slug.ml
+  File "slug.ml", line 1, characters 36-52:
+  1 | type t = { slug : string [@validate pattern "^(cat$"] } [@@deriving dto]
+                                          ^^^^^^^^^^^^^^^^
+  Error: [@validate pattern "^(cat$"]: it does not parse; write a pattern both the server and the browser read, e.g. "^[a-z0-9-]+$"
+  [1]

@@ -34,6 +34,11 @@ module Int (C : sig
   val max : int
 end) : S with type repr = int
 
+module Pattern (C : sig
+  val name : string
+  val pattern : string
+end) : S with type repr = string
+
 module Enum (C : sig
   val name : string
   val values : string list

@@ -45,6 +45,8 @@
   (jsonkit
    (>= 1.1.0))
   yojson
+  (re
+   (>= 1.11.0))
   digestif
   eqaf
   base64

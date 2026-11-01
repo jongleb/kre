@@ -519,7 +519,8 @@ module Validation : sig
     val ( let+ ) : ('a, t) result -> ('a -> 'b) -> ('b, t) result
     val ( and+ ) : ('a, t) result -> ('b, t) result -> ('a * 'b, t) result
   end
-  val min_length : int -> string rule   val max_length : int -> string rule
+  val min_length : int -> string rule   val max_length : int -> string rule   (* code points *)
+  val pattern : string -> string rule   (* re natively, RegExp in the browser *)
   val min : int -> int rule             val max : int -> int rule
   val range : min:int -> max:int -> int rule
   val one_of : string list -> string rule
@@ -1106,8 +1107,8 @@ module Make (Base : Kre_shared.Scalar.S) (C : RULES with type base := Base.t) : 
 module String (C : sig val name : string  val min : int  val max : int end) : S with type repr = string
 module Int    (C : sig val name : string  val min : int  val max : int end) : S with type repr = int
 module Enum   (C : sig val name : string  val values : string list end)    : S with type repr = string
+module Pattern (C : sig val name : string  val pattern : string end)   : S with type repr = string
 module Email  : S with type repr = string
-(* Regex — deferred: needs a regex engine that works in both native and melange *)
 ```
 
 Relation to `dto`: a field of type `T.t`, where `T : Json.S`, is encoded via `T.of_json`/`T.to_json`, the schema is `T.t_jsonschema`. This is exactly what the jsonkit deriver calls for a field of type `T.t`, so opaque modules from `Refined` plug into jsonkit records without ppx involvement. Field errors must be collected applicatively (not fail-fast) into one `Validation.t` with paths — for this the jsonkit decoder needs a mode that accumulates errors with paths (open question; until then — the first error, empty path).
@@ -1867,7 +1868,7 @@ These rules are for the repository's `CLAUDE.md`; they override any defaults.
 - [x] typegist: option (b), not used (phase 0, dto section).
 - [x] jsonkit: `of_json`/`to_json`/`t_jsonschema` exist on both backends; `Json.S` mirrors their shape (phase 0, dto section).
 - [ ] jsonkit: a decoding mode that accumulates errors with paths (`["age"]`) — needed for applicative 422s; until then — the first error, without a path.
-- [ ] Regular expressions in `Kre_shared` (`Validation.regex`, `Refined.Regex`): `Str` exists only in native; options — `re` (check that it builds in melange) or a custom implementation on `Js.Re` behind a shared interface.
+- [x] Regular expressions in `Kre_shared`: `Validation.pattern` and `Refined.Pattern` (JSON Schema `pattern`). `Kre_text.Pattern` compiles with `re` (`Re.Perl`) natively and `RegExp` in the browser; the dto ppx compiles `[@validate pattern "…"]` literals at build time. Both engines agree on ASCII syntax (classes, `\d`, quantifiers, anchors, groups, alternation); `.` and classes over non-ASCII text differ (bytes vs UTF-16 units), so lengths use `min_length`/`max_length`. `test/text` runs the same patterns natively and in node.
 - [x] String length in `Validation.min_length`/`max_length` counts Unicode code points on both ends, like JSON Schema `minLength`: `kre.text` / `kre-client.text` (`Kre_text.length`) is one `.mli` with a native implementation (UTF-8 lead bytes) and a Melange one (`Array.from`); `test/text` checks the same strings natively and in node.
 - [x] sqlgg: traits come from `sqlgg.mariadb` (opam `sqlgg.20260721`), `Kre.Db` — pool and transactions; `schema.sql` is printed by a binary with the table list, no registry needed. The `jongleb/sqlgg` fork is not required yet; if its features are needed (IR, lattice-nullability) — a pin in `dune-project`.
 - [ ] Name: `Kre` is a working name; check for collisions in opam before publishing.

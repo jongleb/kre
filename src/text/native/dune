@@ -3,4 +3,5 @@
 
 (library
  (name kre_text)
- (public_name kre.text))
+ (public_name kre.text)
+ (libraries re))

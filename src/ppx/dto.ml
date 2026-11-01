@@ -360,7 +360,32 @@ let rewrite ~known (declaration : type_declaration) =
                             | _ -> [ expression ]
                           in
                           List.map
-                            (fun rule ->
+                            (fun (rule : expression) ->
+                              (match rule.pexp_desc with
+                              | Pexp_apply
+                                  ( {
+                                      pexp_desc =
+                                        Pexp_ident { txt = Lident "pattern"; _ };
+                                      _;
+                                    },
+                                    [
+                                      ( Nolabel,
+                                        {
+                                          pexp_desc =
+                                            Pexp_constant
+                                              (Pconst_string (source, _, _));
+                                          _;
+                                        } );
+                                    ] ) ->
+                                  Result.iter_error
+                                    (fun reason ->
+                                      Location.raise_errorf ~loc:rule.pexp_loc
+                                        "[@@validate pattern %S]: %s; write a \
+                                         pattern both the server and the \
+                                         browser read, e.g. \"^[a-z0-9-]+$\""
+                                        source reason)
+                                    (Kre_text.Pattern.of_string source)
+                              | _ -> ());
                               [%expr Kre_shared.Validation.([%e rule])])
                             (sequence (expression_payload attribute))
                       | "validate.custom" ->

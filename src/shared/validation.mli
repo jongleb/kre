@@ -27,6 +27,7 @@ end
 
 val min_length : int -> string rule
 val max_length : int -> string rule
+val pattern : string -> string rule
 val min : int -> int rule
 val max : int -> int rule
 val range : min:int -> max:int -> int rule

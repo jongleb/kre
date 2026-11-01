@@ -75,6 +75,18 @@ let max_length n =
       if Kre_text.length s <= n then Ok s
       else Error (Printf.sprintf "must be at most %d characters" n))
 
+let pattern source =
+  rule ~name:"pattern"
+    (match Kre_text.Pattern.of_string source with
+    | Ok compiled ->
+        fun text ->
+          Option.to_result
+            ~none:(Printf.sprintf "must match %s" source)
+            (Kre_text.Pattern.matching compiled text)
+    | Error reason ->
+        fun _ ->
+          Error (Printf.sprintf "the pattern %s is broken: %s" source reason))
+
 let min bound =
   rule ~name:"min" (fun n ->
       if n >= bound then Ok n

@@ -54,6 +54,7 @@ Each factory takes a small module of settings:
 | --- | --- | --- | --- |
 | `Refined.String` | `name`, `min`, `max` | `min_length`, `max_length` | `minLength`, `maxLength` |
 | `Refined.Int` | `name`, `min`, `max` | `range` | `minimum`, `maximum` |
+| `Refined.Pattern` | `name`, `pattern` | `pattern` | `pattern` |
 | `Refined.Enum` | `name`, `values` | `one_of` | `enum` |
 | `Refined.Email` | none | `email` | — |
 
@@ -88,7 +89,17 @@ module Slug =
     end)
 ```
 
-A rule is a value of type `'a Kre_shared.Validation.rule`. The built-in ones are `min_length`, `max_length`, `min`, `max`, `range ~min ~max`, `one_of` and `email`. Lengths count characters (Unicode code points), as JSON Schema's `minLength` does, and give the same answer on the server and in the browser: `"Zoë"` is 3, `"🐈"` is 1; `Validation.rule ~name f` wraps any function of type `'a -> ('a, string) result`.
+A rule is a value of type `'a Kre_shared.Validation.rule`. The built-in ones are `min_length`, `max_length`, `pattern`, `min`, `max`, `range ~min ~max`, `one_of` and `email`. Lengths count characters (Unicode code points), as JSON Schema's `minLength` does, and give the same answer on the server and in the browser: `"Zoë"` is 3, `"🐈"` is 1; `Validation.rule ~name f` wraps any function of type `'a -> ('a, string) result`.
+
+`pattern "^[a-z0-9-]+$"` checks a regular expression, unanchored like JSON Schema's `pattern`: the server runs it with `re`, the browser with `RegExp`. A pattern written in `[@validate pattern "…"]` is compiled during the build, so a broken one stops `dune build`:
+
+::: danger A broken pattern
+```text
+Error: [@validate pattern "^(cat$"]: it does not parse; write a pattern both the server and the browser read, e.g. "^[a-z0-9-]+$"
+```
+:::
+
+Keep patterns to ASCII structure — character classes, `\d`, quantifiers, anchors, groups, alternation — where both engines agree. `.` over non-ASCII text matches bytes on the server and UTF-16 units in the browser, so check lengths with `min_length` and `max_length`.
 
 ::: tip Parse once, at the edge
 Refined types are the recommended path. `[@validate]` on a raw `string` or `int` is an escape hatch for one-off rules. If the same rule appears on two fields, it wants to be a type.

@@ -69,6 +69,19 @@ end) =
       let constraints = [ ("minimum", `Int C.min); ("maximum", `Int C.max) ]
     end)
 
+module Pattern (C : sig
+  val name : string
+  val pattern : string
+end) =
+  Make
+    (Scalar.String)
+    (struct
+      include C
+
+      let rules = [ Validation.pattern C.pattern ]
+      let constraints = [ ("pattern", `String C.pattern) ]
+    end)
+
 module Enum (C : sig
   val name : string
   val values : string list
