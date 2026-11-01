@@ -174,7 +174,14 @@ let scan path =
             [
               {
                 pstr_desc =
-                  Pstr_eval ({ pexp_desc = Pexp_ident { txt; _ }; _ }, _);
+                  Pstr_eval
+                    ( {
+                        pexp_desc =
+                          ( Pexp_ident { txt; _ }
+                          | Pexp_construct ({ txt; _ }, None) );
+                        _;
+                      },
+                      _ );
                 _;
               };
             ] ->

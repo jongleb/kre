@@ -737,6 +737,18 @@ module Profiler : sig
   val repeated : entry -> (string * int) list   (* N+1 *)
 end
 
+(* Forge.Mail — фаза 3: письма; провайдеры Smtp и Outbox *)
+module Mail : sig
+  type t = private { from : Forge_shared.Refined.Email.t; to_ : Forge_shared.Refined.Email.t;
+                     cc : Forge_shared.Refined.Email.t list; subject : string; text : string; html : string option }
+  val make : from:Forge_shared.Refined.Email.t -> to_:Forge_shared.Refined.Email.t ->
+    ?cc:Forge_shared.Refined.Email.t list -> subject:string -> text:string -> ?html:string -> unit -> t
+  val render : t -> string
+  module type S = sig val send : t -> (unit, string) result Lwt.t end
+  module Smtp (Config : sig val host : string val port : int val helo : string end) : S
+  module Outbox () : sig include S val sent : unit -> t list val controller : Controller.t end
+end
+
 (* Forge.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1638,7 +1650,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `forge generate controller dogs name:string age:int born:time good:bool` (шаблоны фазы 1 + поля): тип с `[@@deriving table, dto]`, DTO, сервис в памяти, контроллер, тест с примерными значениями; проект собирается и проходит тест (`test/scaffold/new.t`). SQL и страницы `.mlx` не генерируются: правило sqlgg живёт в dune проекта, а страницы зависят от роутера приложения | ✅ |
 | 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: переходы — `function` по конструкторам (опечатка — ошибка компиляции), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native и Melange (`docs/workflow.md`) | ✅ |
 | 14 | Symfony Profiler, Rails dev log и Bullet, Spring `httpexchanges` | `Forge.Profiler`: middleware собирает по запросу SQL (драйверы и `Db.query` зовут `Profiler.sql`), время, статус; `/__forge/profiler` (HTML) и `.json`, пометка N+1 (≥ 3 одинаковых запроса); только `FORGE_ENV=dev` | ✅ |
-| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Forge.Mail`: письмо — функция в `.mlx`, превью в dev | 3 |
+| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Forge.Mail`: `t` (адресат обязателен, `Refined.Email.t`), `render` (RFC 5322, multipart, кодирование темы), провайдеры `Smtp (Config)` (без TLS) и `Outbox ()` с превью `/__forge/mail`. Письмо не в `.mlx`: серверного рендера reason-react в native нет | ✅ |
 | 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — сигнатура вызовов → функтор `(Config : sig val url : string val headers : … end)` поверх `Forge_client.Http`/`Wire` (`Http.request ?base`); native и Melange (`docs/http-client.md`) | ✅ |
 
 Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.

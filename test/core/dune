@@ -1,3 +1,15 @@
 (test
  (name test_core)
- (libraries forge forge.shared alcotest dream routes jsonkit yojson lwt unix))
+ (libraries
+  forge
+  forge.shared
+  alcotest
+  dream
+  routes
+  jsonkit
+  yojson
+  lwt
+  lwt.unix
+  unix)
+ (preprocess
+  (pps lwt_ppx)))

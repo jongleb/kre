@@ -22,6 +22,7 @@
 | — | `@Profile` | `Forge.Config.profile ()` (`config/$FORGE_ENV.env`) | ✅ | `docs/configuration.md` |
 | `@Optional` provider | `@ConditionalOnMissingBean`, `required=false` | `[@@@fallback]` — запасной провайдер, если другого нет | ✅ | |
 | — | `@Lazy`, `@Conditional` | | ⏳ | |
+| `@nestjs-modules/mailer` | Spring Mail; Rails ActionMailer, Symfony Mailer | `Forge.Mail`: `Smtp`, `Outbox` с превью `/__forge/mail` | ✅ | `docs/mail.md` |
 | `@nestjs/bullmq` | `@Async`; Rails ActiveJob, Symfony Messenger, IHP Jobs | `Forge.Job` + `[@@job q]`: очередь в той же БД, `SKIP LOCKED`, повторы, enqueue в транзакции | ✅ | `docs/jobs.md` |
 | `nest-commander` | `CommandLineRunner`; Symfony `#[AsCommand]`, Rails rake | `[@@command "…"]` + `app.commands` → `main.exe seed --count 3` | ✅ | `docs/commands.md` |
 | Devtools | Symfony Web Profiler, Rails Bullet | `Forge.Profiler`: запросы с их SQL и пометкой N+1, `/__forge/profiler`, только в dev | ✅ | `docs/profiler.md` |

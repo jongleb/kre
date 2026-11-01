@@ -196,8 +196,9 @@ let () =
                 in
                 List.length
                   (List.filter
-                     (String.starts_with ~prefix:user)
-                     (Mailer.sent ()))
+                     (fun (letter : Forge.Mail.t) ->
+                       String.starts_with ~prefix:user letter.text)
+                     (Mail.sent ()))
               in
               let rec wait tries =
                 match (letters (), tries) with

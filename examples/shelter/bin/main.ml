@@ -9,4 +9,4 @@ let () =
     ~middleware:[ Dream.logger; Forge.Profiler.middleware; actuator.metrics ]
     ~on_start:app.on_start ~on_shutdown:app.on_shutdown ~commands:app.commands
     (actuator.controller :: Forge.Live.controller :: Forge.Profiler.controller
-   :: app.controllers)
+   :: Mail.controller :: app.controllers)

@@ -20,8 +20,12 @@ graph TD
   Settings
   Database --> Settings
   Cats_service --> Database
+  Jobs --> Database
   Adoptions_service --> Database
   Adoptions_service --> Cats_service
+  Adoptions_service --> Jobs
+  Mail
+  Mailer --> Mail
   Users_service --> Settings
   Users_service --> Database
   Adoptions_controller --> Adoptions_service

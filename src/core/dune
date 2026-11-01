@@ -11,4 +11,5 @@
   yojson
   digestif
   eqaf
+  base64
   unix))

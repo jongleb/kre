@@ -1043,6 +1043,101 @@ let profiler =
         Alcotest.(check int) "page" 200 (fst (get "/__forge/profiler")));
   ]
 
+let mail =
+  let email text = Result.get_ok (Forge_shared.Refined.Email.of_repr text) in
+  let letter =
+    Forge.Mail.make
+      ~from:(email "shelter@cats.test")
+      ~to_:(email "ann@cats.test")
+      ~cc:[ email "staff@cats.test" ]
+      ~subject:"Привет" ~text:"Tom is yours.\n.dot line"
+      ~html:"<p>Tom is yours.</p>" ()
+  in
+  [
+    Alcotest.test_case "SMTP conversation" `Quick (fun () ->
+        let socket = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+        Lwt_main.run
+          (Lwt_unix.bind socket (Unix.ADDR_INET (Unix.inet_addr_loopback, 0)));
+        Lwt_unix.listen socket 1;
+        let port =
+          match Lwt_unix.getsockname socket with
+          | Unix.ADDR_INET (_, port) -> port
+          | Unix.ADDR_UNIX _ -> 0
+        in
+        let commands = ref [] and data = ref [] in
+        let server =
+          let%lwt client, _ = Lwt_unix.accept socket in
+          let input = Lwt_io.of_fd ~mode:Lwt_io.input client in
+          let output = Lwt_io.of_fd ~mode:Lwt_io.output client in
+          let say text = Lwt_io.write output (text ^ "\r\n") in
+          let%lwt () = say "220 fake" in
+          let rec serve () =
+            let%lwt line = Lwt_io.read_line input in
+            let line = String.trim line in
+            commands := line :: !commands;
+            match String.split_on_char ' ' line with
+            | "EHLO" :: _ ->
+                let%lwt () = say "250-fake" in
+                let%lwt () = say "250 OK" in
+                serve ()
+            | "DATA" :: _ ->
+                let%lwt () = say "354 go" in
+                let rec body () =
+                  let%lwt line = Lwt_io.read_line input in
+                  match String.trim line with
+                  | "." -> say "250 queued"
+                  | line ->
+                      data := line :: !data;
+                      body ()
+                in
+                let%lwt () = body () in
+                serve ()
+            | "QUIT" :: _ -> say "221 bye"
+            | _ ->
+                let%lwt () = say "250 OK" in
+                serve ()
+          in
+          let%lwt () = serve () in
+          Lwt_io.close output
+        in
+        let module Smtp = Forge.Mail.Smtp (struct
+          let host = "127.0.0.1"
+          let port = port
+          let helo = "forge.test"
+        end) in
+        let sent = Lwt_main.run (Smtp.send letter) in
+        Lwt_main.run server;
+        Alcotest.(check (result unit string)) "sent" (Ok ()) sent;
+        Alcotest.(check (list string))
+          "commands"
+          [
+            "EHLO forge.test";
+            "MAIL FROM:<shelter@cats.test>";
+            "RCPT TO:<ann@cats.test>";
+            "RCPT TO:<staff@cats.test>";
+            "DATA";
+            "QUIT";
+          ]
+          (List.rev !commands);
+        let body = List.rev !data in
+        Alcotest.(check (list bool))
+          "headers, dot-stuffing, both parts" [ true; true; true; true ]
+          [
+            List.mem "Subject: =?UTF-8?B?0J/RgNC40LLQtdGC?=" body;
+            List.mem "..dot line" body;
+            List.mem "Content-Type: text/html; charset=utf-8" body;
+            List.mem "Cc: staff@cats.test" body;
+          ]);
+    Alcotest.test_case "outbox keeps letters" `Quick (fun () ->
+        let module Outbox = Forge.Mail.Outbox () in
+        ignore (Lwt_main.run (Outbox.send letter));
+        Alcotest.(check (list string))
+          "subjects" [ "Привет" ]
+          (List.map
+             (fun (letter : Forge.Mail.t) -> letter.subject)
+             (Outbox.sent ())));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
@@ -1054,6 +1149,7 @@ let () =
       ("Page", page);
       ("Time", time);
       ("Profiler", profiler);
+      ("Mail", mail);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);
