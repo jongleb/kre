@@ -11,6 +11,7 @@ CREATE TABLE cats (
   age BIGINT NOT NULL,
   status VARCHAR(16) NOT NULL,
   owner_id BIGINT NULL,
+  version BIGINT NOT NULL,
   INDEX (status),
   FOREIGN KEY (owner_id) REFERENCES users (id)
 );
@@ -19,6 +20,7 @@ CREATE TABLE adoptions (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   cat_id BIGINT NOT NULL UNIQUE,
   user_id BIGINT NOT NULL,
+  adopted_at DOUBLE NOT NULL,
   FOREIGN KEY (cat_id) REFERENCES cats (id),
   INDEX (user_id),
   FOREIGN KEY (user_id) REFERENCES users (id)

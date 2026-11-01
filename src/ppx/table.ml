@@ -30,6 +30,47 @@ let structure ~ctxt (_, declarations) table_name =
       let value_name suffix =
         match type_name with "t" -> suffix | name -> name ^ "_" ^ suffix
       in
+      let is_time (type_ : core_type) =
+        match type_.ptyp_desc with
+        | Ptyp_constr
+            ({ txt = Ldot (Ldot (Lident "Forge_shared", "Time"), "t"); _ }, [])
+          ->
+            Some ()
+        | _ -> None
+      in
+      let managed (label : label_declaration) =
+        match
+          List.filter_map
+            (fun (attribute : attribute) ->
+              match attribute.attr_name.txt with
+              | "created_at" -> Some (`Created_at, attribute)
+              | "updated_at" -> Some (`Updated_at, attribute)
+              | "version" -> Some (`Version, attribute)
+              | _ -> None)
+            label.pld_attributes
+        with
+        | [] -> None
+        | [ (((`Created_at | `Updated_at) as kind), attribute) ] -> (
+            match is_time label.pld_type with
+            | Some () -> Some kind
+            | None ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@%s] fills a timestamp; give %s the type \
+                   Forge_shared.Time.t"
+                  attribute.attr_name.txt label.pld_name.txt)
+        | [ (`Version, attribute) ] -> (
+            match label.pld_type.ptyp_desc with
+            | Ptyp_constr ({ txt = Lident "int"; _ }, []) -> Some `Version
+            | _ ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@version] counts updates; give %s the type int"
+                  label.pld_name.txt)
+        | _ :: (_, attribute) :: _ ->
+            Location.raise_errorf ~loc:attribute.attr_loc
+              "field %s takes one of [@@created_at], [@@updated_at], \
+               [@@version]"
+              label.pld_name.txt
+      in
       let column (label : label_declaration) =
         let loc = label.pld_loc in
         let attribute name =
@@ -105,8 +146,12 @@ let structure ~ctxt (_, declarations) table_name =
           | _ -> None
         in
         let sql_type, row_type, convert =
-          match base.ptyp_desc with
-          | Ptyp_constr ({ txt = Lident name; _ }, []) -> (
+          match (base.ptyp_desc, is_time base) with
+          | _, Some () ->
+              ( [%expr Forge.Table.Double],
+                [%type: float],
+                fun value -> [%expr Forge_shared.Time.of_seconds [%e value]] )
+          | Ptyp_constr ({ txt = Lident name; _ }, []), None -> (
               match primitive name with
               | Some found -> found
               | None ->
@@ -114,7 +159,7 @@ let structure ~ctxt (_, declarations) table_name =
                     "unsupported column type %s; use int, int64, string, bool, \
                      float, T.t with [@@column …] or an option of those"
                     name)
-          | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []) -> (
+          | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []), None -> (
               let module_ = pmod_ident ~loc { txt = path; loc } in
               let unnamed () =
                 Location.raise_errorf ~loc:base.ptyp_loc
@@ -144,7 +189,7 @@ let structure ~ctxt (_, declarations) table_name =
                                         [%e value]]]] )
                   | None -> unnamed ())
               | Some _ | None -> unnamed ())
-          | _ ->
+          | _, None ->
               Location.raise_errorf ~loc:base.ptyp_loc
                 "unsupported column type %a" Pprintast.core_type base
         in
@@ -155,6 +200,16 @@ let structure ~ctxt (_, declarations) table_name =
                  Option.fold ~none:[]
                    ~some:(fun role -> [ (Labelled "role", role) ])
                    role;
+                 Option.fold ~none:[]
+                   ~some:(fun kind ->
+                     [
+                       ( Labelled "managed",
+                         match kind with
+                         | `Created_at -> [%expr Forge.Table.Created_at]
+                         | `Updated_at -> [%expr Forge.Table.Updated_at]
+                         | `Version -> [%expr Forge.Table.Version] );
+                     ])
+                   (managed label);
                  Option.fold ~none:[]
                    ~some:(fun default -> [ (Labelled "default", default) ])
                    (payload "sql.default");
@@ -203,10 +258,11 @@ let structure ~ctxt (_, declarations) table_name =
           | _ -> (`Not_null, label.pld_type)
         in
         let one value =
-          match base.ptyp_desc with
-          | Ptyp_constr ({ txt = Lident "int"; _ }, []) ->
+          match (base.ptyp_desc, is_time base) with
+          | _, Some () -> [%expr Forge_shared.Time.to_seconds [%e value]]
+          | Ptyp_constr ({ txt = Lident "int"; _ }, []), None ->
               [%expr Int64.of_int [%e value]]
-          | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []) -> (
+          | Ptyp_constr ({ txt = Ldot (path, "t"); _ }, []), None -> (
               let text =
                 [%expr
                   [%e pexp_ident ~loc { txt = Ldot (path, "to_string"); loc }]
@@ -239,7 +295,7 @@ let structure ~ctxt (_, declarations) table_name =
               | Some "bool" -> [%expr bool_of_string [%e text]]
               | Some "float" -> [%expr float_of_string [%e text]]
               | Some _ | None -> text)
-          | _ -> value
+          | _, None -> value
         in
         match nullable with
         | `Null ->
@@ -257,16 +313,20 @@ let structure ~ctxt (_, declarations) table_name =
           fun (__forge_record :
                 [%t ptyp_constr ~loc { txt = Lident type_name; loc } []])
               __forge_query ->
+            let __forge_now = Forge.Table.now () in
             [%e
               pexp_apply ~loc [%expr __forge_query]
                 (List.map
-                   (fun (label : label_declaration) ->
+                   (fun ((label : label_declaration), filled) ->
                      ( Labelled label.pld_name.txt,
-                       encode label
-                         (pexp_field ~loc [%expr __forge_record]
-                            { txt = Lident label.pld_name.txt; loc }) ))
+                       Option.value filled
+                         ~default:
+                           (encode label
+                              (pexp_field ~loc [%expr __forge_record]
+                                 { txt = Lident label.pld_name.txt; loc })) ))
                    fields)]]
       in
+      let now = [%expr Forge_shared.Time.to_seconds __forge_now] in
       [
         [%stri
           let [%p pvar ~loc (value_name "table")] : Forge.Table.t =
@@ -276,9 +336,17 @@ let structure ~ctxt (_, declarations) table_name =
           let [%p pvar ~loc (value_name "for_insert")] =
             [%e
               spread
-                (List.filter
-                   (fun label -> not (has label "primary" && has label "auto"))
-                   labels)]];
+                (List.map
+                   (fun label ->
+                     ( label,
+                       match managed label with
+                       | Some (`Created_at | `Updated_at) -> Some now
+                       | Some `Version -> Some [%expr 0L]
+                       | None -> None ))
+                   (List.filter
+                      (fun label ->
+                        not (has label "primary" && has label "auto"))
+                      labels))]];
       ]
       @ Option.fold ~none:[]
           ~some:(fun key ->
@@ -287,12 +355,25 @@ let structure ~ctxt (_, declarations) table_name =
                 let [%p pvar ~loc (value_name "for_update")] =
                   [%e
                     spread
-                      (List.filter
+                      (List.filter_map
                          (fun (label : label_declaration) ->
-                           not
-                             (String.equal label.pld_name.txt key.pld_name.txt))
-                         labels
-                      @ [ key ])]];
+                           match managed label with
+                           | Some (`Created_at | `Version) -> None
+                           | Some `Updated_at -> Some (label, Some now)
+                           | None -> Some (label, None))
+                         (List.filter
+                            (fun (label : label_declaration) ->
+                              not
+                                (String.equal label.pld_name.txt
+                                   key.pld_name.txt))
+                            labels)
+                      @ [ (key, None) ]
+                      @ List.filter_map
+                          (fun label ->
+                            match managed label with
+                            | Some `Version -> Some (label, None)
+                            | Some (`Created_at | `Updated_at) | None -> None)
+                          labels)]];
             ])
           (List.find_opt (fun label -> has label "primary") labels)
       @ [

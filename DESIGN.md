@@ -526,6 +526,15 @@ module Validation : sig
   val email : string rule
 end
 
+(* Forge_shared.Time — фаза 3: момент времени UTC; RFC 3339 в JSON и URL, секунды в базе *)
+module Time : sig
+  type t
+  include Scalar.S with type t := t
+  val of_seconds : float -> t
+  val to_seconds : t -> float
+  val compare : t -> t -> int
+end
+
 (* Forge_shared.Page — фаза 3: страница списка; Spring Page *)
 module Page : sig
   type 'a t = private { items : 'a list; page : int; size : int; total : int }
@@ -1242,8 +1251,9 @@ type t = {
      of_row : id:int64 -> name:string -> age:int64 -> breed:string -> t   (форма колбэка sqlgg) *)
 ```
 
-- Типы колонок: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` или `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. Поле абстрактного типа `T.t` (`Refined`) требует `[@column int|string|bool|float]`: ppx не видит представление `T.t`, а тип аргумента `of_row` обязан совпасть с тем, что даёт sqlgg; значение проходит `T.of_string` (`Forge.Table.decode`), то есть правила `Refined` проверяются и на чтении из базы. `Ptime.t` → `TIMESTAMP` — фаза 2.
+- Типы колонок: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` или `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. Поле абстрактного типа `T.t` (`Refined`) требует `[@column int|string|bool|float]`: ppx не видит представление `T.t`, а тип аргумента `of_row` обязан совпасть с тем, что даёт sqlgg; значение проходит `T.of_string` (`Forge.Table.decode`), то есть правила `Refined` проверяются и на чтении из базы. Время — `Forge_shared.Time.t` (фаза 3, без `[@column]`): в базе `DOUBLE` секунд, на проводе RFC 3339; не `Ptime` и не `TIMESTAMP`, потому что тип нужен и в Melange, а `TIMESTAMP` sqlgg типизирует по-разному в MySQL и Postgres.
 - Атрибуты: `[@primary]`, `[@auto]` (только с `[@primary]`), `[@unique]`, `[@index]` — одна роль на поле; `[@size n]`; `[@references M]` → `FOREIGN KEY … REFERENCES <M.table> (id)`; `[@sql.default "SQL"]` — не `[@default]`, потому что `[@default]` уже значит дефолт jsonkit-деривера (OCaml-значение, а не SQL).
+- `[@created_at]`, `[@updated_at]` (поле `Forge_shared.Time.t`) и `[@version]` (`int`) — фаза 3, как timestamps и `lock_version` в Rails, auditing и `@Version` в JPA. `for_insert` ставит обе метки в `Forge.Table.now ()` и версию 0; `for_update` обновляет `updated_at`, не трогает `created_at` и передаёт прочитанную версию; `crud` печатает `UPDATE … SET …, version = version + 1 WHERE id = @id AND version = @version`. 0 изменённых строк — запись изменили после чтения: сервис отвечает 409 (`examples/shelter/server/cats_service.ml`, `rename`). Пока примеры не выпущены, `0001_init.sql` перегенерируется; после выпуска миграции только добавляются (`forge migrate diff` — фаза 3).
 - `Forge.Table.schema [ Cat.table; … ]` печатает DDL (MariaDB/MySQL). Реестра нет: `schema.sql` собирает маленький бинарь со списком таблиц, dune-правило передаёт его sqlgg (`examples/cats/db/dune`): `sqlgg -dialect mysql -gen caml_io -name Make schema.sql queries/cats.sql`.
 - Под Melange (`(pps … forge-ppx -- -melange)`) `table` ничего не генерирует, `dto` на том же типе работает.
 - Проверено на живой MariaDB 11.8: `examples/cats/db` (вставка через контроллер, чтение `Sql.List.all conn ~limit Cat.of_row` и `Sql.Single.by_id`, откат транзакции); алиас `dune build @examples/cats/db/test/db` с `FORGE_TEST_DB_URL`.
@@ -1613,7 +1623,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page`: `Request.t` — готовая search-запись (`?page&size`, page ≥ 1, size 1–100) для `[@search]`; `'a t` с `total`; `-- @page` (`LIMIT/OFFSET`) в `Table.crud`; возврат `Cat.t Forge_shared.Page.t`, клиент получает тот же тип | ✅ |
 | 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Forge_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
 | 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Forge.Job`: типизированные очереди (`'a queue` = имя + dto), одна таблица `forge_jobs` (`Forge.Job.table`), `FOR UPDATE SKIP LOCKED`, повторы с удвоением паузы, `dead` после `attempts`; `[@@job q]` в провайдере, воркер — хуки провайдера `Forge.Job.S`, их запускает `[%wire]`. `enqueue` идёт через `Db` и попадает в открытую транзакцию | ✅ |
-| 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (ISO 8601, native и Melange), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …` → 409 | 2 |
+| 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (RFC 3339, native и Melange, `DOUBLE` секунд в базе), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …`, 0 строк → 409 | ✅ |
 | 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` — сегмент пути разбирается типом аргумента загрузчика, `None` → 404 | 2 |
 | 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `forge generate resource dogs name:string age:int` — тип с `table`/`dto`, SQL, сервис, контроллер, страницы `.mlx`, тест; всё сразу компилируется | 3 |
 | 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` на варианте состояний с `[@transitions …]`: функции переходов, 409 на запрещённый, диаграмма mermaid | 3 |

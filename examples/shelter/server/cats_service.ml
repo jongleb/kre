@@ -3,7 +3,7 @@ module type S = sig
   val find : Cat.Id.t -> Cat.t option Lwt.t
   val catalog : Forge_shared.Page.Request.t -> Cat.t Forge_shared.Page.t Lwt.t
   val create : Create_cat_dto.t -> Cat.t Lwt.t
-  val rename : Cat.Id.t -> Cat.Name.t -> (Cat.t, Forge.Error.t) result Lwt.t
+  val rename : Cat.Id.t -> Rename_dto.t -> (Cat.t, Forge.Error.t) result Lwt.t
   val adopt : Cat.Id.t -> User.Id.t -> (unit, Forge.Error.t) result Lwt.t
 end
 
@@ -41,19 +41,33 @@ struct
           Cats.insert conn ~name:(Cat.Name.to_repr name)
             ~age:(Int64.of_int (Cat.Age.to_repr age))
             ~status:(Cat.Status.to_string Available)
-            ~owner_id:None
+            ~owner_id:None ~version:0L
         in
         let%lwt id = Inserted.id (module Cat.Id) inserted in
-        Lwt.return { Cat.id; name; age; status = Available; owner_id = None })
+        Lwt.return
+          {
+            Cat.id;
+            name;
+            age;
+            status = Available;
+            owner_id = None;
+            version = 0;
+          })
 
-  let rename id name =
+  let rename id ({ name; version } : Rename_dto.t) =
     Db.with_conn (fun conn ->
-        let%lwt _ =
-          Sql.rename_cat conn ~name:(Cat.Name.to_repr name) ~id:(key id)
-        in
-        Lwt.map
-          (Option.to_result ~none:(Forge.Error.not_found "cat"))
-          (Cats.Single.find conn ~id:(key id) Cat.of_row))
+        match%lwt Cats.Single.find conn ~id:(key id) Cat.of_row with
+        | None -> Lwt.return_error (Forge.Error.not_found "cat")
+        | Some cat -> (
+            let%lwt changed =
+              Cat.for_update { cat with name; version } (Cats.update conn)
+            in
+            match changed.affected_rows with
+            | 1L -> Lwt.return_ok { cat with name; version = version + 1 }
+            | _ ->
+                Lwt.return_error
+                  (Forge.Error.conflict
+                     "the cat changed since you read it; reload and try again")))
 
   let adopt id user =
     Db.with_conn (fun conn ->

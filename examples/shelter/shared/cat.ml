@@ -24,5 +24,6 @@ type t = {
   age : Age.t; [@column int]
   status : Status.t; [@column string] [@size 16] [@index]
   owner_id : User.Id.t option; [@column int] [@references User]
+  version : int; [@version]
 }
 [@@deriving table ~name:"cats", dto]

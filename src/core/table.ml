@@ -1,6 +1,7 @@
 type sql_type = Integer | Text of int option | Boolean | Double
 type role = Primary_auto | Primary | Unique | Index | Plain
 type nullability = Null | Not_null
+type managed = Created_at | Updated_at | Version
 
 type column = {
   name : string;
@@ -9,13 +10,16 @@ type column = {
   role : role;
   default : string option;
   references : string option;
+  managed : managed option;
 }
 
 type t = { name : string; columns : column list }
 type dialect = Mysql | Postgresql
 
-let column ?(role = Plain) ?default ?references name type_ nullability =
+let column ?(role = Plain) ?managed ?default ?references name type_ nullability
+    =
   {
+    managed;
     name;
     type_;
     nullability;
@@ -136,10 +140,30 @@ let crud table =
             Printf.sprintf "SELECT %s FROM %s WHERE %s = @%s;" all table.name
               key.name key.name;
             "-- @update";
-            Printf.sprintf "UPDATE %s SET %s WHERE %s = @%s;" table.name
+            Printf.sprintf "UPDATE %s SET %s WHERE %s = @%s%s;" table.name
               (String.concat ", "
-                 (List.map (fun name -> name ^ " = @" ^ name) (names others)))
-              key.name key.name;
+                 (List.filter_map
+                    (fun (column : column) ->
+                      match column.managed with
+                      | Some Created_at -> None
+                      | Some Version ->
+                          Some
+                            (Printf.sprintf "%s = %s + 1" column.name
+                               column.name)
+                      | Some Updated_at | None ->
+                          Some (column.name ^ " = @" ^ column.name))
+                    others))
+              key.name key.name
+              (String.concat ""
+                 (List.filter_map
+                    (fun (column : column) ->
+                      match column.managed with
+                      | Some Version ->
+                          Some
+                            (Printf.sprintf " AND %s = @%s" column.name
+                               column.name)
+                      | Some (Created_at | Updated_at) | None -> None)
+                    others));
             "-- @delete";
             Printf.sprintf "DELETE FROM %s WHERE %s = @%s;" table.name key.name
               key.name;
@@ -171,6 +195,8 @@ let crud table =
         table.columns
     @ [ "-- @count"; Printf.sprintf "SELECT COUNT(*) FROM %s;" table.name; "" ]
     )
+
+let now () = Forge_shared.Time.of_seconds (Unix.gettimeofday ())
 
 let decode (module S : Forge_shared.Scalar.S) raw =
   Forge_shared.Validation.ok_exn (S.of_string raw)

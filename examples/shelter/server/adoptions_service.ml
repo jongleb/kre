@@ -13,10 +13,12 @@ module Make
     let user = Int64.of_int (User.Id.to_repr user_id) in
     Lwt_result.bind (Cats.adopt cat_id user_id) (fun () ->
         Db.with_conn @@ fun conn ->
+        let adopted_at = Forge.Table.now () in
         let%lwt inserted =
           Adoptions.insert conn
             ~cat_id:(Int64.of_int (Cat.Id.to_repr cat_id))
             ~user_id:user
+            ~adopted_at:(Forge_shared.Time.to_seconds adopted_at)
         in
         let%lwt id = Inserted.id (module Adoption.Id) inserted in
         let%lwt adopted =
@@ -24,7 +26,7 @@ module Make
         in
         match List.length adopted with
         | 0 | 1 | 2 ->
-            let adoption = { Adoption.id; cat_id; user_id } in
+            let adoption = { Adoption.id; cat_id; user_id; adopted_at } in
             Lwt.map
               (fun () -> Ok adoption)
               (Jobs.enqueue Queues.congratulate adoption)

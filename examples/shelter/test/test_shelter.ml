@@ -238,32 +238,47 @@ let () =
         ] );
       ( "authorize",
         [
-          Alcotest.test_case "owner or admin renames a cat" `Quick (fun () ->
+          Alcotest.test_case
+            "owner or admin renames a cat; a stale version is 409" `Quick
+            (fun () ->
               let mine =
                 number "cat_id"
                   (List.hd
                      (Yojson.Basic.Util.to_list
                         (snd (call ~token:ann `GET "/adoptions/mine"))))
               in
-              let rename token id name =
+              let version id =
+                Option.value ~default:0
+                  (Yojson.Basic.Util.to_int_option
+                     (Yojson.Basic.Util.member "version"
+                        (snd (call `GET ("/cats/" ^ string_of_int id)))))
+              in
+              let rename token id ?(version = version id) name =
                 fst
                   (call ~token
-                     ~body:(Printf.sprintf {|{"name":"%s"}|} name)
+                     ~body:
+                       (Printf.sprintf {|{"name":"%s","version":%d}|} name
+                          version)
                      `PUT
                      ("/cats/" ^ string_of_int id))
               in
+              let read = version mine in
               Alcotest.(check (list int))
-                "statuses" [ 200; 403; 200; 404 ]
+                "statuses"
+                [ 200; 409; 403; 200; 404 ]
                 (List.map
-                   (fun (token, id, name) -> rename token id name)
+                   (fun rename -> rename ())
                    [
-                     (ann, mine, "tommy");
-                     (bob, mine, "bobby");
-                     (boss, mine, "thomas");
-                     (boss, 999999, "ghost");
+                     (fun () -> rename ann mine ~version:read "tommy");
+                     (fun () -> rename boss mine ~version:read "stale");
+                     (fun () -> rename bob mine "bobby");
+                     (fun () -> rename boss mine "thomas");
+                     (fun () -> rename boss 999999 "ghost");
                    ]);
-              Alcotest.(check string)
-                "name" "thomas"
-                (text "name" (snd (call `GET ("/cats/" ^ string_of_int mine)))));
+              Alcotest.(check (pair string int))
+                "name and version"
+                ("thomas", read + 2)
+                ( text "name" (snd (call `GET ("/cats/" ^ string_of_int mine))),
+                  version mine ));
         ] );
     ]

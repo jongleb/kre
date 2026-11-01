@@ -24,7 +24,7 @@ let create (module Cats : Cats_service.S)
 let rename (module Cats : Cats_service.S)
     ~user:(_ : (User.t[@guard Auth.current])) ~(id : Cat.Id.t)
     ~(body : Rename_dto.t) : (Cat.t, Forge.Error.t) result Lwt.t =
-  Cats.rename id body.name
+  Cats.rename id body
 [@@put ":id"]
 [@@authorize
   fun ~user ~id -> Lwt.map (Auth.owner_or_admin ~user) (Cats.find id)]

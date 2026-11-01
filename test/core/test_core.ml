@@ -963,6 +963,38 @@ let page =
           (Jsonkit.to_string (Pages.to_json page), Forge_shared.Page.pages page));
   ]
 
+let time =
+  let show text =
+    Result.fold ~ok:Forge_shared.Time.to_string
+      ~error:(fun _ -> "invalid")
+      (Forge_shared.Time.of_string text)
+  in
+  [
+    Alcotest.test_case "RFC 3339 both ways" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "times"
+          [
+            "1970-01-01T00:00:00.000Z";
+            "1969-12-31T23:59:59.000Z";
+            "2000-02-29T12:34:56.789Z";
+            "2026-11-01T06:44:08.000Z";
+            "2026-11-01T06:44:08.000Z";
+            "invalid";
+            "invalid";
+            "invalid";
+          ]
+          [
+            Forge_shared.Time.to_string (Forge_shared.Time.of_seconds 0.);
+            Forge_shared.Time.to_string (Forge_shared.Time.of_seconds (-1.));
+            show "2000-02-29T12:34:56.789Z";
+            show "2026-11-01T09:44:08+03:00";
+            show "2026-11-01 06:44:08z";
+            show "2026-13-01T00:00:00Z";
+            show "2026-11-01T06:44:08";
+            show "yesterday";
+          ]);
+  ]
+
 let () =
   Alcotest.run "forge"
     [
@@ -972,6 +1004,7 @@ let () =
       ("Retry", retry);
       ("Command", command);
       ("Page", page);
+      ("Time", time);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

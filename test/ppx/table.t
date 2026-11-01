@@ -25,6 +25,7 @@ shape of a sqlgg callback.
             Forge.Table.Not_null]
       let _ = table
       let for_insert (__forge_record : t) __forge_query =
+        let __forge_now = Forge.Table.now () in
         __forge_query ~email:(Email.to_string __forge_record.email)
           ~age:(Option.map (fun value -> Int64.of_int value) __forge_record.age)
           ~owner_id:(Option.map (fun value -> Int64.of_int value)
@@ -32,6 +33,7 @@ shape of a sqlgg callback.
           ~created:(__forge_record.created)
       let _ = for_insert
       let for_update (__forge_record : t) __forge_query =
+        let __forge_now = Forge.Table.now () in
         __forge_query ~email:(Email.to_string __forge_record.email)
           ~age:(Option.map (fun value -> Int64.of_int value) __forge_record.age)
           ~owner_id:(Option.map (fun value -> Int64.of_int value)
@@ -99,4 +101,42 @@ The table needs a name.
   1 | type t = { id : int } [@@deriving table]
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   Error: [@@deriving table] needs the table name: [@@deriving table ~name:"cats"]
+  [1]
+
+[@created_at], [@updated_at] and [@version] are filled by for_insert and
+for_update; the update needs the version it read.
+
+  $ cat > input.ml <<'ML'
+  > type t = {
+  >   id : int; [@primary] [@auto]
+  >   name : string;
+  >   created_at : Forge_shared.Time.t; [@created_at]
+  >   updated_at : Forge_shared.Time.t; [@updated_at]
+  >   version : int; [@version]
+  > }
+  > [@@deriving table ~name:"notes"]
+  > ML
+  $ ./pp.exe -impl input.ml | sed -n '/let for_insert/,/let _ = for_update/p'
+      let for_insert (__forge_record : t) __forge_query =
+        let __forge_now = Forge.Table.now () in
+        __forge_query ~name:(__forge_record.name)
+          ~created_at:(Forge_shared.Time.to_seconds __forge_now)
+          ~updated_at:(Forge_shared.Time.to_seconds __forge_now) ~version:0L
+      let _ = for_insert
+      let for_update (__forge_record : t) __forge_query =
+        let __forge_now = Forge.Table.now () in
+        __forge_query ~name:(__forge_record.name)
+          ~updated_at:(Forge_shared.Time.to_seconds __forge_now)
+          ~id:(Int64.of_int __forge_record.id)
+          ~version:(Int64.of_int __forge_record.version)
+      let _ = for_update
+  $ cat > input.ml <<'ML'
+  > type t = { id : int; [@primary] at : float [@created_at] }
+  > [@@deriving table ~name:"notes"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 1, characters 43-56:
+  1 | type t = { id : int; [@primary] at : float [@created_at] }
+                                                 ^^^^^^^^^^^^^
+  Error: [@created_at] fills a timestamp; give at the type Forge_shared.Time.t
   [1]

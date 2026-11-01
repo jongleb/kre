@@ -74,6 +74,34 @@ let%lwt _ = Crud.delete conn ~id in
 
 Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
 
+## Время и версии
+
+Rails: `t.timestamps` и `lock_version`. JPA: `@CreatedDate`, `@LastModifiedDate`, `@Version`. В Forge — атрибуты полей записи:
+
+<!-- $MDX skip -->
+```ocaml
+type t = {
+  id : Id.t; [@primary] [@auto] [@column int]
+  name : Name.t; [@column string] [@size 64]
+  created_at : Forge_shared.Time.t; [@created_at]
+  updated_at : Forge_shared.Time.t; [@updated_at]
+  version : int; [@version]
+}
+[@@deriving table ~name:"notes", dto]
+```
+
+- `Forge_shared.Time.t` — момент времени: в JSON и URL строка RFC 3339 (`"2026-11-01T06:44:08.112Z"`), в базе `DOUBLE` секунд. Работает и в Melange.
+- `for_insert` ставит `created_at` и `updated_at` в одно `Forge.Table.now ()`, `version` — в 0. `for_update` обновляет `updated_at`, `created_at` не трогает.
+- С `[@version]` запрос `update` из `Table.crud` — `SET …, version = version + 1 WHERE id = @id AND version = @version`. Клиент присылает версию, которую видел; если запись успели изменить, строк изменится 0, и сервис отвечает 409:
+
+<!-- $MDX skip -->
+```ocaml
+let%lwt changed = Cat.for_update { cat with name; version } (Cats.update conn) in
+match changed.affected_rows with
+| 1L -> Lwt.return_ok { cat with name; version = version + 1 }
+| _ -> Lwt.return_error (Forge.Error.conflict "the cat changed since you read it")
+```
+
 ## Страницы
 
 Spring: `Pageable` и `Page<T>`. Rails: kaminari. В Forge запрос страницы — `Forge_shared.Page.Request.t` (`?page=2&size=20`; page от 1, size от 1 до 100, иначе 400), ответ — `'a Forge_shared.Page.t` с `items`, `page`, `size` и `total`. `Table.crud` печатает `page` (`LIMIT @limit OFFSET @offset`) и `count`, сервис складывает одно с другим:

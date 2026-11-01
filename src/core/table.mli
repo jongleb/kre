@@ -9,6 +9,13 @@ type role = Primary_auto | Primary | Unique | Index | Plain
 
 type nullability = Null | Not_null
 
+(** Columns that [for_insert] and [for_update] fill themselves. *)
+type managed =
+  | Created_at  (** Set on insert, never updated. *)
+  | Updated_at  (** Set on insert and on every update. *)
+  | Version
+      (** Starts at 0; an update needs the version it read and bumps it. *)
+
 type column = private {
   name : string;
   type_ : sql_type;
@@ -16,6 +23,7 @@ type column = private {
   role : role;
   default : string option;  (** SQL expression. *)
   references : string option;  (** Referenced table; its [id] column. *)
+  managed : managed option;
 }
 
 type t = private { name : string; columns : column list }
@@ -26,6 +34,7 @@ type dialect = Mysql | Postgresql
 
 val column :
   ?role:role ->
+  ?managed:managed ->
   ?default:string ->
   ?references:t ->
   string ->
@@ -37,4 +46,5 @@ val make : name:string -> column list -> t
 val ddl : dialect -> t -> string
 val schema : dialect -> t list -> string
 val crud : t -> string
+val now : unit -> Forge_shared.Time.t
 val decode : (module S : Forge_shared.Scalar.S) -> string -> S.t

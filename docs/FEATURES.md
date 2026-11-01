@@ -88,6 +88,7 @@
 | entity id | `@Id` | `Forge_shared.Id.Make ()` — свой тип id на сущность | ✅ |
 | TS `enum`, `@IsEnum` | `@Enumerated(STRING)` | вариант без аргументов + `[@@deriving dto]` — строка в JSON, пути, query и столбце | ✅ |
 | TypeORM entity | `@Entity` | `[@@deriving table]` → DDL, `of_row` | ✅ |
+| timestamps, `lock_version` | `@CreatedDate`, `@LastModifiedDate`, `@Version` | `[@created_at]`, `[@updated_at]`, `[@version]` в `table` + `Forge_shared.Time`; устаревшая версия → 409 | ✅ |
 | пагинация | `Pageable`, `Page<T>`; Rails kaminari | `Forge_shared.Page`: `Request.t` через `[@search]`, `'a t` с `total`, `page` и `count` в `Table.crud` | ✅ |
 | repository `findOneBy` | Spring Data `findByStatus`, Rails `find_by` | `Table.crud` → `by_<col>` по `[@unique]`/`[@index]`/`[@references]`, `count` | ✅ |
 | repositories | Spring Data | sqlgg: SQL проверяется против схемы при сборке | ✅ |
