@@ -838,12 +838,42 @@ let etag =
           "404" (404, "-", "") (get "/missing"));
   ]
 
+let retry =
+  let flaky failures =
+    let calls = ref 0 in
+    ( calls,
+      fun () ->
+        incr calls;
+        match !calls <= failures with
+        | true -> Lwt.fail (Failure (Printf.sprintf "call %d" !calls))
+        | false -> Lwt.return !calls )
+  in
+  let outcome promise =
+    Lwt_main.run
+      (Lwt.catch
+         (fun () -> Lwt.map (Printf.sprintf "ok %d") promise)
+         (fun exn -> Lwt.return (Printexc.to_string exn)))
+  in
+  [
+    Alcotest.test_case "retries until it succeeds" `Quick (fun () ->
+        let calls, f = flaky 2 in
+        let result = outcome (Forge.Retry.run ~backoff:0.001 ~attempts:3 f) in
+        Alcotest.(check (pair string int))
+          "third call" ("ok 3", 3) (result, !calls));
+    Alcotest.test_case "gives up with the last exception" `Quick (fun () ->
+        let calls, f = flaky 5 in
+        let result = outcome (Forge.Retry.run ~attempts:2 f) in
+        Alcotest.(check (pair string int))
+          "two calls" ({|Failure("call 2")|}, 2) (result, !calls));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
       ("Live", live);
       ("Table", table);
       ("Etag", etag);
+      ("Retry", retry);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

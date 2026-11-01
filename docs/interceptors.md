@@ -58,3 +58,15 @@ let use : Dream.middleware =
       response)
     (next request)
 ```
+
+## Повтор
+
+Spring Retry: `@Retryable(maxAttempts = 3, backoff = @Backoff(100))` на методе сервиса. Forge: `[@@retry n]` на любой функции — в сервисе, в хендлере, где угодно. ppx оборачивает тело в `Forge.Retry.run`: если вызов бросил исключение, он повторяется, всего до `n` раз; `[@@backoff s]` — первая пауза в секундах, дальше вдвое больше. После последней попытки исключение уходит дальше как было.
+
+<!-- $MDX skip -->
+```ocaml
+let rate ~currency () : float Lwt.t = Exchange_api.rate currency
+[@@retry 3] [@@backoff 0.1]
+```
+
+Повторяются только исключения. `Error` в `result` — ответ по делу (404, 409), повтор его не исправит. Без ppx — `Forge.Retry.run ~attempts:3 (fun () -> …)`.

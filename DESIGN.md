@@ -652,6 +652,11 @@ module Etag : sig
   val middleware : Dream.middleware
 end
 
+(* Forge.Retry — фаза 3: повтор при исключении, пауза удваивается; [@@retry n] [@@backoff s] *)
+module Retry : sig
+  val run : ?backoff:float -> attempts:int -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+end
+
 (* Forge.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1522,7 +1527,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | --- | --- | --- | --- |
 | 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Forge.Table.crud` печатает `by_<col>` для `[@unique]` (одна строка), `[@index]` и `[@references]` (список) и `count`; sqlgg их типизирует | ✅ |
 | 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | ✅ |
-| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` — повтор при исключении, через `Forge.Interceptor` | 1 |
+| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` на любой функции → `Forge.Retry.run`; повтор при исключении. Не interceptor: в Spring это аннотация метода сервиса, и у нас тоже | ✅ |
 | 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф провайдеров; `/actuator/beans` и `--emit-graph` (mermaid) | 1 |
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `Forge.Testing`: запросы в обработчик без сокета, ответ как `status`/`json`/`problem` | 1 |
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |

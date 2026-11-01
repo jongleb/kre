@@ -1,6 +1,7 @@
 let () =
-  Ppxlib.Driver.register_transformation "forge.dto"
-    ~preprocess_impl:Dto.structure ~preprocess_intf:Dto.signature;
+  Ppxlib.Driver.register_transformation "forge.preprocess"
+    ~preprocess_impl:(fun items -> Dto.structure (Retry.structure items))
+    ~preprocess_intf:Dto.signature;
   Ppxlib.Driver.register_transformation "forge.controller"
     ~impl:Controller.transform;
   Ppxlib.Driver.register_transformation "forge.gateway" ~impl:Gateway.transform;
