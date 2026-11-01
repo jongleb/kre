@@ -74,6 +74,8 @@ type handler = {
   timeout : expression option;  (** [[@@timeout seconds]]. *)
   authorize : expression option;
       (** [[@@authorize f]], applied to the handler's own arguments. *)
+  check : expression option;
+      (** [[@@check f]]: like [authorize], its [Error] is a 422. *)
   transaction : longident option;
       (** [[@@transactional]]: the [Kre.Db.S] dependency, or [M] of
           [[@from M.tx]]. *)
@@ -684,6 +686,63 @@ let transform structure =
                         name)
                 (attribute_of binding "live")
             in
+            let closure kind =
+              Option.map
+                (fun (attribute : attribute) ->
+                  let check =
+                    match attribute.attr_payload with
+                    | PStr [ { pstr_desc = Pstr_eval (check, _); _ } ] -> check
+                    | _ ->
+                        Location.raise_errorf ~loc:attribute.attr_loc
+                          "[@@@@%s] expects a function, e.g. [@@@@%s fun ~user \
+                           ~id -> …]"
+                          kind kind
+                  in
+                  let labels =
+                    match check.pexp_desc with
+                    | Pexp_function (params, _, _) ->
+                        List.map
+                          (fun (param : function_param) ->
+                            match param.pparam_desc with
+                            | Pparam_val (Labelled label, None, _) -> label
+                            | _ ->
+                                Location.raise_errorf ~loc:param.pparam_loc
+                                  "[@@@@%s] takes only labelled arguments \
+                                   named like the handler's"
+                                  kind)
+                          params
+                    | _ ->
+                        Location.raise_errorf ~loc:check.pexp_loc
+                          "[@@@@%s] expects a function, e.g. [@@@@%s fun ~user \
+                           ~id -> …]"
+                          kind kind
+                  in
+                  pexp_apply ~loc check
+                    (List.map
+                       (fun label ->
+                         match
+                           List.find_map
+                             (fun argument ->
+                               match (argument.label, argument.source) with
+                               | ( (Labelled known | Optional known),
+                                   ( Path _ | Query _ | Body _ | Searched _
+                                   | Loaded _ | Extracted _ | Located _ ) )
+                                 when String.equal known label ->
+                                   Some argument
+                               | _ -> None)
+                             arguments
+                         with
+                         | Some { source = Path { segment; _ }; _ } ->
+                             (Labelled label, evar ~loc ("__kre_arg_" ^ segment))
+                         | Some _ ->
+                             (Labelled label, evar ~loc ("__kre_arg_" ^ label))
+                         | None ->
+                             Location.raise_errorf ~loc:check.pexp_loc
+                               "[@@@@%s] uses ~%s, which %s does not take" kind
+                               label name)
+                       labels))
+                (attribute_of binding kind)
+            in
             {
               name;
               verb;
@@ -839,62 +898,8 @@ let transform structure =
                            (\"Cache-Control\", \"no-store\")]"
                     | _ -> None)
                   binding.pvb_attributes;
-              authorize =
-                Option.map
-                  (fun (attribute : attribute) ->
-                    let check =
-                      match attribute.attr_payload with
-                      | PStr [ { pstr_desc = Pstr_eval (check, _); _ } ] ->
-                          check
-                      | _ ->
-                          Location.raise_errorf ~loc:attribute.attr_loc
-                            "[@@@@authorize] expects a function, e.g. \
-                             [@@@@authorize fun ~user ~id -> …]"
-                    in
-                    let labels =
-                      match check.pexp_desc with
-                      | Pexp_function (params, _, _) ->
-                          List.map
-                            (fun (param : function_param) ->
-                              match param.pparam_desc with
-                              | Pparam_val (Labelled label, None, _) -> label
-                              | _ ->
-                                  Location.raise_errorf ~loc:param.pparam_loc
-                                    "[@@@@authorize] takes only labelled \
-                                     arguments named like the handler's")
-                            params
-                      | _ ->
-                          Location.raise_errorf ~loc:check.pexp_loc
-                            "[@@@@authorize] expects a function, e.g. \
-                             [@@@@authorize fun ~user ~id -> …]"
-                    in
-                    pexp_apply ~loc check
-                      (List.map
-                         (fun label ->
-                           match
-                             List.find_map
-                               (fun argument ->
-                                 match (argument.label, argument.source) with
-                                 | ( (Labelled known | Optional known),
-                                     ( Path _ | Query _ | Body _ | Searched _
-                                     | Loaded _ | Extracted _ | Located _ ) )
-                                   when String.equal known label ->
-                                     Some argument
-                                 | _ -> None)
-                               arguments
-                           with
-                           | Some { source = Path { segment; _ }; _ } ->
-                               ( Labelled label,
-                                 evar ~loc ("__kre_arg_" ^ segment) )
-                           | Some _ ->
-                               (Labelled label, evar ~loc ("__kre_arg_" ^ label))
-                           | None ->
-                               Location.raise_errorf ~loc:check.pexp_loc
-                                 "[@@@@authorize] uses ~%s, which %s does not \
-                                  take"
-                                 label name)
-                         labels))
-                  (attribute_of binding "authorize");
+              authorize = closure "authorize";
+              check = closure "check";
               transaction =
                 (match
                    ( attribute_of binding "transactional",
@@ -986,6 +991,7 @@ let transform structure =
               "use";
               "guards";
               "role";
+              "check";
               "header";
               "redirect";
               "timeout";
@@ -1243,6 +1249,10 @@ let transform structure =
               @ Option.fold ~none:[]
                   ~some:(fun check -> [ ([%pat? ()], check) ])
                   handler.authorize
+              @ Option.fold ~none:[]
+                  ~some:(fun check ->
+                    [ ([%pat? ()], [%expr Kre.Route.validated [%e check]]) ])
+                  handler.check
             in
             let body =
               match steps with

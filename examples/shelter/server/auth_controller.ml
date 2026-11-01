@@ -3,7 +3,10 @@
 let signup (module Users : Users_service.S) ~(body : Login_dto.t) :
     (Session.t, Kre.Error.t) result Lwt.t =
   Lwt_result.map Auth.session (Users.signup body)
-[@@post "signup"] [@@status 201] [@@summary "Create an account"]
+[@@post "signup"]
+[@@status 201]
+[@@check fun ~body -> Users.unused body.Login_dto.email]
+[@@summary "Create an account"]
 
 let login (module Users : Users_service.S) ~(body : Login_dto.t) :
     (Session.t, Kre.Error.t) result Lwt.t =

@@ -71,11 +71,24 @@ let () =
                    (fun token ->
                      text "role" (snd (call ~token `GET "/auth/me")))
                    [ boss; ann ]));
-          Alcotest.test_case "an email signs up once" `Quick (fun () ->
-              Alcotest.(check int)
-                "conflict" 409
-                (fst
-                   (call ~body:(login "ann@shelter.test") `POST "/auth/signup")));
+          Alcotest.test_case "[@@check]: an email signs up once" `Quick
+            (fun () ->
+              let status, json =
+                call ~body:(login "ann@shelter.test") `POST "/auth/signup"
+              in
+              let error =
+                List.hd
+                  (Yojson.Basic.Util.to_list
+                     (Yojson.Basic.Util.member "errors" json))
+              in
+              Alcotest.(check (triple int string (list string)))
+                "taken"
+                (422, "unique", [ "email" ])
+                ( status,
+                  text "rule" error,
+                  List.map Yojson.Basic.Util.to_string
+                    (Yojson.Basic.Util.to_list
+                       (Yojson.Basic.Util.member "path" error)) ));
           Alcotest.test_case "a short password is 422" `Quick (fun () ->
               Alcotest.(check (pair int string))
                 "rule" (422, "min_length")

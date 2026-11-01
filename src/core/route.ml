@@ -123,6 +123,8 @@ let segment (module S : Kre_shared.Scalar.S) label path =
     (fun s -> Result.to_option (S.of_string s))
     label path
 
+let validated check = Lwt.map (Result.map_error Error.unprocessable) check
+
 let load ~what find id =
   Lwt.map (Option.to_result ~none:(Error.not_found what)) (find id)
 

@@ -54,6 +54,9 @@ val segment :
   (module S : Kre_shared.Scalar.S) ->
   string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path
 
+val validated :
+  (unit, Kre_shared.Validation.t) result Lwt.t -> (unit, Error.t) result Lwt.t
+
 val load :
   what:string -> ('id -> 'a option Lwt.t) -> 'id -> ('a, Error.t) result Lwt.t
 

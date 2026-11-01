@@ -252,3 +252,17 @@ sequenceDiagram
 The browser side speaks the same format. `Kre_client.Error` parses a Problem Details answer into `Problem { status; type_; title; detail; errors }`, so a form can show each message next to the field its `path` names. See [Typed client & router](/client/client-router).
 
 Next, [Guards & auth](/guide/guards-auth) shows the same idea applied to identity: a guard does not answer yes or no, it returns the evidence.
+
+## Checks that need the database
+
+Some rules can only be answered by the database: "this email is taken". Put them on the handler with `[@@check]`. It sees the parsed arguments by label, like `[@@authorize]`, runs after it, and its error becomes the same 422 as any other validation failure, with the field path:
+
+<<< @/../examples/shelter/server/auth_controller.ml{1-9}
+
+<<< @/../examples/shelter/server/users_service.ml{44-55}
+
+```json
+{ "status": 422, "type": "urn:kre:error:validation",
+  "errors": [ { "path": ["email"], "rule": "unique", "message": "this email is taken" } ] }
+```
+
