@@ -11,13 +11,92 @@ let structure ~ctxt (_, declarations) table_name =
   match !target with
   | Melange -> []
   | Native ->
-      let type_name, labels =
-        match declarations with
-        | [ ({ ptype_kind = Ptype_record labels; _ } as declaration) ] ->
-            (declaration.ptype_name.txt, labels)
+      let records =
+        List.map
+          (fun (declaration : type_declaration) ->
+            match declaration.ptype_kind with
+            | Ptype_record labels -> (declaration.ptype_name.txt, labels)
+            | _ ->
+                Location.raise_errorf ~loc:declaration.ptype_loc
+                  "[@@@@deriving table] works on record types; %s is not one"
+                  declaration.ptype_name.txt)
+          declarations
+      in
+      let embedded (label : label_declaration) =
+        Option.map
+          (fun (attribute : attribute) ->
+            match label.pld_type.ptyp_desc with
+            | Ptyp_constr ({ txt = Lident name; _ }, []) -> (
+                match List.assoc_opt name records with
+                | Some labels -> labels
+                | None ->
+                    Location.raise_errorf ~loc:attribute.attr_loc
+                      "[@@embedded] stores a record of the same type group: \
+                       type address = { … } and t = { home : address \
+                       [@@embedded]; … }")
+            | _ ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@embedded] takes a record type of the same group, not %a"
+                  Pprintast.core_type label.pld_type)
+          (List.find_opt
+             (fun (attribute : attribute) ->
+               String.equal attribute.attr_name.txt "embedded")
+             label.pld_attributes)
+      in
+      let type_name, fields =
+        match
+          List.filter
+            (fun (name, _) ->
+              not
+                (List.exists
+                   (fun (_, labels) ->
+                     List.exists
+                       (fun (label : label_declaration) ->
+                         match (embedded label, label.pld_type.ptyp_desc) with
+                         | Some _, Ptyp_constr ({ txt = Lident used; _ }, []) ->
+                             String.equal used name
+                         | _ -> false)
+                       labels)
+                   records))
+            records
+        with
+        | [ (type_name, labels) ] ->
+            let rec flatten path labels =
+              List.concat_map
+                (fun (label : label_declaration) ->
+                  let path = path @ [ label.pld_name.txt ] in
+                  Option.fold
+                    ~none:
+                      [
+                        ( path,
+                          {
+                            label with
+                            pld_name =
+                              {
+                                label.pld_name with
+                                txt = String.concat "_" path;
+                              };
+                          } );
+                      ]
+                    ~some:(flatten path) (embedded label))
+                labels
+            in
+            (type_name, flatten [] labels)
         | _ ->
             Location.raise_errorf ~loc
-              "[@@@@deriving table] works on one record type"
+              "[@@@@deriving table] needs one record that the others are \
+               [@@embedded] in"
+      in
+      let labels = List.map snd fields in
+      let access (label : label_declaration) =
+        List.fold_left
+          (fun record name -> pexp_field ~loc record { txt = Lident name; loc })
+          [%expr __kre_record]
+          (List.assoc label.pld_name.txt
+             (List.map
+                (fun (path, (column : label_declaration)) ->
+                  (column.pld_name.txt, path))
+                fields))
       in
       let table_name =
         match table_name with
@@ -348,10 +427,7 @@ let structure ~ctxt (_, declarations) table_name =
                    (fun ((label : label_declaration), filled) ->
                      ( Labelled label.pld_name.txt,
                        Option.value filled
-                         ~default:
-                           (encode label
-                              (pexp_field ~loc [%expr __kre_record]
-                                 { txt = Lident label.pld_name.txt; loc })) ))
+                         ~default:(encode label (access label)) ))
                    fields)]]
       in
       let now = [%expr Kre_shared.Time.to_seconds __kre_now] in
@@ -380,11 +456,7 @@ let structure ~ctxt (_, declarations) table_name =
                 with
                 | Some other ->
                     [%expr
-                      Kre_shared.Slug.of_string
-                        [%e
-                          encode other
-                            (pexp_field ~loc [%expr __kre_record]
-                               { txt = Lident source; loc })]]
+                      Kre_shared.Slug.of_string [%e encode other (access other)]]
                 | None ->
                     Location.raise_errorf ~loc:attribute.attr_loc
                       "[@@slug_from %s]: the record has no field %s" source
@@ -485,13 +557,23 @@ let structure ~ctxt (_, declarations) table_name =
                       body)
                   (List.combine labels columns)
                   (pexp_constraint ~loc
-                     (pexp_record ~loc
-                        (List.map2
-                           (fun (label : label_declaration)
-                                (_, (_, converted, _)) ->
-                             ( { txt = Lident label.pld_name.txt; loc },
-                               converted ))
-                           labels columns)
-                        None)
+                     (let rec build path labels =
+                        pexp_record ~loc
+                          (List.map
+                             (fun (label : label_declaration) ->
+                               let path = path @ [ label.pld_name.txt ] in
+                               ( { txt = Lident label.pld_name.txt; loc },
+                                 match embedded label with
+                                 | Some labels -> build path labels
+                                 | None ->
+                                     List.assoc path
+                                       (List.map2
+                                          (fun (path, _) (_, (_, converted, _))
+                                             -> (path, converted))
+                                          fields columns) ))
+                             labels)
+                          None
+                      in
+                      build [] (List.assoc type_name records))
                      (ptyp_constr ~loc { txt = Lident type_name; loc } []))]];
         ]

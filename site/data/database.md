@@ -245,6 +245,21 @@ let id = Result.get_ok (Order.Id.of_repr (Kre.Ulid.next ()))
 
 `[@ulid]` makes the column `VARCHAR(26)` and keeps the id in `for_insert`. `Kre_shared.Ulid.Make ()` is a new type per entity, like `Kre_shared.Id.Make ()`, and rejects anything that is not 26 characters of Crockford base32 — in JSON, in path segments and when reading from the database.
 
+## Embedded records
+
+A value object that belongs to one row, such as an address, is a record of the same type group marked `[@embedded]`. It is stored as columns named `<field>_<sub>` and comes back as a record:
+
+<<< @/../docs/examples/person.ml
+
+| Field | Column |
+| --- | --- |
+| `id` | `id` |
+| `name` | `name` |
+| `home.street` | `home_street` |
+| `home.city` | `home_city` |
+
+`for_insert` reads `person.home.street` into `~home_street`, and `of_row ~home_street ~home_city` rebuilds `home`. Column attributes such as `[@size]` or an `option` type work inside the embedded record as on the table itself, and an embedded record may embed another one.
+
 ## Filters
 
 Mark the columns a list can be filtered by. `Table.crud` adds a `filter` query and a `filter_count` with an optional condition per field: pass `None` and the condition disappears.

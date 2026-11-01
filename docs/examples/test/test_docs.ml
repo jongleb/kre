@@ -308,6 +308,37 @@ let () =
                   | Json value -> value.module_ ^ " / " ^ value.type_
                   | Unit | Text | Events _ | Raw -> "-");
                 ]);
+          Alcotest.test_case "embedded record as columns" `Quick (fun () ->
+              let ann : Person.t =
+                {
+                  id = 1;
+                  name = "Ann";
+                  home = { street = "Elm 1"; city = "Riga" };
+                }
+              in
+              let read =
+                Person.of_row ~id:7L ~name:"Bob" ~home_street:"Oak 2"
+                  ~home_city:"Oslo"
+              in
+              Alcotest.(check (list string))
+                "columns"
+                [
+                  "CREATE TABLE people (\n\
+                  \  id SERIAL PRIMARY KEY,\n\
+                  \  name VARCHAR(64) NOT NULL,\n\
+                  \  home_street TEXT NOT NULL,\n\
+                  \  home_city TEXT NOT NULL\n\
+                   );\n";
+                  "Ann / Elm 1 / Riga";
+                  "7 Bob / Oak 2 / Oslo";
+                ]
+                [
+                  Kre.Table.ddl Postgresql Person.table;
+                  Person.for_insert ann (fun ~name ~home_street ~home_city ->
+                      String.concat " / " [ name; home_street; home_city ]);
+                  Printf.sprintf "%d %s / %s / %s" read.id read.name
+                    read.home.street read.home.city;
+                ]);
           Alcotest.test_case "response cache" `Quick (fun () ->
               let stats = app [ Stats_controller.register () ] in
               let fetch () =

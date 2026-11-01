@@ -223,3 +223,57 @@ for_update; the update needs the version it read.
                                                              ^^^^^
   Error: [@filter] is Exact, Partial or Range
   [1]
+
+[@embedded] stores a record of the same type group as <field>_<sub>
+columns and rebuilds it in of_row.
+
+  $ cat > input.ml <<'ML'
+  > type address = { street : string; city : string option }
+  > and t = { id : int; [@primary] [@auto] home : address [@embedded] }
+  > [@@deriving table ~name:"people"]
+  > ML
+  $ ./pp.exe -impl input.ml | sed -n '/let table/,$p'
+      let table : Kre.Table.t =
+        Kre.Table.make ~name:"people"
+          [Kre.Table.column ~role:Kre.Table.Primary_auto "id" Kre.Table.Integer
+             Kre.Table.Not_null;
+          Kre.Table.column "home_street" (Kre.Table.Text None)
+            Kre.Table.Not_null;
+          Kre.Table.column "home_city" (Kre.Table.Text None) Kre.Table.Null]
+      let _ = table
+      let for_insert (__kre_record : t) __kre_query =
+        let __kre_now = Kre.Table.now () in
+        __kre_query ~home_street:((__kre_record.home).street)
+          ~home_city:(Option.map (fun value -> value) (__kre_record.home).city)
+      let _ = for_insert
+      let for_update (__kre_record : t) __kre_query =
+        let __kre_now = Kre.Table.now () in
+        __kre_query ~home_street:((__kre_record.home).street)
+          ~home_city:(Option.map (fun value -> value) (__kre_record.home).city)
+          ~id:(Int64.of_int __kre_record.id)
+      let _ = for_update
+      let of_row ~id:(id : int64) ~home_street:(home_street : string)
+        ~home_city:(home_city : string option) =
+        ({
+           id = (Int64.to_int id);
+           home =
+             {
+               street = home_street;
+               city = (Option.map (fun value -> value) home_city)
+             }
+         } : t)
+      let _ = of_row
+    end[@@ocaml.doc "@inline"][@@merlin.hide ]
+
+[@embedded] needs a record of the same group.
+
+  $ cat > input.ml <<'ML'
+  > type t = { id : int; [@primary] [@auto] home : Address.t [@embedded] }
+  > [@@deriving table ~name:"people"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 1, characters 57-68:
+  1 | type t = { id : int; [@primary] [@auto] home : Address.t [@embedded] }
+                                                               ^^^^^^^^^^^
+  Error: [@embedded] takes a record type of the same group, not Address.t
+  [1]
