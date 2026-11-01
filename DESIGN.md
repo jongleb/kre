@@ -767,6 +767,12 @@ module Assets : sig
   val middleware : dir:string -> Dream.middleware
 end
 
+(* Kre.Signed — фаза 3: подписанные ссылки; [@@signed secret] *)
+module Signed : sig
+  val url : ?now:float -> secret:string -> expires_in:float -> string -> string
+  val guard : ?now:(unit -> float) -> secret:string -> unit -> unit Guard.t
+end
+
 (* Kre.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1682,7 +1688,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | --- | --- | --- | --- |
 | 18 | `#[IsGranted]` | `[@@role g]` — guard любого типа, значение не нужно хендлеру | ✅ |
 | 19 | валидация с базой (`#[UniqueEntity]`) | `[@@check f]` — проверка над разобранными аргументами, `Error` → 422 с путями полей; `Kre.Route.validated`; выполняется после `[@@authorize]` | ✅ |
-| 20 | подписанные ссылки | `[@@signed]` + `Kre.Signed.url` — HMAC и срок в query, иначе 403 | 4 |
+| 20 | подписанные ссылки | `[@@signed secret]` + `Kre.Signed.url` — `expires` и HMAC-SHA256 последним параметром, иначе 403; `Kre.Signed.guard` | ✅ |
 | 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют `Kre_shared.Slug` | 4 |
 | 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` + `Kre.Ulid.next ()`, `[@ulid]` в `table` — `CHAR(26)` без автоинкремента | 4 |
 | 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`) | 4 |

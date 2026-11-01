@@ -102,6 +102,24 @@ let () =
                 (Some "/cats", Some "no-store")
                 ( header "/legacy/cats" "Location",
                   header "/legacy/fresh" "Cache-Control" ));
+          Alcotest.test_case "[@@signed]: a link works until it is changed"
+            `Quick (fun () ->
+              let downloads = app [ Downloads_controller.register () ] in
+              let link = snd (call downloads `GET "/downloads/7/link") in
+              let forged =
+                "/downloads/8" ^ String.sub link 12 (String.length link - 12)
+              in
+              Alcotest.(check (list int))
+                "statuses" [ 200; 403; 403; 403 ]
+                (List.map
+                   (fun target -> fst (call downloads `GET target))
+                   [
+                     link;
+                     forged;
+                     "/downloads/7";
+                     Kre.Signed.url ~now:0. ~secret:Downloads_controller.secret
+                       ~expires_in:1. "/downloads/7";
+                   ]));
           Alcotest.test_case "[@@authorize] sees typed arguments" `Quick
             (fun () ->
               let notes = app [ Notes_controller.register () ] in

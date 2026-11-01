@@ -125,6 +125,14 @@ When a handler only needs the check, not the value, put the guard in `[@@role]`.
 
 `[@@role g]` takes any `'a Kre.Guard.t`, so the same `Auth.admin` serves as a parameter when the handler does need the `Admin.t`, and as a role when it does not.
 
+## Signed links
+
+A link in an email — confirm the address, download the invoice — must work without a login, but only as sent. `Kre.Signed.url` adds an expiry and an HMAC signature; `[@@signed secret]` on the route checks both and answers 403 to a changed or expired link:
+
+<<< @/../docs/examples/downloads_controller.ml
+
+The signature covers the path and every query parameter, so `/downloads/8` with the signature of `/downloads/7` is refused, and so is the right link one second after it expires.
+
 ## Authorization over typed arguments
 
 A guard sees only the request. An ownership check needs the parsed arguments: who is asking, and for which record. `[@@authorize]` takes a literal function whose labels name the handler's arguments; it runs after every parameter is parsed and before the handler body.
