@@ -167,16 +167,66 @@ let scalar ~loc (type_ : core_type) =
   }
 
 let rec json ~loc (type_ : core_type) =
-  match type_.ptyp_desc with
-  | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]) ->
+  match
+    ( type_.ptyp_desc,
+      List.find_map
+        (fun (attribute : attribute) ->
+          match (attribute.attr_name.txt, attribute.attr_payload) with
+          | ( "view",
+              PStr
+                [
+                  {
+                    pstr_desc =
+                      Pstr_eval
+                        ( {
+                            pexp_desc =
+                              Pexp_constant (Pconst_string (view, _, _));
+                            _;
+                          },
+                          _ );
+                    _;
+                  };
+                ] ) ->
+              Some (view, attribute)
+          | "view", _ ->
+              Location.raise_errorf ~loc:attribute.attr_loc
+                "[@@view] names a group of the DTO: (Member.t [@@view \
+                 \"admin\"])"
+          | _ -> None)
+        type_.ptyp_attributes )
+  with
+  | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []), Some (view, _) ->
       {
-        type_;
+        type_ = { type_ with ptyp_attributes = [] };
         module_ =
-          pmod_apply ~loc
-            (ident ~loc "Kre_shared.Json.List")
-            (json ~loc element).module_;
+          pmod_structure ~loc
+            [
+              pstr_include ~loc
+                (include_infos ~loc (pmod_ident ~loc { txt = path; loc }));
+              [%stri
+                let to_json __kre_value =
+                  [%e
+                    pexp_ident ~loc
+                      { txt = Ldot (path, "to_json_" ^ view); loc }]
+                    __kre_value];
+              [%stri
+                let t_jsonschema =
+                  [%e
+                    pexp_ident ~loc
+                      { txt = Ldot (path, "t_jsonschema_" ^ view); loc }]];
+            ];
       }
-  | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, [ element ]) ->
+  | _, Some (_, attribute) ->
+      Location.raise_errorf ~loc:attribute.attr_loc
+        "[@@view] goes on a DTO type T.t: (Member.t [@@view \"admin\"])"
+  | Ptyp_constr (({ txt = Lident "list"; _ } as list), [ element ]), None ->
+      let element = json ~loc element in
+      {
+        type_ = { type_ with ptyp_desc = Ptyp_constr (list, [ element.type_ ]) };
+        module_ =
+          pmod_apply ~loc (ident ~loc "Kre_shared.Json.List") element.module_;
+      }
+  | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, [ element ]), None ->
       {
         type_;
         module_ =
@@ -184,7 +234,7 @@ let rec json ~loc (type_ : core_type) =
             (pmod_ident ~loc { txt = Ldot (path, "Make"); loc })
             (json ~loc element).module_;
       }
-  | _ -> scalar ~loc type_
+  | _, None -> scalar ~loc type_
 
 let extraction (type_ : core_type) =
   List.find_map
@@ -1383,6 +1433,10 @@ let transform structure =
                          | Pmod_ident { txt; _ } -> Longident.name txt
                          | Pmod_apply (functor_, argument) ->
                              name functor_ ^ " (" ^ name argument ^ ")"
+                         | Pmod_structure
+                             ({ pstr_desc = Pstr_include { pincl_mod; _ }; _ }
+                             :: _) ->
+                             name pincl_mod
                          | _ -> print Pprintast.module_expr module_
                        in
                        name value.module_)];

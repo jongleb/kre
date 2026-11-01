@@ -449,49 +449,89 @@ let rewrite ~known (declaration : type_declaration) =
                   (attribute_named "transform" label))
               labels
           in
+          let grouped =
+            List.filter_map
+              (fun (label : label_declaration) ->
+                Option.map
+                  (fun attribute ->
+                    match label.pld_type.ptyp_desc with
+                    | Ptyp_constr ({ txt = Lident "option"; _ }, [ _ ]) ->
+                        (key label, strings (expression_payload attribute))
+                    | _ ->
+                        Location.raise_errorf ~loc:label.pld_loc
+                          "%s is left out of the views outside its groups, so \
+                           readers may not get it: make it %s : %s option"
+                          label.pld_name.txt label.pld_name.txt
+                          (Format.asprintf "%a" Pprintast.core_type
+                             label.pld_type))
+                  (attribute_named "groups" label))
+              labels
+          in
           let output =
-            match (excluded, transformed) with
+            let to_json = named type_name "to_json" in
+            let schema =
+              match type_name with
+              | "t" -> "t_jsonschema"
+              | name -> name ^ "_jsonschema"
+            in
+            let hidden view =
+              excluded
+              @ List.filter_map
+                  (fun (key, groups) ->
+                    Option.fold ~none:(Some key)
+                      ~some:(fun _ -> None)
+                      (Option.bind view (fun view ->
+                           List.find_opt (String.equal view) groups)))
+                  grouped
+            in
+            let serializer name hidden =
+              [%stri
+                let [%p pvar ~loc name] =
+                 fun (__kre_value :
+                       [%t ptyp_constr ~loc { txt = Lident type_name; loc } []]) ->
+                  Kre_shared.Json.omit
+                    [%e elist ~loc (List.map (estring ~loc) hidden)]
+                    ([%e evar ~loc to_json]
+                       [%e
+                         match transformed with
+                         | [] -> [%expr __kre_value]
+                         | transformed ->
+                             record
+                               (List.map
+                                  (fun (name, f) ->
+                                    ( name,
+                                      [%expr
+                                        [%e f]
+                                          [%e field ~loc "__kre_value" name]] ))
+                                  transformed)
+                               [%expr __kre_value]])]
+            in
+            let described name hidden =
+              [%stri
+                let [%p pvar ~loc name] =
+                  Kre_shared.Json.write_only
+                    [%e elist ~loc (List.map (estring ~loc) hidden)]
+                    [%e evar ~loc schema]]
+            in
+            List.concat_map
+              (fun view ->
+                [
+                  serializer (to_json ^ "_" ^ view) (hidden (Some view));
+                  described (schema ^ "_" ^ view) (hidden (Some view));
+                ])
+              (List.fold_left
+                 (fun views (_, groups) ->
+                   views
+                   @ List.filter
+                       (fun group -> not (List.mem group views))
+                       groups)
+                 [] grouped)
+            @
+            match (hidden None, transformed) with
             | [], [] -> []
-            | _ ->
-                let to_json = named type_name "to_json" in
-                let schema =
-                  match type_name with
-                  | "t" -> "t_jsonschema"
-                  | name -> name ^ "_jsonschema"
-                in
-                [%stri
-                  let [%p pvar ~loc to_json] =
-                   fun (__kre_value :
-                         [%t
-                           ptyp_constr ~loc { txt = Lident type_name; loc } []]) ->
-                    Kre_shared.Json.omit
-                      [%e elist ~loc (List.map (estring ~loc) excluded)]
-                      ([%e evar ~loc to_json]
-                         [%e
-                           match transformed with
-                           | [] -> [%expr __kre_value]
-                           | transformed ->
-                               record
-                                 (List.map
-                                    (fun (name, f) ->
-                                      ( name,
-                                        [%expr
-                                          [%e f]
-                                            [%e field ~loc "__kre_value" name]]
-                                      ))
-                                    transformed)
-                                 [%expr __kre_value]])]
-                ::
-                (match excluded with
-                | [] -> []
-                | _ ->
-                    [
-                      [%stri
-                        let [%p pvar ~loc schema] =
-                          Kre_shared.Json.write_only
-                            [%e elist ~loc (List.map (estring ~loc) excluded)]
-                            [%e evar ~loc schema]];
-                    ])
+            | [], _ :: _ -> [ serializer to_json [] ]
+            | hidden, _ ->
+                [ serializer to_json hidden; described schema hidden ]
           in
           let target = ptyp_constr ~loc { txt = Lident type_name; loc } [] in
           let projection =
@@ -541,9 +581,26 @@ let rewrite ~known (declaration : type_declaration) =
           ( {
               declaration with
               ptype_kind =
-                (match mapped with
-                | None -> declaration.ptype_kind
-                | Some _ -> Ptype_record labels);
+                (let optional (label : label_declaration) =
+                   match
+                     ( attribute_named "groups" label,
+                       attribute_named "option" label )
+                   with
+                   | Some _, None ->
+                       {
+                         label with
+                         pld_attributes =
+                           attribute ~loc:label.pld_loc
+                             ~name:{ txt = "option"; loc = label.pld_loc }
+                             ~payload:(PStr [])
+                           :: label.pld_attributes;
+                       }
+                   | Some _, Some _ | None, _ -> label
+                 in
+                 match (mapped, declaration.ptype_kind) with
+                 | None, Ptype_record _ | Some _, _ ->
+                     Ptype_record (List.map optional labels)
+                 | None, kind -> kind);
               ptype_attributes =
                 (List.filter_map fst rewritten
                 @

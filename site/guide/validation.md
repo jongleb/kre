@@ -189,6 +189,34 @@ A DTO module is already a `Kre_shared.Json.S`, so a handler can simply return it
 let respond profile = Kre.Response.json ~status:`OK (module Profile) profile
 ```
 
+## Views: `[@groups]` and `[@view]`
+
+Some fields are for some readers only. `[@groups [ … ]]` hides a field from the default view and shows it in the views it names:
+
+<<< @/../docs/examples/member.ml
+
+For each group the deriver adds a serializer and a schema next to the default ones:
+
+| Value | Shows |
+| --- | --- |
+| `to_json`, `t_jsonschema` | `id`, `name` |
+| `to_json_owner`, `t_jsonschema_owner` | `id`, `name`, `email` |
+| `to_json_admin`, `t_jsonschema_admin` | everything |
+
+A handler picks a view on its return type with `[@view "group"]`; lists work too:
+
+<<< @/../docs/examples/members_controller.ml
+
+`GET /members` answers `{"id":1,"name":"Ann"}`, `GET /members/me` adds the email, and `GET /members/audit` returns the full records. In each route's schema the hidden fields are marked `writeOnly`, so the OpenAPI document and the typed client describe exactly what is sent.
+
+A grouped field must be an `option`, because readers of the other views never get it; the deriver marks it `[@option]` so a missing key reads as `None`:
+
+::: danger Not an option
+```text
+Error: notes is left out of the views outside its groups, so readers may not get it: make it notes : string option
+```
+:::
+
 ## Mapped types
 
 The last two lines of `account.ml` are mapped types. The new type is abstract in the source; the ppx expands it from a record declared in the same file.

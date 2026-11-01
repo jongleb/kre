@@ -113,3 +113,56 @@ segment and a [@column string] in a table. [@key] renames a case.
       [("type", (`String "string"));
       ("enum",
         (`List [`String "available"; `String "adopted"; `String "on hold"]))]
+
+[@groups] hides a field from the default view; each group gets its own
+serializer and schema. Grouped fields become [@option].
+
+  $ cat > member.ml <<'ML'
+  > type t = {
+  >   id : int;
+  >   email : string option; [@groups [ "owner"; "admin" ]]
+  >   notes : string option; [@groups [ "admin" ]]
+  > }
+  > [@@deriving dto]
+  > ML
+  $ ./pp.exe -impl member.ml | sed -n '/^type t/,/deriving/p; /merlin.hide/,$p'
+  type t =
+    {
+    id: int ;
+    email: string option [@option ][@groups ["owner"; "admin"]];
+    notes: string option [@option ][@groups ["admin"]]}[@@deriving
+    end[@@ocaml.doc "@inline"][@@merlin.hide ]
+  let to_json_owner (__kre_value : t) =
+    Kre_shared.Json.omit ["notes"] (to_json __kre_value)
+  let t_jsonschema_owner = Kre_shared.Json.write_only ["notes"] t_jsonschema
+  let to_json_admin (__kre_value : t) =
+    Kre_shared.Json.omit [] (to_json __kre_value)
+  let t_jsonschema_admin = Kre_shared.Json.write_only [] t_jsonschema
+  let to_json (__kre_value : t) =
+    Kre_shared.Json.omit ["email"; "notes"] (to_json __kre_value)
+  let t_jsonschema = Kre_shared.Json.write_only ["email"; "notes"] t_jsonschema
+
+A grouped field must be an option: other views leave it out.
+
+  $ cat > member.ml <<'ML'
+  > type t = { id : int; notes : string [@groups [ "admin" ]] } [@@deriving dto]
+  > ML
+  $ ./pp.exe -impl member.ml
+  File "member.ml", line 1, characters 21-57:
+  1 | type t = { id : int; notes : string [@groups [ "admin" ]] } [@@deriving dto]
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  Error: notes is left out of the views outside its groups, so readers may not get it: make it notes : string option
+  [1]
+
+[@view] goes on a DTO type.
+
+  $ cat > members_controller.ml <<'ML'
+  > [@@@controller "members"]
+  > let count () : (int[@view "admin"]) Lwt.t = Lwt.return 1 [@@get]
+  > ML
+  $ ./pp.exe -impl members_controller.ml
+  File "members_controller.ml", line 2, characters 19-34:
+  2 | let count () : (int[@view "admin"]) Lwt.t = Lwt.return 1 [@@get]
+                         ^^^^^^^^^^^^^^^
+  Error: [@view] goes on a DTO type T.t: (Member.t [@view "admin"])
+  [1]

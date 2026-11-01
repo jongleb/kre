@@ -1719,7 +1719,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg (`None` — условие снято); на клиенте — search-запись (`examples/shelter/shared/cat_filter.ml`) | ✅ |
 | 26 | связи и жадная загрузка | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) в `Table.crud`, `Kre.Table.group ~key` — дети многих родителей одним запросом (`Cats.owned_by`) | ✅ |
 | 27 | `#[Embedded]` | `[@embedded]` — запись того же `type … and …` хранится столбцами `<поле>_<подполе>` | 4 |
-| 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и схема на каждое представление | 4 |
+| 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и `t_jsonschema_<group>`; без группы поле скрыто (`writeOnly`), поле обязано быть `option` (`[@option]` добавляется); обработчик выбирает представление: `(Member.t [@view "admin"]) Lwt.t` | ✅ |
 | 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал; несколько обёрток — цепочка в порядке файлов; `Make` обязан принимать `I.S` | ✅ |
 | 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S`, кроме самого провайдера и обёрток | ✅ |
 | 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` (`Kre.Wiring.profile`); нужен провайдер без профиля; хуки в группе — ошибка сборки | ✅ |

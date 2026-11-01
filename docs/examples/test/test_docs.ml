@@ -272,6 +272,42 @@ let () =
                         (member "password"
                            (member "properties" Account.t_jsonschema)));
                 ]);
+          Alcotest.test_case "serialization groups and views" `Quick (fun () ->
+              let members = app [ Members_controller.register () ] in
+              let fetch target =
+                Lwt_main.run
+                  (Dream.body (Dream.test members (Dream.request ~target "")))
+              in
+              let write_only schema field =
+                Yojson.Basic.to_string
+                  Yojson.Basic.Util.(
+                    member "writeOnly"
+                      (member field (member "properties" schema)))
+              in
+              Alcotest.(check (list string))
+                "views"
+                [
+                  {|{"id":1,"name":"Ann"}|};
+                  {|{"id":1,"name":"Ann","email":"ann@x.io"}|};
+                  {|[{"id":1,"name":"Ann","email":"ann@x.io","notes":"pays late"}]|};
+                  "true";
+                  "null";
+                  "true";
+                  "Kre_shared.Json.List (Member) / Member.t list";
+                ]
+                [
+                  fetch "/members";
+                  fetch "/members/me";
+                  fetch "/members/audit";
+                  write_only Member.t_jsonschema "notes";
+                  write_only Member.t_jsonschema_admin "notes";
+                  write_only Member.t_jsonschema_owner "notes";
+                  (match
+                     (List.nth Members_controller.spec.routes 2).returns
+                   with
+                  | Json value -> value.module_ ^ " / " ^ value.type_
+                  | Unit | Text | Events _ | Raw -> "-");
+                ]);
           Alcotest.test_case "response cache" `Quick (fun () ->
               let stats = app [ Stats_controller.register () ] in
               let fetch () =
