@@ -1509,6 +1509,31 @@ type t = { id : int [@primary] [@auto]; cat_id : int; email : string }
 
 IHP держит `Schema.sql` и генерирует типы. Мы держим OCaml-записи (там живут opaque-типы и `dto`) и генерируем `schema.sql`. Для brownfield (существующая MariaDB/TiDB) — `forge import-schema --url … --out shared/gen/`: sqlgg парсит `SHOW CREATE TABLE` и пишет записи с `[@@deriving table, dto]`, которые дальше правятся руками и становятся источником. Одноразовый импорт, не двусторонняя синхронизация.
 
+## Заимствования из Rails, Symfony и ещё раз Spring/Nest/IHP (фаза 3)
+
+Правило переноса то же: только функции, модули, функторы и ppx; никаких классов, рефлексии и рантайм-реестров. Если идея в оригинале держится на рантайм-магии (ActiveRecord callbacks, Doctrine proxies, AOP), берём результат, а механизм заменяем проверкой при сборке. Что уже есть (контроллеры, DI, guards, interceptors, dto, config, events, cron, cache, SSE/WS, JWT, Actuator, live loaders, table + sqlgg, миграции, typed client и router, `[@@transactional]`, `[@@authorize]`), сюда не входит.
+
+| # | Откуда | Forge | Волна |
+| --- | --- | --- | --- |
+| 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Forge.Table.crud` печатает `by_<col>` для `[@unique]` (одна строка), `[@index]` и `[@references]` (список) и `count`; sqlgg их типизирует | ✅ |
+| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | 1 |
+| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` — повтор при исключении, через `Forge.Interceptor` | 1 |
+| 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф провайдеров; `/actuator/beans` и `--emit-graph` (mermaid) | 1 |
+| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `Forge.Testing`: запросы в обработчик без сокета, ответ как `status`/`json`/`problem` | 1 |
+| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
+| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
+| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами: `[%wire]` собирает команды, `main.exe seed --count 3` запускает с теми же провайдерами; аргументы — из меток (cmdliner) | 2 |
+| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `[@@deriving table ~job]` + `[@@job]` в провайдере; очередь — таблица с `FOR UPDATE SKIP LOCKED`, воркер запускает `[%wire]` | 2 |
+| 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (ISO 8601, native и Melange), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …` → 409 | 2 |
+| 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` — сегмент пути разбирается типом аргумента загрузчика, `None` → 404 | 2 |
+| 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `forge generate resource dogs name:string age:int` — тип с `table`/`dto`, SQL, сервис, контроллер, страницы `.mlx`, тест; всё сразу компилируется | 3 |
+| 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` на варианте состояний с `[@transitions …]`: функции переходов, 409 на запрещённый, диаграмма mermaid | 3 |
+| 14 | Symfony Profiler, Rails dev log, Spring `httpexchanges` | `/__forge/profiler` при `FORGE_ENV=dev`: запросы, их SQL (драйвер уже видит текст), время, guards | 3 |
+| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Forge.Mail`: письмо — функция в `.mlx`, превью в dev | 3 |
+| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[@@@http_client "https://…"]`: декларативный клиент чужого API из `[@@get]` на функциях | 3 |
+
+Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.
+
 ## Фазы и критерии приёмки
 
 Фаза закрыта, когда её критерий выполнен в CI. Порядок внутри фазы — сверху вниз; каждая строка — отдельная задача для Claude Code с собственным PR.
@@ -1576,7 +1601,7 @@ open http://localhost:8080/cats/1
 
 ### Фаза 3 — экосистема
 
-`forge migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice-транспорты. Приоритизируется по первому реальному проекту на Forge.
+Заимствования из Rails/Symfony/Spring/Nest/IHP — таблица «Заимствования из Rails, Symfony…», по волнам. `forge migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice-транспорты. Приоритизируется по первому реальному проекту на Forge.
 
 ### Карта глав docs.nestjs.com
 

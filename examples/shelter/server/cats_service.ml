@@ -15,7 +15,7 @@ struct
 
   let available () =
     Db.with_conn (fun conn ->
-        Sql.List.cats_with_status conn
+        Cats.List.by_status conn
           ~status:(Cat.Status.to_string Available)
           Cat.of_row)
 

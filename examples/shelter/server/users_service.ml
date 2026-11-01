@@ -13,7 +13,7 @@ module Make
   let signup ({ email; password } : Login_dto.t) =
     Db.transaction (fun conn ->
         let address = Forge_shared.Refined.Email.to_string email in
-        match%lwt Sql.Single.user_by_email conn ~email:address User.of_row with
+        match%lwt Users.Single.by_email conn ~email:address User.of_row with
         | Some _ ->
             Lwt.return_error (Forge.Error.conflict "this email is taken")
         | None ->

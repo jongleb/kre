@@ -70,6 +70,8 @@ let%lwt _ = Cat.for_update { tom with name } (Crud.update conn) in
 let%lwt _ = Crud.delete conn ~id in
 ```
 
+Поиск по ключам тоже генерируется, как derived queries в Spring Data (`findByStatus`) и `find_by` в Rails. Для `[@unique]` столбца печатается `by_<столбец>` на одну строку (`Users_crud.Single.by_email`), для `[@index]` и `[@references]` — список по порядку ключа (`Cats_crud.List.by_status`), для любой таблицы — `count`. Имена берутся из столбцов, а не из разбора имени метода, поэтому опечатка — ошибка компиляции, а не запроса.
+
 Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
 
 Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. Как в Spring, соединение транзакции привязано к текущему Lwt-контексту: `Db.with_conn` и вложенный `Db.transaction` внутри неё берут его же, поэтому сервисы не передают `~conn` друг другу. Вложенная транзакция — часть внешней.

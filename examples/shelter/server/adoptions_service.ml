@@ -6,7 +6,6 @@ end
 module Make
     (Db : Forge.Db.S with type conn = Forge_db_mariadb.Client.t)
     (Cats : Cats_service.S) : S = struct
-  module Sql = Shelter_sql.Make (Forge_db_mariadb.Sql)
   module Adoptions = Adoptions_crud.Make (Forge_db_mariadb.Sql)
 
   let adopt cat_id user_id =
@@ -20,7 +19,7 @@ module Make
         in
         let%lwt id = Inserted.id (module Adoption.Id) inserted in
         let%lwt adopted =
-          Sql.List.adoptions_of conn ~user_id:user Adoption.of_row
+          Adoptions.List.by_user_id conn ~user_id:user Adoption.of_row
         in
         Lwt.return
           (match List.length adopted with
@@ -29,7 +28,7 @@ module Make
 
   let of_user user_id =
     Db.with_conn (fun conn ->
-        Sql.List.adoptions_of conn
+        Adoptions.List.by_user_id conn
           ~user_id:(Int64.of_int (User.Id.to_repr user_id))
           Adoption.of_row)
 end

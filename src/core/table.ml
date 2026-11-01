@@ -145,7 +145,28 @@ let crud table =
               key.name;
           ])
         key
-    @ [ "" ])
+    @ List.concat_map
+        (fun (column : column) ->
+          match (column.role, column.references) with
+          | Unique, _ ->
+              [
+                "-- @by_" ^ column.name;
+                Printf.sprintf "SELECT %s FROM %s WHERE %s = @%s;" all
+                  table.name column.name column.name;
+              ]
+          | Index, _ | Plain, Some _ ->
+              [
+                "-- @by_" ^ column.name;
+                Printf.sprintf "SELECT %s FROM %s WHERE %s = @%s%s;" all
+                  table.name column.name column.name
+                  (Option.fold ~none:""
+                     ~some:(fun (key : column) -> " ORDER BY " ^ key.name)
+                     key);
+              ]
+          | (Primary_auto | Primary), _ | Plain, None -> [])
+        table.columns
+    @ [ "-- @count"; Printf.sprintf "SELECT COUNT(*) FROM %s;" table.name; "" ]
+    )
 
 let decode (module S : Forge_shared.Scalar.S) raw =
   Forge_shared.Validation.ok_exn (S.of_string raw)

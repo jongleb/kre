@@ -759,10 +759,54 @@ let live =
         Alcotest.(check (list int)) "statuses" [ 500; 200 ] statuses);
   ]
 
+let table =
+  let users =
+    Forge.Table.make ~name:"users"
+      [ Forge.Table.column ~role:Primary_auto "id" Integer Not_null ]
+  in
+  [
+    Alcotest.test_case "crud: finders by unique, index and reference" `Quick
+      (fun () ->
+        Alcotest.(check string)
+          "sql"
+          "-- @all\n\
+           SELECT id, email, team, owner_id FROM pets;\n\
+           -- @insert\n\
+           INSERT INTO pets (email, team, owner_id) VALUES (@email, @team, \
+           @owner_id);\n\
+           -- @find\n\
+           SELECT id, email, team, owner_id FROM pets WHERE id = @id;\n\
+           -- @update\n\
+           UPDATE pets SET email = @email, team = @team, owner_id = @owner_id \
+           WHERE id = @id;\n\
+           -- @delete\n\
+           DELETE FROM pets WHERE id = @id;\n\
+           -- @by_email\n\
+           SELECT id, email, team, owner_id FROM pets WHERE email = @email;\n\
+           -- @by_team\n\
+           SELECT id, email, team, owner_id FROM pets WHERE team = @team ORDER \
+           BY id;\n\
+           -- @by_owner_id\n\
+           SELECT id, email, team, owner_id FROM pets WHERE owner_id = \
+           @owner_id ORDER BY id;\n\
+           -- @count\n\
+           SELECT COUNT(*) FROM pets;\n"
+          (Forge.Table.crud
+             (Forge.Table.make ~name:"pets"
+                [
+                  Forge.Table.column ~role:Primary_auto "id" Integer Not_null;
+                  Forge.Table.column ~role:Unique "email" (Text (Some 255))
+                    Not_null;
+                  Forge.Table.column ~role:Index "team" (Text None) Not_null;
+                  Forge.Table.column ~references:users "owner_id" Integer Null;
+                ])));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
       ("Live", live);
+      ("Table", table);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

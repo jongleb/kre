@@ -81,6 +81,7 @@
 | entity id | `@Id` | `Forge_shared.Id.Make ()` — свой тип id на сущность | ✅ |
 | TS `enum`, `@IsEnum` | `@Enumerated(STRING)` | вариант без аргументов + `[@@deriving dto]` — строка в JSON, пути, query и столбце | ✅ |
 | TypeORM entity | `@Entity` | `[@@deriving table]` → DDL, `of_row` | ✅ |
+| repository `findOneBy` | Spring Data `findByStatus`, Rails `find_by` | `Table.crud` → `by_<col>` по `[@unique]`/`[@index]`/`[@references]`, `count` | ✅ |
 | repositories | Spring Data | sqlgg: SQL проверяется против схемы при сборке | ✅ |
 | migrations | Flyway | `forge migrate up/down/status/new` | ✅ |
 | `@Exclude`, `@Expose`, `@Transform` | `@JsonIgnore`, `@JsonProperty` | `[@exclude]` (writeOnly), `[@key]`, `[@transform f]`; группы — проекции `~pick_of` | ✅ |
