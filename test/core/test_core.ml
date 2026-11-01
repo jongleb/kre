@@ -781,6 +781,9 @@ let table =
            WHERE id = @id;\n\
            -- @delete\n\
            DELETE FROM pets WHERE id = @id;\n\
+           -- @page\n\
+           SELECT id, email, team, owner_id FROM pets ORDER BY id LIMIT @limit \
+           OFFSET @offset;\n\
            -- @by_email\n\
            SELECT id, email, team, owner_id FROM pets WHERE email = @email;\n\
            -- @by_team\n\
@@ -922,6 +925,44 @@ let command =
              ]));
   ]
 
+let page =
+  let decode query =
+    Result.fold
+      ~ok:(fun (request : Forge_shared.Page.Request.t) ->
+        Printf.sprintf "%d/%d from %d" request.page request.size
+          (Forge_shared.Page.Request.offset request))
+      ~error:(fun errors ->
+        String.concat ","
+          (List.map
+             (fun (error : Forge_shared.Validation.error) ->
+               String.concat "." error.path ^ ":" ^ error.rule)
+             (Forge_shared.Validation.to_list errors)))
+      (Forge_shared.Search.decode Forge_shared.Page.Request.codec query)
+  in
+  [
+    Alcotest.test_case "a page request parses and checks" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "requests"
+          [ "1/20 from 0"; "3/10 from 20"; "page:min,size:range" ]
+          [
+            decode [];
+            decode [ ("page", "3"); ("size", "10") ];
+            decode [ ("page", "0"); ("size", "500") ];
+          ]);
+    Alcotest.test_case "a page in JSON" `Quick (fun () ->
+        let module Pages = Forge_shared.Page.Make (Forge_shared.Scalar.String)
+        in
+        let page =
+          Forge_shared.Page.make
+            (Result.get_ok (Forge_shared.Page.Request.make ~page:2 ~size:2))
+            ~total:5 [ "c"; "d" ]
+        in
+        Alcotest.(check (pair string int))
+          "json and pages"
+          ({|{"items":["c","d"],"page":2,"size":2,"total":5}|}, 3)
+          (Jsonkit.to_string (Pages.to_json page), Forge_shared.Page.pages page));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
@@ -930,6 +971,7 @@ let () =
       ("Etag", etag);
       ("Retry", retry);
       ("Command", command);
+      ("Page", page);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

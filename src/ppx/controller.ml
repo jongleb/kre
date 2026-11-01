@@ -171,6 +171,14 @@ let rec json ~loc (type_ : core_type) =
             (ident ~loc "Forge_shared.Json.List")
             (json ~loc element).module_;
       }
+  | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, [ element ]) ->
+      {
+        type_;
+        module_ =
+          pmod_apply ~loc
+            (pmod_ident ~loc { txt = Ldot (path, "Make"); loc })
+            (json ~loc element).module_;
+      }
   | _ -> scalar ~loc type_
 
 let extraction (type_ : core_type) =

@@ -123,6 +123,24 @@ let () =
                 "available"
                 [ "tom"; "felix"; "kitty" ]
                 (names ()));
+          Alcotest.test_case "the catalog comes in pages" `Quick (fun () ->
+              let page query =
+                let status, json = call `GET ("/cats/catalog" ^ query) in
+                match status with
+                | 200 ->
+                    Printf.sprintf "%d of %d: %s" (number "page" json)
+                      (number "total" json)
+                      (String.concat ","
+                         (List.map (text "name")
+                            (Yojson.Basic.Util.to_list
+                               (Yojson.Basic.Util.member "items" json))))
+                | status -> string_of_int status
+              in
+              Alcotest.(check (list string))
+                "pages"
+                [ "1 of 3: tom,felix"; "2 of 3: kitty"; "400"; "400" ]
+                (List.map page
+                   [ "?size=2"; "?page=2&size=2"; "?size=0"; "?page=x" ]));
           Alcotest.test_case "an unknown cat is 404" `Quick (fun () ->
               Alcotest.(check int) "status" 404 (fst (call `GET "/cats/999999")));
         ] );

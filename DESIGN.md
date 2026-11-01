@@ -526,6 +526,22 @@ module Validation : sig
   val email : string rule
 end
 
+(* Forge_shared.Page — фаза 3: страница списка; Spring Page *)
+module Page : sig
+  type 'a t = private { items : 'a list; page : int; size : int; total : int }
+  module Request : sig
+    type t = private { page : int; size : int }
+    include Json.S with type t := t
+    val make : page:int -> size:int -> (t, Validation.t) result
+    val first : t
+    val offset : t -> int
+    val codec : t Search.t
+  end
+  val make : Request.t -> total:int -> 'a list -> 'a t
+  val pages : 'a t -> int
+  module Make (J : Json.S) : Json.S with type t = J.t t
+end
+
 (* Forge_shared.Search — фаза 3: кодек query-строки ↔ запись; [@@deriving search] *)
 module Search : sig
   type 's t
@@ -819,6 +835,7 @@ end
 | `string Lwt.t` | `text/plain` | `Text` |
 | `T.t Lwt.t` | `T.to_json`, `application/json` | `Json ("T", T.jsonschema)` |
 | `T.t list Lwt.t`, `T.t option Lwt.t` | JSON-массив / JSON или 404 | `Json` с обёрткой в схеме |
+| `T.t M.t Lwt.t` (фаза 3) | контейнер `M.Make (T)`, например `Cat.t Forge_shared.Page.t` → `Forge_shared.Page.Make (Cat)`; свой контейнер — модуль с `'a t` и `Make (J : Json.S)` | `Json` |
 | `(τ, E) result Lwt.t` | как τ; `Error e` → `error_handler` | как τ |
 | `Dream.response Lwt.t` | как есть | `Raw` |
 | `T.t Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, по событию `data: <json>` на элемент (`Forge.Route.events`) | `Events` |
@@ -1593,7 +1610,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф (`Wiring.beans`); `/actuator/beans` (JSON) и `/actuator/beans.mmd` (mermaid) | ✅ |
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `forge-client.testing`: сгенерированный типизированный клиент идёт в обработчик приложения без сокета (`Forge_testing.use`) | ✅ |
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. Кодек переехал в `Forge_shared.Search` (native и Melange): один `Cat_search.codec` у сервера (`Forge.Extract.search`), у страничного роутера и у клиента (`Spec.Search`, `Wire.search`) | ✅ |
-| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
+| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page`: `Request.t` — готовая search-запись (`?page&size`, page ≥ 1, size 1–100) для `[@search]`; `'a t` с `total`; `-- @page` (`LIMIT/OFFSET`) в `Table.crud`; возврат `Cat.t Forge_shared.Page.t`, клиент получает тот же тип | ✅ |
 | 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Forge_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
 | 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Forge.Job`: типизированные очереди (`'a queue` = имя + dto), одна таблица `forge_jobs` (`Forge.Job.table`), `FOR UPDATE SKIP LOCKED`, повторы с удвоением паузы, `dead` после `attempts`; `[@@job q]` в провайдере, воркер — хуки провайдера `Forge.Job.S`, их запускает `[%wire]`. `enqueue` идёт через `Db` и попадает в открытую транзакцию | ✅ |
 | 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (ISO 8601, native и Melange), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …` → 409 | 2 |

@@ -9,6 +9,12 @@ let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
   Lwt.map (Option.to_result ~none:(Forge.Error.not_found "cat")) (Cats.find id)
 [@@get ":id"] [@@live [ "cats" ]]
 
+let catalog (module Cats : Cats_service.S)
+    ~(page : (Forge_shared.Page.Request.t[@search])) () :
+    Cat.t Forge_shared.Page.t Lwt.t =
+  Cats.catalog page
+[@@get "catalog"] [@@live [ "cats" ]] [@@summary "Every cat, a page at a time"]
+
 let create (module Cats : Cats_service.S)
     ~admin:(_ : (Auth.Admin.t[@guard Auth.admin])) ~(body : Create_cat_dto.t) :
     Cat.t Lwt.t =

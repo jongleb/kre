@@ -74,6 +74,32 @@ let%lwt _ = Crud.delete conn ~id in
 
 Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
 
+## Страницы
+
+Spring: `Pageable` и `Page<T>`. Rails: kaminari. В Forge запрос страницы — `Forge_shared.Page.Request.t` (`?page=2&size=20`; page от 1, size от 1 до 100, иначе 400), ответ — `'a Forge_shared.Page.t` с `items`, `page`, `size` и `total`. `Table.crud` печатает `page` (`LIMIT @limit OFFSET @offset`) и `count`, сервис складывает одно с другим:
+
+<!-- $MDX skip -->
+```ocaml
+let catalog request =
+  Db.with_conn (fun conn ->
+      let%lwt cats =
+        Cats.List.page conn
+          ~limit:(Int64.of_int request.Forge_shared.Page.Request.size)
+          ~offset:(Int64.of_int (Forge_shared.Page.Request.offset request))
+          Cat.of_row
+      in
+      let%lwt total = Cats.count conn in
+      Lwt.return (Forge_shared.Page.make request ~total:(Int64.to_int total) cats))
+
+let catalog (module Cats : Cats_service.S)
+    ~(page : (Forge_shared.Page.Request.t[@search])) () :
+    Cat.t Forge_shared.Page.t Lwt.t =
+  Cats.catalog page
+[@@get "catalog"]
+```
+
+Сгенерированный клиент — `Cats_client.catalog ~page`, ответ того же типа `Cat.t Forge_shared.Page.t`. Тип `T.t M.t` в ответе ppx сериализует через `M.Make (T)`, так что свой контейнер (курсорная страница, конверт) — модуль с `'a t` и `Make`.
+
 Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. Как в Spring, соединение транзакции привязано к текущему Lwt-контексту: `Db.with_conn` и вложенный `Db.transaction` внутри неё берут его же, поэтому сервисы не передают `~conn` друг другу. Вложенная транзакция — часть внешней.
 
 В контроллере хватает `[@@transactional]` и зависимости `Forge.Db.S` (пример — `examples/shelter/server/adoptions_controller.ml`): все сервисы, которые хендлер вызывает, пишут в одну транзакцию. Нужен сам `conn` — параметр `[@from Db.tx]`:

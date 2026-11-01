@@ -143,6 +143,10 @@ let crud table =
             "-- @delete";
             Printf.sprintf "DELETE FROM %s WHERE %s = @%s;" table.name key.name
               key.name;
+            "-- @page";
+            Printf.sprintf
+              "SELECT %s FROM %s ORDER BY %s LIMIT @limit OFFSET @offset;" all
+              table.name key.name;
           ])
         key
     @ List.concat_map

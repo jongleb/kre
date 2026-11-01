@@ -1,6 +1,7 @@
 module type S = sig
   val available : unit -> Cat.t list Lwt.t
   val find : Cat.Id.t -> Cat.t option Lwt.t
+  val catalog : Forge_shared.Page.Request.t -> Cat.t Forge_shared.Page.t Lwt.t
   val create : Create_cat_dto.t -> Cat.t Lwt.t
   val rename : Cat.Id.t -> Cat.Name.t -> (Cat.t, Forge.Error.t) result Lwt.t
   val adopt : Cat.Id.t -> User.Id.t -> (unit, Forge.Error.t) result Lwt.t
@@ -21,6 +22,18 @@ struct
 
   let find id =
     Db.with_conn (fun conn -> Cats.Single.find conn ~id:(key id) Cat.of_row)
+
+  let catalog request =
+    Db.with_conn (fun conn ->
+        let%lwt cats =
+          Cats.List.page conn
+            ~limit:(Int64.of_int request.Forge_shared.Page.Request.size)
+            ~offset:(Int64.of_int (Forge_shared.Page.Request.offset request))
+            Cat.of_row
+        in
+        let%lwt total = Cats.count conn in
+        Lwt.return
+          (Forge_shared.Page.make request ~total:(Int64.to_int total) cats))
 
   let create ({ name; age } : Create_cat_dto.t) =
     Db.with_conn (fun conn ->
