@@ -1,6 +1,6 @@
 # Controllers
 
-Nest: класс с `@Controller('cats')` и методами `@Get()`, `@Get(':id')`, `@Post()`. Kre: файл с `[@@@controller "cats"]` и функциями с атрибутами `[@@get]`, `[@@get ":id"]`, `[@@post]`. Хендлер — обычная функция; ppx читает её параметры и тип результата и генерирует `Paths`, `spec` и `register`.
+Nest: a class with `@Controller('cats')` and methods `@Get()`, `@Get(':id')`, `@Post()`. Kre: a file with `[@@@controller "cats"]` and functions with the attributes `[@@get]`, `[@@get ":id"]`, `[@@post]`. A handler is a plain function; the ppx reads its parameters and result type and generates `Paths`, `spec` and `register`.
 
 <!-- $MDX file=../examples/cats/server/cats_controller.ml -->
 ```ocaml
@@ -39,37 +39,37 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 [@@post] [@@status 201]
 ```
 
-- `~(id : int)` совпадает с `:id` в пути — **path**-параметр; не разобрался как `int` → 404.
-- `?(limit : int = 20)` — **query** с дефолтом; `~(x : t)` — обязательный query, `~(x : t list)` — повторяемый.
-- `~(cat : (Cat.t[@load Cats.find]))` с `[@@get ":cat"]` — **сущность из пути**, как `#[MapEntity]` в Symfony, `DomainClassConverter` в Spring и `before_action :set_cat` в Rails. Сегмент разбирается как `Cat.Id.t` (тип `M.t` → идентификатор `M.Id.t`), функция получает id и возвращает `M.t option Lwt.t`; `None` → 404. Хендлер и `[@@authorize fun ~user ~cat -> …]` получают уже загруженную запись; в клиенте и OpenAPI это обычный path-параметр `~cat : Cat.Id.t` (`examples/shelter/server/cats_controller.ml`).
-- `~(search : (Cat_search.t[@search]))` — **вся query-строка** в одну запись, как `#[MapQueryString]` в Symfony, `@Query() dto` в Nest и `@ModelAttribute` в Spring. Запись с `[@@deriving search, dto]` лежит в shared: тот же `Cat_search.codec` разбирает URL страницы в роутере (`~search:Cat_search.codec`), а сгенерированный клиент принимает `~search` того же типа. Ошибка разбора → 400 с ошибками полей; в OpenAPI это `style: form, explode: true` со схемой записи.
-- `~(body : Create_cat_dto.t)` — **тело**: JSON → `Create_cat_dto.of_json`; не JSON → 400, не прошёл разбор → 422.
-- `~(user : string [@guard Auth.user])` — значение из запроса (guard), в `spec` и клиент не попадает.
-- `(module Cats : Cats_service.S)` — **зависимость** (modular explicit): `register` принимает модуль и передаёт его хендлеру.
-- Тип результата решает сериализацию: `T.t Lwt.t` → JSON, `T.t option Lwt.t` → JSON или 404, `(T.t, Kre.Error.t) result Lwt.t` → JSON или ошибка, `unit Lwt.t` → 204, `string Lwt.t` → текст.
-- `T.t Lwt_stream.t Lwt.t` с `[@@sse]` — server-sent events (`@Sse`), см. `docs/examples/ticks_controller.ml`.
-- `[@@status 201]` — код успеха (`@HttpCode`); `[@@header ("Cache-Control", "no-store")]` — `@Header`; `[@@redirect "/cats"]` — `@Redirect`; `[@@timeout 5.0]` — 504, если хендлер не успел; `[@@@error_handler h]` — фильтр исключений на весь контроллер, `[@@error_handler h]` — на один хендлер; `[@@version 2]` на хендлере — версия только для него.
+- `~(id : int)` matches `:id` in the path: a **path** parameter; if it does not parse as `int` → 404.
+- `?(limit : int = 20)` is a **query** parameter with a default; `~(x : t)` is a required query parameter, `~(x : t list)` a repeatable one.
+- `~(cat : (Cat.t[@load Cats.find]))` with `[@@get ":cat"]` is an **entity from the path**, like `#[MapEntity]` in Symfony, `DomainClassConverter` in Spring and `before_action :set_cat` in Rails. The segment is parsed as `Cat.Id.t` (type `M.t` → identifier `M.Id.t`); the function gets the id and returns `M.t option Lwt.t`; `None` → 404. The handler and `[@@authorize fun ~user ~cat -> …]` get the already loaded record; in the client and in OpenAPI it is a plain path parameter `~cat : Cat.Id.t` (`examples/shelter/server/cats_controller.ml`).
+- `~(search : (Cat_search.t[@search]))` is the **whole query string** in one record, like `#[MapQueryString]` in Symfony, `@Query() dto` in Nest and `@ModelAttribute` in Spring. The record with `[@@deriving search, dto]` lives in shared: the same `Cat_search.codec` parses the page URL in the router (`~search:Cat_search.codec`), and the generated client takes `~search` of the same type. A parse error → 400 with field errors; in OpenAPI it is `style: form, explode: true` with the record schema.
+- `~(body : Create_cat_dto.t)` is the **body**: JSON → `Create_cat_dto.of_json`; not JSON → 400, failed to parse → 422.
+- `~(user : string [@guard Auth.user])` is a value from the request (a guard); it does not go into `spec` or the client.
+- `(module Cats : Cats_service.S)` is a **dependency** (modular explicit): `register` takes the module and passes it to the handler.
+- The result type decides serialization: `T.t Lwt.t` → JSON, `T.t option Lwt.t` → JSON or 404, `(T.t, Kre.Error.t) result Lwt.t` → JSON or an error, `unit Lwt.t` → 204, `string Lwt.t` → text.
+- `T.t Lwt_stream.t Lwt.t` with `[@@sse]` is server-sent events (`@Sse`), see `docs/examples/ticks_controller.ml`.
+- `[@@status 201]` is the success code (`@HttpCode`); `[@@header ("Cache-Control", "no-store")]` is `@Header`; `[@@redirect "/cats"]` is `@Redirect`; `[@@timeout 5.0]` gives 504 if the handler did not finish in time; `[@@@error_handler h]` is an exception filter for the whole controller, `[@@error_handler h]` for one handler; `[@@version 2]` on a handler is a version for that handler only.
 
-Пути доступны и коду: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. Сгенерированный код целиком — `test/ppx/controller.t`.
+Paths are available to code as well: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. The full generated code is in `test/ppx/controller.t`.
 
-## Декораторы параметров
+## Parameter decorators
 
-Атрибут на типе параметра говорит, откуда взять значение; тип решает, как его разобрать и обязательно ли оно (`option` — нет, `list` — повторяемое).
+An attribute on the parameter type says where to take the value from; the type decides how to parse it and whether it is required (`option`: no, `list`: repeatable).
 
 | Nest | Spring | Kre |
 | --- | --- | --- |
-| `@Req()` | `HttpServletRequest` | `(req : Dream.request)` или `[@req]` |
-| `@Param('id')` | `@PathVariable` | `~(id : int)` при `:id` в пути; другое имя — `[@param "id"]` |
-| `@Query('page')`, `@Query()` | `@RequestParam` | `~(page : int)`; другое имя — `[@query "page-size"]`; все — `[@query]` |
-| `@Body()`, `@Body('name')` | `@RequestBody` | `~(body : T.t)` или `[@body]` на любой метке; поле — `[@body "name"]` |
-| `@Headers('x')`, `@Headers()` | `@RequestHeader` | `[@header "X-Client-Name"]`; все — `[@headers]` |
-| `@Cookies('x')`, `@SignedCookies('x')` | `@CookieValue` | `[@cookie "theme"]`, `[@signed_cookie "sid"]`; все — `[@cookies]` |
+| `@Req()` | `HttpServletRequest` | `(req : Dream.request)` or `[@req]` |
+| `@Param('id')` | `@PathVariable` | `~(id : int)` with `:id` in the path; another name: `[@param "id"]` |
+| `@Query('page')`, `@Query()` | `@RequestParam` | `~(page : int)`; another name: `[@query "page-size"]`; all: `[@query]` |
+| `@Body()`, `@Body('name')` | `@RequestBody` | `~(body : T.t)` or `[@body]` on any label; a field: `[@body "name"]` |
+| `@Headers('x')`, `@Headers()` | `@RequestHeader` | `[@header "X-Client-Name"]`; all: `[@headers]` |
+| `@Cookies('x')`, `@SignedCookies('x')` | `@CookieValue` | `[@cookie "theme"]`, `[@signed_cookie "sid"]`; all: `[@cookies]` |
 | `@Session()` | `@SessionAttribute` | `[@session "user_id"]` |
 | `@Ip()` | `request.getRemoteAddr()` | `[@ip]` |
 | `@HostParam()` | — | `[@host]` |
-| свой декоратор | `HandlerMethodArgumentResolver` | `[@from guard]` с любым `'a Kre.Guard.t` |
-| `@UploadedFile('avatar')`, `@UploadedFiles()` | `@RequestPart`, `MultipartFile` | `[@file "avatar"] : Kre.Upload.t`, `[@files "photos"]`, поле формы — `[@form "title"]` |
-| `@Res()`, `@Next()` | `HttpServletResponse` | не нужны: ответ — возвращаемое значение, `next` — middleware |
+| custom decorator | `HandlerMethodArgumentResolver` | `[@from guard]` with any `'a Kre.Guard.t` |
+| `@UploadedFile('avatar')`, `@UploadedFiles()` | `@RequestPart`, `MultipartFile` | `[@file "avatar"] : Kre.Upload.t`, `[@files "photos"]`, a form field: `[@form "title"]` |
+| `@Res()`, `@Next()` | `HttpServletResponse` | not needed: the response is the return value, `next` is middleware |
 
 <!-- $MDX file=examples/entities_controller.ml -->
 ```ocaml
@@ -100,11 +100,11 @@ let rename ~(cat_id : (int[@param "id"])) ~(name : (Cat.Name.t[@body "name"])) :
 [@@patch ":id"]
 ```
 
-Заголовки и cookies попадают в `spec` и OpenAPI (`in: header`, `in: cookie`); заголовки — ещё и в сгенерированный клиент: `update ~id ~client_name ?trace ~page_size ~body`.
+Headers and cookies go into `spec` and OpenAPI (`in: header`, `in: cookie`); headers also go into the generated client: `update ~id ~client_name ?trace ~page_size ~body`.
 
-## Глаголы, маски, хосты
+## Verbs, wildcards, hosts
 
-`[@@get]`, `[@@post]`, `[@@put]`, `[@@patch]`, `[@@delete]`, `[@@head]`, `[@@options]`, `[@@all]` (`@All` — маршрут на каждый метод). HEAD без своего маршрута отвечает GET-хендлером без тела. Маска `[@@get "*"]` — хвост пути в параметр `[@wildcard]`. `[@@@host ":account.example.com"]` — контроллер отвечает только на такие хосты (`@Controller({ host })`), `[@host_param "account"]` — часть хоста (`@HostParam`).
+`[@@get]`, `[@@post]`, `[@@put]`, `[@@patch]`, `[@@delete]`, `[@@head]`, `[@@options]`, `[@@all]` (`@All`: a route for every method). HEAD without its own route is answered by the GET handler without a body. The wildcard `[@@get "*"]` puts the path tail into a `[@wildcard]` parameter. `[@@@host ":account.example.com"]` makes the controller answer only on such hosts (`@Controller({ host })`); `[@host_param "account"]` is a part of the host (`@HostParam`).
 
 <!-- $MDX file=examples/files_controller.ml -->
 ```ocaml

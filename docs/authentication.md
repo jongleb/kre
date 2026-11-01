@@ -1,6 +1,6 @@
-# Authentication и Authorization
+# Authentication and Authorization
 
-Nest: Passport-стратегии, `JwtAuthGuard`, `@Roles()` и `RolesGuard`. Kre: стратегия — это guard. `Kre.Jwt.bearer ~secret` проверяет HS256-токен из `Authorization: Bearer …` и отдаёт `Kre.Jwt.claims`; `Kre.Guard.session "user_id"` читает поле сессии Dream. Роль — `Kre.Guard.check`, который превращает claims в доказательство: значение `Admin.t` получить больше негде.
+Nest: Passport strategies, `JwtAuthGuard`, `@Roles()` and `RolesGuard`. Kre: a strategy is a guard. `Kre.Jwt.bearer ~secret` checks an HS256 token from `Authorization: Bearer …` and returns `Kre.Jwt.claims`; `Kre.Guard.session "user_id"` reads a Dream session field. A role is `Kre.Guard.check`, which turns claims into evidence: there is no other way to get a value of `Admin.t`.
 
 <!-- $MDX file=examples/token_auth.ml -->
 ```ocaml
@@ -23,7 +23,7 @@ let user : Kre.Jwt.claims Kre.Guard.t = Kre.Jwt.bearer ~secret
 let admin : Admin.t Kre.Guard.t = Kre.Guard.check Admin.of_claims user
 ```
 
-Выдача токена и маршрут только для админа:
+Issuing a token and an admin-only route:
 
 <!-- $MDX file=examples/session_controller.ml -->
 ```ocaml
@@ -46,4 +46,4 @@ let reset ~admin:(_ : (Token_auth.Admin.t[@guard Token_auth.admin])) () :
 [@@post "reset"]
 ```
 
-`Kre.Jwt.verify` возвращает `(claims, [> `Jwt of Malformed | Bad_signature | Expired ]) result`; подпись сравнивается за постоянное время. Хеширование паролей — дело приложения (argon2, bcrypt).
+`Kre.Jwt.verify` returns `(claims, [> `Jwt of Malformed | Bad_signature | Expired ]) result`; the signature is compared in constant time. Password hashing is up to the application (argon2, bcrypt).

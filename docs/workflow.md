@@ -1,6 +1,6 @@
 # Workflow
 
-Symfony: компонент Workflow. Rails: AASM. Spring: Statemachine. Во всех трёх состояния и переходы описываются строками в конфиге или DSL, а ошибки находит рантайм. В Kre состояния — вариант, переходы — обычные `function` по этим конструкторам:
+Symfony: the Workflow component. Rails: AASM. Spring: Statemachine. In all three, states and transitions are described as strings in config or a DSL, and the runtime finds the errors. In Kre states are a variant, and transitions are plain `function`s over its constructors:
 
 <!-- $MDX file=examples/order.ml -->
 ```ocaml
@@ -14,15 +14,15 @@ type t = Cart | Paid | Shipped | Cancelled
   }]
 ```
 
-`[@@deriving workflow]` генерирует:
+`[@@deriving workflow]` generates:
 
 - `type transition = Pay | Ship | Cancel`, `transitions`, `transition_name`;
-- `next : transition -> t -> t option` и `apply : transition -> t -> (t, [> `Not_allowed of transition * t ]) result`. Запрещённый переход — значение ошибки, сервис превращает его в 409;
-- `allowed state` — какие переходы доступны (кнопки на странице);
-- `sources transition` — из каких состояний переход возможен, для атомарного `UPDATE … WHERE status IN (…)`;
-- `workflow_mermaid` — диаграмма `stateDiagram-v2` для документации.
+- `next : transition -> t -> t option` and `apply : transition -> t -> (t, [> `Not_allowed of transition * t ]) result`. A forbidden transition is an error value; the service turns it into a 409;
+- `allowed state`: which transitions are available (buttons on the page);
+- `sources transition`: from which states the transition is possible, for an atomic `UPDATE … WHERE status IN (…)`;
+- `workflow_mermaid`: a `stateDiagram-v2` diagram for documentation.
 
-Ветки — настоящие образцы: опечатка в состоянии (`Payd`) — ошибка компиляции, `function Cart | Paid -> Cancelled` — переход из двух состояний, `_ ->` — из любого. Условий (`when`) нет: переход решается состояниями, а проверки прав и данных живут в сервисе. С `[@@deriving dto]` тот же тип — строка в JSON и столбец таблицы; деривер работает и в Melange, так что клиент показывает те же `allowed`.
+Branches are real patterns: a typo in a state (`Payd`) is a compile error, `function Cart | Paid -> Cancelled` is a transition from two states, `_ ->` is from any state. There are no conditions (`when`): a transition is decided by states, and permission and data checks live in the service. With `[@@deriving dto]` the same type is a string in JSON and a table column; the deriver also works in Melange, so the client shows the same `allowed`.
 
 ```mermaid
 stateDiagram-v2

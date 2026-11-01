@@ -1,8 +1,8 @@
-# Queues и фоновые задачи
+# Queues and background jobs
 
-Nest: `@nestjs/bullmq` (Redis). Rails: ActiveJob + Solid Queue. Symfony: Messenger. IHP: Jobs. Spring: `@Async`. В Kre очередь живёт в той же базе, что и данные (как Solid Queue и IHP): таблица `kre_jobs`, захват `FOR UPDATE SKIP LOCKED`, Redis не нужен.
+Nest: `@nestjs/bullmq` (Redis). Rails: ActiveJob + Solid Queue. Symfony: Messenger. IHP: Jobs. Spring: `@Async`. In Kre the queue lives in the same database as the data (like Solid Queue and IHP): table `kre_jobs`, claiming with `FOR UPDATE SKIP LOCKED`, no Redis needed.
 
-Очередь — типизированное значение: имя и dto полезной нагрузки.
+A queue is a typed value: a name and the payload dto.
 
 <!-- $MDX file=../examples/shelter/server/queues.ml -->
 ```ocaml
@@ -10,7 +10,7 @@ let congratulate : Adoption.t Kre.Job.queue =
   Kre.Job.queue "congratulate" (module Adoption)
 ```
 
-Исполнитель — провайдер `Kre.Job.Make (Db) (Config)`; `[%wire]` сам запускает его воркер в `on_start` и останавливает в `on_shutdown`.
+The executor is the provider `Kre.Job.Make (Db) (Config)`; `[%wire]` starts its worker in `on_start` and stops it in `on_shutdown`.
 
 <!-- $MDX file=../examples/shelter/server/jobs.ml -->
 ```ocaml
@@ -24,7 +24,7 @@ module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) :
     end)
 ```
 
-Обработчик — функция провайдера с `[@@job очередь]`, её регистрирует `[%wire]`:
+A handler is a provider function with `[@@job queue]`; `[%wire]` registers it:
 
 <!-- $MDX file=../examples/shelter/server/mailer.ml -->
 ```ocaml
@@ -52,10 +52,10 @@ module Make (Mail : Kre.Mail.S) : S = struct
 end
 ```
 
-Постановка — `Jobs.enqueue очередь значение` из любого сервиса, которому дали `(Jobs : Kre.Job.S)`. Запрос идёт через `Db`, поэтому внутри транзакции задача пишется в неё же: откат транзакции убирает и задачу (transactional outbox без отдельного кода). В `examples/shelter` усыновление ставит письмо; третье усыновление откатывается — письма нет.
+Enqueueing is `Jobs.enqueue queue value` from any service that was given `(Jobs : Kre.Job.S)`. The query goes through `Db`, so inside a transaction the job is written into that transaction: rolling back the transaction removes the job too (a transactional outbox with no extra code). In `examples/shelter` an adoption enqueues an email; the third adoption is rolled back, and there is no email.
 
-- Тип нагрузки проверяется при постановке (компилятор) и при выполнении (`Kre_shared.Json.parse`).
-- `Ok ()` — задача удаляется; `Error msg` или исключение — повтор через 2, 4, 8… секунд, `last_error` сохраняется; после `attempts` попыток — `status = 'dead'`.
-- Задача, чей воркер упал, возвращается в очередь через 5 минут (`locked_until`).
-- `Jobs.drain ()` выполняет всё, что пора, и возвращает число задач — для тестов и скриптов.
-- Таблица — `Kre.Job.table`: `schema.exe` печатает её миграцию так же, как миграции приложения (`examples/shelter/server/migrations/0002_jobs.sql`).
+- The payload type is checked at enqueue time (by the compiler) and at run time (`Kre_shared.Json.parse`).
+- `Ok ()`: the job is deleted; `Error msg` or an exception: retry after 2, 4, 8… seconds, `last_error` is saved; after `attempts` attempts: `status = 'dead'`.
+- A job whose worker crashed returns to the queue after 5 minutes (`locked_until`).
+- `Jobs.drain ()` runs everything that is due and returns the number of jobs; for tests and scripts.
+- The table is `Kre.Job.table`: `schema.exe` prints its migration the same way as the application's migrations (`examples/shelter/server/migrations/0002_jobs.sql`).

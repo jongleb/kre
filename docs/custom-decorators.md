@@ -1,6 +1,6 @@
 # Custom decorators
 
-Nest: `createParamDecorator` и встроенные `@Req`, `@Ip`, `@Headers`. Kre: любой `'a Kre.Guard.t`, подключённый к параметру через `[@from]` (синоним `[@guard]`). Параметр может быть позиционным, как в Nest.
+Nest: `createParamDecorator` and the built-in `@Req`, `@Ip`, `@Headers`. Kre: any `'a Kre.Guard.t` attached to a parameter through `[@from]` (a synonym of `[@guard]`). The parameter can be positional, as in Nest.
 
 <!-- $MDX file=examples/decorators.ml -->
 ```ocaml
@@ -23,4 +23,4 @@ let show (client : (string[@from Decorators.client]))
 [@@get]
 ```
 
-Сырой запрос — позиционный `(req : Dream.request)`. Аналога `@Res()` нет: ответ — это возвращаемое значение.
+The raw request is a positional `(req : Dream.request)`. There is no counterpart of `@Res()`: the response is the return value.

@@ -1,6 +1,6 @@
 # Pipes
 
-Nest: `ParseIntPipe`, `ValidationPipe`, свои pipes. Kre: разбор следует из типа параметра. `int`, `int64`, `float`, `bool`, `string` разбирают модули `Kre_shared.Scalar`; свой разбор — свой модуль с `of_string`, например opaque-тип из `Kre_shared.Refined`. Значение, которое не разобралось, до хендлера не доходит: path → 404, query → 400, тело → 422.
+Nest: `ParseIntPipe`, `ValidationPipe`, custom pipes. Kre: parsing follows from the parameter type. The `Kre_shared.Scalar` modules parse `int`, `int64`, `float`, `bool`, `string`; custom parsing is a custom module with `of_string`, for example an opaque type from `Kre_shared.Refined`. A value that did not parse never reaches the handler: path → 404, query → 400, body → 422.
 
 <!-- $MDX file=../examples/cats/shared/cat.ml -->
 ```ocaml
@@ -32,9 +32,9 @@ type t = {
 [@@deriving table ~name:"cats", dto]
 ```
 
-`Cat.Breed.t` можно принять прямо параметром пути — `~(breed : Cat.Breed.t)`: ppx подставит `(module Cat.Breed)`, а `"/cats/sphynx"` получит 404 ещё до хендлера. Проверки тела — в [Validation](validation.md).
+`Cat.Breed.t` can be taken directly as a path parameter, `~(breed : Cat.Breed.t)`: the ppx inserts `(module Cat.Breed)`, and `"/cats/sphynx"` gets 404 before the handler runs. Body checks are in [Validation](validation.md).
 
-Если по значению нужно сопоставлять с образцом, вместо `Refined.Enum` подходит вариант без аргументов с `[@@deriving dto]`. Деривер делает из него скаляр (`name`, `of_string`, `to_string`, JSON-строка, JSON Schema `enum`), поэтому он годится для пути, query, тела и `[@column string]` в таблице. Строка — имя конструктора в нижнем регистре; `[@key "on hold"]` задаёт свою:
+If you need to pattern-match on the value, a variant without arguments with `[@@deriving dto]` works instead of `Refined.Enum`. The deriver turns it into a scalar (`name`, `of_string`, `to_string`, a JSON string, JSON Schema `enum`), so it fits a path, a query, a body and `[@column string]` in a table. The string is the constructor name in lower case; `[@key "on hold"]` sets a custom one:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -43,4 +43,4 @@ module Status = struct
 end
 ```
 
-`Cat.Status.of_string "sold"` даёт ошибку правила `one_of`; полный пример — `examples/shelter/shared/cat.ml`.
+`Cat.Status.of_string "sold"` gives a `one_of` rule error; the full example is `examples/shelter/shared/cat.ml`.

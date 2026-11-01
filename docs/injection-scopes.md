@@ -1,6 +1,6 @@
 # Injection scopes
 
-Nest: `Scope.DEFAULT | REQUEST | TRANSIENT`. Kre: `DEFAULT` — модуль, `TRANSIENT` — функция, `REQUEST` — значение в `Dream.field`, которое кладёт middleware и читает guard. Сервис, которому нужно значение запроса, получает его аргументом функции, а не конструктора, поэтому «всплытия» скоупа нет.
+Nest: `Scope.DEFAULT | REQUEST | TRANSIENT`. Kre: `DEFAULT` is a module, `TRANSIENT` is a function, `REQUEST` is a value in `Dream.field` that middleware puts there and a guard reads. A service that needs a request value gets it as a function argument, not a constructor argument, so the scope does not "bubble up".
 
 <!-- $MDX file=examples/request_id.ml -->
 ```ocaml

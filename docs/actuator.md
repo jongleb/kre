@@ -1,19 +1,19 @@
-# Actuator и health checks
+# Actuator and health checks
 
-Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Kre: `Kre.Actuator.make` — контроллер под `/actuator` и middleware метрик.
+Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Kre: `Kre.Actuator.make`, a controller under `/actuator` and a metrics middleware.
 
-| Путь | Что |
+| Path | What |
 | --- | --- |
-| `/actuator/health` | все проверки; 200 `up` или 503 `down` с причиной |
-| `/actuator/info` | пары `~info` (версия, коммит) |
-| `/actuator/env` | конфиг через `Config.pairs`: `[@secret]` — `***` |
-| `/actuator/routes` | `spec` всех контроллеров |
+| `/actuator/health` | all checks; 200 `up` or 503 `down` with the reason |
+| `/actuator/info` | the `~info` pairs (version, commit) |
+| `/actuator/env` | config through `Config.pairs`: `[@secret]` → `***` |
+| `/actuator/routes` | `spec` of all controllers |
 | `/actuator/openapi.json` | OpenAPI 3.1 |
-| `/actuator/metrics` | Prometheus: запросы по методу и статусу, время, GC |
-| `/actuator/beans` | граф приложения из `[%wire]`: провайдеры в порядке запуска, затем контроллеры, у каждого — что он получил |
-| `/actuator/beans.mmd` | тот же граф в mermaid |
+| `/actuator/metrics` | Prometheus: requests by method and status, time, GC |
+| `/actuator/beans` | the application graph from `[%wire]`: providers in start order, then controllers, each with what it received |
+| `/actuator/beans.mmd` | the same graph in mermaid |
 
-Граф — как `/actuator/beans` в Spring и граф модулей в Nest Devtools, только собран при компиляции: `[%wire]` кладёт его в `app.beans`, и он совпадает с тем, что реально применено. Граф `examples/shelter`:
+The graph is like `/actuator/beans` in Spring and the module graph in Nest Devtools, except that it is built at compile time: `[%wire]` puts it into `app.beans`, and it matches what is actually applied. The graph of `examples/shelter`:
 
 ```mermaid
 graph TD
@@ -34,7 +34,7 @@ graph TD
   Cats_controller --> Cats_service
 ```
 
-Проверка здоровья — функция провайдера `unit -> (unit, string) result Lwt.t` с `[@@health "db"]`; `[%wire]` собирает их в `app.health`. По умолчанию actuator отвечает только с loopback (`~access:Anyone` — всем).
+A health check is a provider function `unit -> (unit, string) result Lwt.t` with `[@@health "db"]`; `[%wire]` collects them into `app.health`. By default the actuator answers only on loopback (`~access:Anyone` answers everyone).
 
 <!-- $MDX file=../examples/cats/bin/main.ml -->
 ```ocaml

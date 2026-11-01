@@ -1,6 +1,6 @@
 # Profiler
 
-Symfony: Web Profiler. Rails: SQL в логе разработки и Bullet для N+1. Spring: `/actuator/httpexchanges`. Kre: `Kre.Profiler`, только при `KRE_ENV=dev` (или когда он не задан); в остальных профилях middleware ничего не делает, а страницы отвечают 404.
+Symfony: Web Profiler. Rails: SQL in the development log and Bullet for N+1. Spring: `/actuator/httpexchanges`. Kre: `Kre.Profiler`, only with `KRE_ENV=dev` (or when it is unset); in other profiles the middleware does nothing and the pages answer 404.
 
 ```ocaml
 Kre.App.run
@@ -13,8 +13,8 @@ Line 1, characters 1-4:
 Error: Unbound module Kre
 ```
 
-- `/__kre/profiler` — последние 50 запросов: метод, путь, статус, время и весь SQL в порядке выполнения.
-- `/__kre/profiler.json` — то же в JSON.
-- Один и тот же запрос три и больше раз за запрос — пометка `N+1` (как Bullet): обычно это цикл по сервису, который просится в один `JOIN` или `by_<column>` из `Table.crud`.
+- `/__kre/profiler`: the last 50 requests: method, path, status, time and all SQL in execution order.
+- `/__kre/profiler.json`: the same in JSON.
+- The same query three or more times within one request gets an `N+1` mark (like Bullet): usually this is a loop over a service that should become one `JOIN` or a `by_<column>` from `Table.crud`.
 
-SQL пишут драйверы (`kre-db-mariadb`, `kre-db-postgresql`) и `Db.query`, поэтому видны и запросы sqlgg, и запросы очереди задач. Каждый запрос HTTP собирает свой список в ключе Lwt, так что параллельные запросы не смешиваются.
+SQL is recorded by the drivers (`kre-db-mariadb`, `kre-db-postgresql`) and `Db.query`, so both sqlgg queries and job queue queries are visible. Each HTTP request collects its own list in an Lwt key, so concurrent requests do not mix.

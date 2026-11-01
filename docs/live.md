@@ -1,8 +1,8 @@
 # Live loaders
 
-В Nest такого нет; это IHP Auto Refresh. Страница перезапрашивает данные, когда кто-то изменил таблицы, из которых она читает. Кода подписки в приложении нет.
+Nest has nothing like this; it is IHP Auto Refresh. A page re-fetches its data when someone has changed the tables it reads from. The application has no subscription code.
 
-1. Хендлер объявляет таблицы, от которых зависит:
+1. The handler declares the tables it depends on:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -11,18 +11,18 @@ let find_all (module Cats : Cats_service.S)
 [@@get] [@@summary "List cats"] [@@live [ "cats" ]]
 ```
 
-   `[@@live]` бывает только на GET и только со строками. Иначе — ошибка сборки.
+   `[@@live]` is allowed only on GET and only with strings. Otherwise it is a build error.
 
-2. Сервер публикует изменения сам:
-   - драйвер (`Kre_db_mariadb.Sql`) видит SQL каждого запроса: `INSERT`/`UPDATE`/`DELETE` публикуют свою таблицу;
-   - внутри `Db.transaction` и `[@@transactional]` изменения ждут commit, а после rollback пропадают;
-   - хранилище без SQL зовёт `Kre.Live.publish [ "cats" ]`.
+2. The server publishes changes by itself:
+   - the driver (`Kre_db_mariadb.Sql`) sees the SQL of every query: `INSERT`/`UPDATE`/`DELETE` publish their table;
+   - inside `Db.transaction` and `[@@transactional]`, changes wait for the commit and are dropped after a rollback;
+   - a store without SQL calls `Kre.Live.publish [ "cats" ]`.
 
-   Триггеры в БД не нужны, поэтому это работает и на MariaDB.
+   No database triggers are needed, so this works on MariaDB too.
 
-3. Канал: `Kre.Live.controller` — `GET /__kre/live?table=cats`, server-sent events, одно событие на изменение. Его подключают рядом с остальными контроллерами.
+3. Channel: `Kre.Live.controller` is `GET /__kre/live?table=cats`, server-sent events, one event per change. It is mounted next to the other controllers.
 
-4. Клиент: `kre client` кладёт таблицы каждого live-маршрута в `Cats_client.Live`, роутер перезапускает loader при событии:
+4. Client: `kre client` puts the tables of every live route into `Cats_client.Live`; the router reruns the loader on an event:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -32,15 +32,15 @@ Kre_client.Router.child ~live:Cats_client.Live.find_all root
   ~component:Pages.index
 ```
 
-   Вне роутера — `Kre_client.Live.watch [ "cats" ] (fun table -> …)`, возвращает функцию отписки.
+   Outside the router: `Kre_client.Live.watch [ "cats" ] (fun table -> …)`, which returns an unsubscribe function.
 
-## Проверка списка
+## List check
 
-Забыть таблицу в `[@@live]` — значит тихо потерять обновления. Поэтому маршрут с `[@@live]` считает, какие таблицы прочитали его SQL-запросы (`SELECT … FROM/JOIN`):
-- при `KRE_ENV=test` недостающая таблица даёт 500 с текстом `/cats reads users; add it to [@@live]`, и e2e-тест падает;
-- при `dev` (по умолчанию) это предупреждение в логе;
-- в остальных профилях проверки нет.
+Forgetting a table in `[@@live]` means silently losing updates. So a route with `[@@live]` records which tables its SQL queries read (`SELECT … FROM/JOIN`):
+- with `KRE_ENV=test` a missing table gives 500 with the text `/cats reads users; add it to [@@live]`, and the e2e test fails;
+- with `dev` (the default) it is a warning in the log;
+- other profiles have no check.
 
-Ограничения: один процесс, шина в памяти; таблицы ищутся по тексту SQL (`FROM a, b` видит только `a`); изменения, сделанные мимо приложения, не видны.
+Limits: one process, an in-memory bus; tables are found by the SQL text (`FROM a, b` sees only `a`); changes made outside the application are not visible.
 
-Проверено: `test/core` (шина, транзакции, проверка списка), `examples/cats/db/test` (commit и rollback на MariaDB), `examples/cats/client_js` (node получает `cats` по EventSource после чужого запроса).
+Tested: `test/core` (bus, transactions, list check), `examples/cats/db/test` (commit and rollback on MariaDB), `examples/cats/client_js` (node receives `cats` over EventSource after another client's request).

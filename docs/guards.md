@@ -1,8 +1,8 @@
 # Guards
 
-Nest: `CanActivate` и `@UseGuards`. Kre: guard — функция `Dream.request -> ('a, Kre.Error.t) result Lwt.t` (`'a Kre.Guard.t`). `[@@@guards [ g ]]` и `[@@guards [ g ]]` только проверяют (`unit Kre.Guard.t`); параметр `[@guard g]` проверяет **и** передаёт хендлеру результат.
+Nest: `CanActivate` and `@UseGuards`. Kre: a guard is a function `Dream.request -> ('a, Kre.Error.t) result Lwt.t` (`'a Kre.Guard.t`). `[@@@guards [ g ]]` and `[@@guards [ g ]]` only check (`unit Kre.Guard.t`); a `[@guard g]` parameter checks **and** passes the result to the handler.
 
-Лучше всего, когда guard возвращает доказательство — значение типа, который нельзя получить иначе:
+It works best when a guard returns evidence: a value of a type that cannot be obtained any other way:
 
 <!-- $MDX file=examples/roles.ml -->
 ```ocaml
@@ -50,9 +50,9 @@ let purge (module Cats : Cats_service.S)
 [@@delete "cats"]
 ```
 
-`purge` нельзя вызвать без `Roles.Admin.t`, а создать его может только `Roles`. Порядок: `[@@@guards]` → `[@@guards]` → параметры `[@guard]` слева направо; первая ошибка становится ответом (401, затем 403).
+`purge` cannot be called without `Roles.Admin.t`, and only `Roles` can create one. Order: `[@@@guards]` → `[@@guards]` → `[@guard]` parameters from left to right; the first error becomes the response (401, then 403).
 
-Проверка, которой нужны разобранные параметры (владелец ли пользователь этой записи), — `[@@authorize]`: замыкание получает аргументы хендлера по меткам и выполняется до тела.
+A check that needs parsed parameters (does the user own this record) is `[@@authorize]`: the closure gets the handler arguments by label and runs before the body.
 
 <!-- $MDX file=examples/notes_controller.ml -->
 ```ocaml

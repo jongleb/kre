@@ -1,6 +1,6 @@
 # Testing
 
-Nest: `Test.createTestingModule` с `overrideProvider`. Kre: контейнера нет, подмена — передать другой модуль в `register`; приложение проверяется `Dream.test` без сети.
+Nest: `Test.createTestingModule` with `overrideProvider`. Kre: there is no container; to substitute, pass a different module to `register`; the application is checked with `Dream.test` without a network.
 
 <!-- $MDX file=../examples/cats/test/test_cats.ml -->
 ```ocaml
@@ -128,11 +128,11 @@ let () =
     ]
 ```
 
-Уровни в репозитории: cram на вывод ppx (`test/ppx`), alcotest на рантайм (`test/core`), контроллеры через `Dream.test`, e2e — сгенерированный клиент против живого сервера (`examples/cats/client_native`, `client_js`), база — алиас `@db`.
+Levels in the repository: cram on ppx output (`test/ppx`), alcotest on the runtime (`test/core`), controllers via `Dream.test`, e2e is the generated client against a live server (`examples/cats/client_native`, `client_js`), the database is the `@db` alias.
 
-## Типизированный клиент без сети
+## Typed client without a network
 
-Nest проверяет HTTP через supertest, Spring — через MockMvc: запросы собираются строками. В Kre тест может звать тот же сгенерированный клиент, что и фронтенд. `Kre_testing.use` (библиотека `kre-client.testing`) направляет его запросы прямо в обработчик приложения, без порта и сокета. Неверный путь, поле тела или тип ответа ломают компиляцию теста.
+Nest tests HTTP with supertest, Spring with MockMvc: requests are built from strings. In Kre a test can call the same generated client as the frontend. `Kre_testing.use` (library `kre-client.testing`) routes its requests straight into the application's handler, with no port and no socket. A wrong path, body field or response type breaks the test's compilation.
 
 <!-- $MDX file=../examples/cats/client_native/test_in_process.ml -->
 ```ocaml

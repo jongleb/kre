@@ -1,6 +1,6 @@
-# Async providers и dynamic modules
+# Async providers and dynamic modules
 
-Nest: `forRoot(config)` и асинхронные фабрики. Kre: функтор с модулем-конфигом. Так устроен пул базы:
+Nest: `forRoot(config)` and async factories. Kre: a functor with a config module. This is how the database pool is built:
 
 <!-- $MDX file=../examples/cats/db/test/test_db.ml -->
 ```ocaml
@@ -181,4 +181,4 @@ let () =
     ]
 ```
 
-`Kre.Db.Make (Driver) (struct let url = … let size = 2 end)` — это `TypeOrmModule.forRoot`. Асинхронная инициализация — `let%lwt` в `main.ml` или `~on_start` (см. [Lifecycle events](lifecycle-events.md)).
+`Kre.Db.Make (Driver) (struct let url = … let size = 2 end)` is `TypeOrmModule.forRoot`. Async initialization is `let%lwt` in `main.ml` or `~on_start` (see [Lifecycle events](lifecycle-events.md)).

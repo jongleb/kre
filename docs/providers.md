@@ -1,6 +1,6 @@
 # Providers
 
-Nest: `@Injectable()` класс-синглтон, который контейнер внедряет в конструктор контроллера. Kre: модуль. Его `.mli` с `module type S` — контракт, состояние — значения верхнего уровня, внедрение — параметр `(module Cats : Cats_service.S)` у хендлера.
+Nest: an `@Injectable()` singleton class that the container injects into the controller constructor. Kre: a module. Its `.mli` with `module type S` is the contract, the state is top-level values, injection is a `(module Cats : Cats_service.S)` parameter of the handler.
 
 <!-- $MDX file=../examples/cats/server/cats_service.mli -->
 ```ocaml
@@ -47,4 +47,4 @@ end
 include Make ()
 ```
 
-`Make ()` — генеративный функтор: каждое применение даёт новое состояние, как `new CatsService()`; `include Make ()` — тот единственный экземпляр, который в Nest держит контейнер. Подключение — в composition root: `Cats_controller.register (module Cats_service)`; в тесте — свежий экземпляр: `let module Fresh = Cats_service.Make () in Cats_controller.register (module Fresh)`. Забыли передать модуль — ошибка компиляции, а не старта.
+`Make ()` is a generative functor: each application gives new state, like `new CatsService()`; `include Make ()` is the single instance that the container holds in Nest. Wiring happens in the composition root: `Cats_controller.register (module Cats_service)`; in a test, a fresh instance: `let module Fresh = Cats_service.Make () in Cats_controller.register (module Fresh)`. Forgetting to pass the module is a compile error, not a startup error.

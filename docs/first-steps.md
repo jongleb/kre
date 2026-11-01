@@ -1,6 +1,6 @@
 # First steps
 
-Nest: `nest new project` и `main.ts` с `NestFactory.create(AppModule)`. Kre: `kre new project` и `bin/main.ml`, где список контроллеров и есть приложение.
+Nest: `nest new project` and `main.ts` with `NestFactory.create(AppModule)`. Kre: `kre new project` and `bin/main.ml`, where the list of controllers is the application.
 
 <!-- $MDX skip -->
 ```sh
@@ -9,7 +9,7 @@ cd shelter && dune build && dune test
 dune exec bin/main.exe
 ```
 
-`bin/main.ml` примера cats — composition root: конфиг, контроллеры с их зависимостями, глобальные middleware.
+The `bin/main.ml` of the cats example is the composition root: config, controllers with their dependencies, global middleware.
 
 <!-- $MDX file=../examples/cats/bin/main.ml -->
 ```ocaml
@@ -27,4 +27,4 @@ let () =
     (actuator.controller :: Kre.Live.controller :: app.controllers)
 ```
 
-Сервер — `Kre.App.run`, то есть `Dream.serve` с роутингом Kre; `Kre.App.handler` даёт тот же `Dream.handler` для тестов и для встраивания в свой `Dream.run`.
+The server is `Kre.App.run`, that is, `Dream.serve` with Kre routing; `Kre.App.handler` gives the same `Dream.handler` for tests and for embedding into your own `Dream.run`.

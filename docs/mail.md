@@ -1,6 +1,6 @@
 # Mail
 
-Rails: ActionMailer и превью писем. Symfony: Mailer. Nest: `@nestjs-modules/mailer`. Kre: письмо — значение `Kre.Mail.t`, доставка — провайдер `Kre.Mail.S`.
+Rails: ActionMailer and mail previews. Symfony: Mailer. Nest: `@nestjs-modules/mailer`. Kre: an email is a value `Kre.Mail.t`, delivery is a provider `Kre.Mail.S`.
 
 ```ocaml
 Kre.Mail.make ~from ~to_ ?cc ~subject ~text ?html ()
@@ -10,12 +10,12 @@ Line 1, characters 1-4:
 Error: Unbound module Kre
 ```
 
-- Адреса — `Kre_shared.Refined.Email.t`, получатель обязателен: письмо без адресата не построить.
-- `Kre.Mail.render` печатает письмо RFC 5322: с `html` — `multipart/alternative`, тема не в ASCII кодируется (`=?UTF-8?B?…?=`).
-- `Kre.Mail.Smtp (Config)` — отправка по SMTP (`EHLO`, `MAIL FROM`, `RCPT TO`, `DATA` с dot-stuffing). Без TLS: для локального relay или Mailpit; STARTTLS — позже.
-- `Kre.Mail.Outbox ()` — письма в памяти и страница `/__kre/mail` с их содержимым, как превью ActionMailer: для dev и тестов.
+- Addresses are `Kre_shared.Refined.Email.t`, and a recipient is required: an email without a recipient cannot be built.
+- `Kre.Mail.render` prints an RFC 5322 message: with `html` it is `multipart/alternative`; a non-ASCII subject is encoded (`=?UTF-8?B?…?=`).
+- `Kre.Mail.Smtp (Config)` sends over SMTP (`EHLO`, `MAIL FROM`, `RCPT TO`, `DATA` with dot-stuffing). No TLS: for a local relay or Mailpit; STARTTLS comes later.
+- `Kre.Mail.Outbox ()` keeps emails in memory and serves the page `/__kre/mail` with their contents, like ActionMailer previews: for dev and tests.
 
-В `examples/shelter` провайдер почты — outbox:
+In `examples/shelter` the mail provider is the outbox:
 
 <!-- $MDX file=../examples/shelter/server/mail.ml -->
 ```ocaml
@@ -24,7 +24,7 @@ Error: Unbound module Kre
 include Kre.Mail.Outbox ()
 ```
 
-А письмо об усыновлении шлёт обработчик очереди, которому `[%wire]` передал `Mail`:
+The adoption email is sent by a queue handler that `[%wire]` gave `Mail`:
 
 <!-- $MDX file=../examples/shelter/server/mailer.ml -->
 ```ocaml
@@ -52,4 +52,4 @@ module Make (Mail : Kre.Mail.S) : S = struct
 end
 ```
 
-Заменить outbox на SMTP — другой провайдер `Kre.Mail.S` (например, `module Make (Settings : Settings.S) = Kre.Mail.Smtp (…)`) с `[@@@primary]`; код `Mailer` не меняется.
+Replacing the outbox with SMTP is a different `Kre.Mail.S` provider (for example, `module Make (Settings : Settings.S) = Kre.Mail.Smtp (…)`) with `[@@@primary]`; the `Mailer` code does not change.

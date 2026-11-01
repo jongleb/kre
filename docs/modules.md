@@ -1,8 +1,8 @@
 # Modules
 
-Nest: `@Module({ imports, providers, controllers, exports })`. В OCaml это уже есть: модуль — единица кода, `.mli` — exports, библиотека dune — граница пакета, `bin/main.ml` — сборка приложения. Отдельной сущности «модуль Kre» нет.
+Nest: `@Module({ imports, providers, controllers, exports })`. OCaml already has this: a module is a unit of code, `.mli` is exports, a dune library is a package boundary, `bin/main.ml` is where the application is assembled. There is no separate "Kre module" entity.
 
-Провайдер с зависимостями — функтор: его аргументы и есть `imports`.
+A provider with dependencies is a functor: its arguments are the `imports`.
 
 <!-- $MDX file=../examples/cats/db/cats_db_service.mli -->
 ```ocaml
@@ -13,9 +13,9 @@ module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) : sig
 end
 ```
 
-Применение — в composition root: `module Cats = Cats_db_service.Make (Db)`, затем `Cats_controller.register (module Cats)`. Порядок применения функторов — порядок инициализации, циклы невыразимы.
+Application happens in the composition root: `module Cats = Cats_db_service.Make (Db)`, then `Cats_controller.register (module Cats)`. The order of functor application is the initialization order; cycles cannot be expressed.
 
-Собирать это руками не нужно. `[%wire]` в `main.ml` — это `@Module` и `@ComponentScan` сразу: ppx при сборке читает каталоги, находит провайдеров (модули с `Make` или `module type S`), сортирует их по зависимостям, применяет функторы и регистрирует контроллеры. Нет провайдера, два кандидата без `[@@@primary]`, цикл — ошибка компиляции с местом в коде.
+You do not need to assemble this by hand. `[%wire]` in `main.ml` is `@Module` and `@ComponentScan` at once: at build time the ppx reads the directories, finds providers (modules with `Make` or `module type S`), sorts them by dependencies, applies the functors and registers the controllers. A missing provider, two candidates without `[@@@primary]`, a cycle: each is a compile error pointing to the place in the code.
 
 <!-- $MDX file=../examples/cats/bin/main.ml -->
 ```ocaml
@@ -33,7 +33,7 @@ let () =
     (actuator.controller :: Kre.Live.controller :: app.controllers)
 ```
 
-Провайдер базы с хуком `on_start` (миграции при старте):
+A database provider with an `on_start` hook (migrations at startup):
 
 <!-- $MDX file=../examples/cats/db/database.ml -->
 ```ocaml

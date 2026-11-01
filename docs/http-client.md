@@ -1,6 +1,6 @@
-# HTTP-клиент
+# HTTP client
 
-Nest: `HttpModule` и axios. Spring: `@HttpExchange` на интерфейсе. Symfony: HttpClient. В Kre чужой API описывается сигнатурой, а `[%http_client: …]` делает из неё функтор над адресом и заголовками (как `forRoot`):
+Nest: `HttpModule` and axios. Spring: `@HttpExchange` on an interface. Symfony: HttpClient. In Kre a third-party API is described by a signature, and `[%http_client: …]` turns it into a functor over the base URL and headers (like `forRoot`):
 
 <!-- $MDX skip -->
 ```ocaml
@@ -19,8 +19,8 @@ end)
 let%lwt user = Github.user ~login:"octocat"
 ```
 
-- Метка, совпадающая с `:сегментом`, идёт в путь; `~body` — тело JSON; остальные метки — query (`?x` — необязательный). Значения разбираются теми же `Kre_shared.Scalar` и dto, что и у контроллеров.
-- Ответ — `(T, Kre_client.Error.t) result Lwt.t` (в Melange — `Js.Promise.t`): `T list`, `unit`, `string`, `T.t` с dto, `T.t M.t` через `M.Make`. Ошибки чужого сервера в формате Problem Details разбираются, остальные — `Problem` со статусом.
-- Это те же `Kre_client.Http` и `Wire`, что у сгенерированных клиентов, поэтому `Kre_testing.use` отправляет вызовы в обработчик приложения без сети, а `Kre_client.Http.transport` можно подменить в тестах.
+- A label matching a `:segment` goes into the path; `~body` is the JSON body; other labels are query parameters (`?x` is optional). Values are parsed by the same `Kre_shared.Scalar` and dto as in controllers.
+- The response is `(T, Kre_client.Error.t) result Lwt.t` (in Melange, `Js.Promise.t`): `T list`, `unit`, `string`, `T.t` with dto, `T.t M.t` via `M.Make`. Errors from the remote server in Problem Details format are parsed; the rest become `Problem` with the status.
+- These are the same `Kre_client.Http` and `Wire` as in generated clients, so `Kre_testing.use` sends calls to the application's handler without a network, and `Kre_client.Http.transport` can be replaced in tests.
 
-Пример и тест — `examples/cats/client_native/test_in_process.ml`.
+Example and test: `examples/cats/client_native/test_in_process.ml`.

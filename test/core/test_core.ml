@@ -1058,7 +1058,7 @@ let mail =
       ~from:(email "shelter@cats.test")
       ~to_:(email "ann@cats.test")
       ~cc:[ email "staff@cats.test" ]
-      ~subject:"Привет" ~text:"Tom is yours.\n.dot line"
+      ~subject:"Grüße" ~text:"Tom is yours.\n.dot line"
       ~html:"<p>Tom is yours.</p>" ()
   in
   [
@@ -1131,7 +1131,7 @@ let mail =
         Alcotest.(check (list bool))
           "headers, dot-stuffing, both parts" [ true; true; true; true ]
           [
-            List.mem "Subject: =?UTF-8?B?0J/RgNC40LLQtdGC?=" body;
+            List.mem "Subject: =?UTF-8?B?R3LDvMOfZQ==?=" body;
             List.mem "..dot line" body;
             List.mem "Content-Type: text/html; charset=utf-8" body;
             List.mem "Cc: staff@cats.test" body;
@@ -1140,7 +1140,7 @@ let mail =
         let module Outbox = Kre.Mail.Outbox () in
         ignore (Lwt_main.run (Outbox.send letter));
         Alcotest.(check (list string))
-          "subjects" [ "Привет" ]
+          "subjects" [ "Grüße" ]
           (List.map
              (fun (letter : Kre.Mail.t) -> letter.subject)
              (Outbox.sent ())));

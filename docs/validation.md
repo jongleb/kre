@@ -1,6 +1,6 @@
 # Validation
 
-Nest: class-validator и `ValidationPipe`. Kre: parse, don't validate. Лучший путь — поля opaque-типов из `Kre_shared.Refined`: невалидное значение нельзя даже построить. Разовые правила — `[@validate …]` на поле; правила — значения `Kre_shared.Validation`.
+Nest: class-validator and `ValidationPipe`. Kre: parse, don't validate. The best way is fields of opaque types from `Kre_shared.Refined`: an invalid value cannot even be built. One-off rules are `[@validate …]` on a field; rules are values of `Kre_shared.Validation`.
 
 <!-- $MDX file=../examples/cats/shared/create_cat_dto.ml -->
 ```ocaml
@@ -15,7 +15,7 @@ type t = {
 [@@deriving dto ~strict]
 ```
 
-Ошибка тела — 422 со списком нарушенных правил и путём поля:
+A body error is 422 with the list of broken rules and the field path:
 
 ```json
 { "type": "urn:kre:error:validation", "title": "Unprocessable Entity", "status": 422,
@@ -23,4 +23,4 @@ type t = {
   "errors": [ { "path": ["note"], "rule": "max_length", "message": "must be at most 16 characters" } ] }
 ```
 
-`~strict` отвергает неизвестные поля. Правила `[@validate]` проверяются все, ошибки накапливаются.
+`~strict` rejects unknown fields. All `[@validate]` rules are checked, and errors accumulate.

@@ -1,11 +1,11 @@
 # Events
 
-Nest: `EventEmitter2` и `@OnEvent('user.created')`. Spring: `ApplicationEventPublisher` и `@EventListener`. Kre: типизированный топик, шина-провайдер и `[@@on_event]`.
+Nest: `EventEmitter2` and `@OnEvent('user.created')`. Spring: `ApplicationEventPublisher` and `@EventListener`. Kre: a typed topic, a bus provider and `[@@on_event]`.
 
-- Топик — значение с типом события: `Kre.Events.topic "user.signed_up" : Signup.t Kre.Events.topic`. Опубликовать в него событие другого типа нельзя.
-- Шина — провайдер `Kre.Events.Make ()`; кто публикует, получает её параметром (`(module Bus : Kre.Events.S)`).
-- Слушатель — функция провайдера с `[@@on_event Topics.user_signed_up]`. `[%wire]` при сборке подписывает её на шину; нет шины — ошибка компиляции.
-- `publish` вызывает слушателей параллельно; исключение слушателя пишется в лог и не ломает публикацию.
+- A topic is a value carrying the event type: `Kre.Events.topic "user.signed_up" : Signup.t Kre.Events.topic`. An event of a different type cannot be published to it.
+- The bus is the provider `Kre.Events.Make ()`; whoever publishes receives it as a parameter (`(module Bus : Kre.Events.S)`).
+- A listener is a provider function with `[@@on_event Topics.user_signed_up]`. `[%wire]` subscribes it to the bus during the build; no bus is a compile error.
+- `publish` calls listeners in parallel; a listener's exception is logged and does not break the publish.
 
 <!-- $MDX file=../examples/events/server/topics.ml -->
 ```ocaml
@@ -59,6 +59,14 @@ let outbox (module Mailer : Mailer.S) () : string list Lwt.t =
 let digests (module Mailer : Mailer.S) () : int Lwt.t =
   Lwt.return (Mailer.digests ())
 [@@get "digests"]
+
+let notify (module Notifications : Notifications.S) () : string list Lwt.t =
+  Lwt.return (Notifications.send "ann@x.io")
+[@@get "notify"]
+
+let greet (module Greeting : Greeting.S) () : string Lwt.t =
+  Lwt.return (Greeting.hello "ann")
+[@@get "greet"]
 ```
 
-Разнотипные подписки хранятся без `Obj.magic`: топик несёт `Type.Id.t`, и шина выбирает слушателей по доказательству равенства типов.
+Subscriptions of different types are stored without `Obj.magic`: a topic carries a `Type.Id.t`, and the bus selects listeners by a proof of type equality.

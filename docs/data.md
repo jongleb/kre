@@ -1,9 +1,9 @@
 # Data
 
-Nest: TypeORM, Prisma, Mongoose — пять глав. Kre: одна цепочка, где схема — OCaml-тип, а каждый SQL-запрос проверяет компилятор.
+Nest: TypeORM, Prisma, Mongoose — five chapters. Kre: one chain, where the schema is an OCaml type and the compiler checks every SQL query.
 
-1. `[@@deriving table]` на записи описывает таблицу (см. `Cat.t` в [Pipes](pipes.md)).
-2. Маленький бинарь печатает `schema.sql`:
+1. `[@@deriving table]` on a record describes a table (see `Cat.t` in [Pipes](pipes.md)).
+2. A small binary prints `schema.sql`:
 
 <!-- $MDX file=../examples/cats/db/schema.ml -->
 ```ocaml
@@ -15,8 +15,8 @@ let () =
     | _ -> Kre.Table.schema Mysql [ Cat.table ])
 ```
 
-3. sqlgg генерирует по `schema.sql` и запросам типизированный модуль (dune-правило в `examples/cats/db/dune`).
-4. Сервис применяет его к traits драйвера и получает записи через `Cat.of_row`:
+3. sqlgg generates a typed module from `schema.sql` and the queries (the dune rule is in `examples/cats/db/dune`).
+4. The service applies it to the driver traits and gets records through `Cat.of_row`:
 
 <!-- $MDX file=../examples/cats/db/cats_db_service.ml -->
 ```ocaml
@@ -59,7 +59,7 @@ module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct
 end
 ```
 
-CRUD без ORM (аналог `JpaRepository`): `schema.exe crud` печатает по `Cat.table` запросы `all`, `insert`, а при первичном ключе ещё `find`, `update`, `delete`. sqlgg превращает их в модуль `Cats_crud`, и каждый запрос по-прежнему проверяется против схемы. Деривер даёт `Cat.for_insert` и `Cat.for_update`: они раскладывают запись в именованные аргументы этих запросов в нужном порядке и с нужными типами столбцов:
+CRUD without an ORM (the counterpart of `JpaRepository`): `schema.exe crud` prints, from `Cat.table`, the queries `all` and `insert`, plus `find`, `update` and `delete` when there is a primary key. sqlgg turns them into the module `Cats_crud`, and every query is still checked against the schema. The deriver provides `Cat.for_insert` and `Cat.for_update`: they spread a record into the named arguments of these queries, in the right order and with the right column types:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -68,13 +68,13 @@ let%lwt _ = Cat.for_update { tom with name } (Crud.update conn) in
 let%lwt _ = Crud.delete conn ~id in
 ```
 
-Поиск по ключам тоже генерируется, как derived queries в Spring Data (`findByStatus`) и `find_by` в Rails. Для `[@unique]` столбца печатается `by_<столбец>` на одну строку (`Users_crud.Single.by_email`), для `[@index]` и `[@references]` — список по порядку ключа (`Cats_crud.List.by_status`), для любой таблицы — `count`. Имена берутся из столбцов, а не из разбора имени метода, поэтому опечатка — ошибка компиляции, а не запроса.
+Lookup by key is generated too, like derived queries in Spring Data (`findByStatus`) and `find_by` in Rails. A `[@unique]` column gets `by_<column>` returning one row (`Users_crud.Single.by_email`); `[@index]` and `[@references]` get a list ordered by the key (`Cats_crud.List.by_status`); every table gets `count`. Names come from the columns, not from parsing a method name, so a typo is a compile error, not a query error.
 
-Свои запросы (`JOIN`, фильтры) пишутся рядом в обычном `.sql`, как `Cats_sql`.
+Custom queries (`JOIN`, filters) are written next to them in a plain `.sql` file, like `Cats_sql`.
 
-## Время и версии
+## Time and versions
 
-Rails: `t.timestamps` и `lock_version`. JPA: `@CreatedDate`, `@LastModifiedDate`, `@Version`. В Kre — атрибуты полей записи:
+Rails: `t.timestamps` and `lock_version`. JPA: `@CreatedDate`, `@LastModifiedDate`, `@Version`. In Kre these are attributes on record fields:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -88,9 +88,9 @@ type t = {
 [@@deriving table ~name:"notes", dto]
 ```
 
-- `Kre_shared.Time.t` — момент времени: в JSON и URL строка RFC 3339 (`"2026-11-01T06:44:08.112Z"`), в базе `DOUBLE` секунд. Работает и в Melange.
-- `for_insert` ставит `created_at` и `updated_at` в одно `Kre.Table.now ()`, `version` — в 0. `for_update` обновляет `updated_at`, `created_at` не трогает.
-- С `[@version]` запрос `update` из `Table.crud` — `SET …, version = version + 1 WHERE id = @id AND version = @version`. Клиент присылает версию, которую видел; если запись успели изменить, строк изменится 0, и сервис отвечает 409:
+- `Kre_shared.Time.t` is a point in time: in JSON and URLs an RFC 3339 string (`"2026-11-01T06:44:08.112Z"`), in the database `DOUBLE` seconds. It works in Melange too.
+- `for_insert` sets `created_at` and `updated_at` to the same `Kre.Table.now ()`, and `version` to 0. `for_update` updates `updated_at` and leaves `created_at` alone.
+- With `[@version]`, the `update` query from `Table.crud` is `SET …, version = version + 1 WHERE id = @id AND version = @version`. The client sends the version it saw; if the record was changed in the meantime, 0 rows change and the service answers 409:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -100,9 +100,9 @@ match changed.affected_rows with
 | _ -> Lwt.return_error (Kre.Error.conflict "the cat changed since you read it")
 ```
 
-## Страницы
+## Pages
 
-Spring: `Pageable` и `Page<T>`. Rails: kaminari. В Kre запрос страницы — `Kre_shared.Page.Request.t` (`?page=2&size=20`; page от 1, size от 1 до 100, иначе 400), ответ — `'a Kre_shared.Page.t` с `items`, `page`, `size` и `total`. `Table.crud` печатает `page` (`LIMIT @limit OFFSET @offset`) и `count`, сервис складывает одно с другим:
+Spring: `Pageable` and `Page<T>`. Rails: kaminari. In Kre a page request is `Kre_shared.Page.Request.t` (`?page=2&size=20`; page from 1, size from 1 to 100, otherwise 400), and the response is `'a Kre_shared.Page.t` with `items`, `page`, `size` and `total`. `Table.crud` prints `page` (`LIMIT @limit OFFSET @offset`) and `count`, and the service combines the two:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -124,11 +124,11 @@ let catalog (module Cats : Cats_service.S)
 [@@get "catalog"]
 ```
 
-Сгенерированный клиент — `Cats_client.catalog ~page`, ответ того же типа `Cat.t Kre_shared.Page.t`. Тип `T.t M.t` в ответе ppx сериализует через `M.Make (T)`, так что свой контейнер (курсорная страница, конверт) — модуль с `'a t` и `Make`.
+The generated client is `Cats_client.catalog ~page`, with a response of the same type `Cat.t Kre_shared.Page.t`. The ppx serializes a response type `T.t M.t` through `M.Make (T)`, so a custom container (a cursor page, an envelope) is a module with `'a t` and `Make`.
 
-Транзакция — `Db.transaction`: `Ok` → commit, `Error` или исключение → rollback. Как в Spring, соединение транзакции привязано к текущему Lwt-контексту: `Db.with_conn` и вложенный `Db.transaction` внутри неё берут его же, поэтому сервисы не передают `~conn` друг другу. Вложенная транзакция — часть внешней.
+A transaction is `Db.transaction`: `Ok` → commit, `Error` or an exception → rollback. As in Spring, the transaction's connection is bound to the current Lwt context: `Db.with_conn` and a nested `Db.transaction` inside it take the same connection, so services do not pass `~conn` to each other. A nested transaction is part of the outer one.
 
-В контроллере хватает `[@@transactional]` и зависимости `Kre.Db.S` (пример — `examples/shelter/server/adoptions_controller.ml`): все сервисы, которые хендлер вызывает, пишут в одну транзакцию. Нужен сам `conn` — параметр `[@from Db.tx]`:
+In a controller, `[@@transactional]` and a `Kre.Db.S` dependency are enough (example: `examples/shelter/server/adoptions_controller.ml`): all services the handler calls write into one transaction. When you need the `conn` itself, use a `[@from Db.tx]` parameter:
 
 <!-- $MDX file=../examples/cats/db/batch_controller.ml -->
 ```ocaml
@@ -150,18 +150,18 @@ let import (module Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t)
   | _ -> Lwt.return_ok ()
 [@@post] [@@transactional]
 ```
- Миграции — файлы `migrations/NNNN_name.sql` с секциями `-- migrate:up`/`-- migrate:down` и `kre migrate up|down|status|new`.
+ Migrations are files `migrations/NNNN_name.sql` with `-- migrate:up`/`-- migrate:down` sections, plus `kre migrate up|down|status|new`.
 
 ## PostgreSQL
 
-Драйвер — `kre-db-postgresql` (libpq). Код сервиса тот же; меняются три вещи:
+The driver is `kre-db-postgresql` (libpq). The service code stays the same; three things change:
 
-- `Kre.Table.schema Postgresql [ Cat.table ]` печатает DDL для Postgres: `SERIAL` для `[@primary] [@auto]`, `DOUBLE PRECISION`, отдельный `CREATE INDEX`;
-- sqlgg запускается с `-dialect postgresql`, и параметры в SQL становятся `$1, $2…`;
-- трейты и пул — `Kre_db_postgresql.Sql` и `Kre.Db.Make (Kre_db_postgresql.Driver)`.
+- `Kre.Table.schema Postgresql [ Cat.table ]` prints DDL for Postgres: `SERIAL` for `[@primary] [@auto]`, `DOUBLE PRECISION`, a separate `CREATE INDEX`;
+- sqlgg runs with `-dialect postgresql`, and SQL parameters become `$1, $2…`;
+- the traits and the pool are `Kre_db_postgresql.Sql` and `Kre.Db.Make (Kre_db_postgresql.Driver)`.
 
-`insert_id` драйвер берёт из `SELECT lastval()` на том же соединении. `Crud.insert` поэтому возвращает id, как на MariaDB. `affected_rows` берётся из ответа сервера. Миграции, `[@@transactional]` и live loaders работают так же.
+The driver takes `insert_id` from `SELECT lastval()` on the same connection. So `Crud.insert` returns the id, as on MariaDB. `affected_rows` comes from the server response. Migrations, `[@@transactional]` and live loaders work the same way.
 
-Ограничения sqlgg для Postgres: нет `RETURNING`, `BIGSERIAL` и `GENERATED … AS IDENTITY`, поэтому ключ — `SERIAL` (int4). Запросы libpq идут в пуле потоков (`Lwt_preemptive`), по одному на соединение.
+sqlgg limits for Postgres: no `RETURNING`, `BIGSERIAL` or `GENERATED … AS IDENTITY`, so the key is `SERIAL` (int4). libpq queries run in a thread pool (`Lwt_preemptive`), one per connection.
 
-Пример и тест — `examples/cats/postgresql`: `KRE_TEST_PG_URL=postgresql://… dune build @examples/cats/postgresql/pg`.
+Example and test: `examples/cats/postgresql`: `KRE_TEST_PG_URL=postgresql://… dune build @examples/cats/postgresql/pg`.

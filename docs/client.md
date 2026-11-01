@@ -1,6 +1,6 @@
-# Клиент и роутер
+# Client and router
 
-`kre client` генерирует модуль на каждый контроллер; один и тот же файл собирается и под Melange (fetch), и в native (cohttp). Маршруты страниц описываются значениями, `Router.link` и `Router.href` проверяют `params` и `search` типами.
+`kre client` generates a module per controller; the same file builds both under Melange (fetch) and in native (cohttp). Page routes are described by values, and `Router.link` and `Router.href` check `params` and `search` by types.
 
 <!-- $MDX file=../examples/cats/client_js/routes.ml -->
 ```ocaml

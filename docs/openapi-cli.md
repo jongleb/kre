@@ -1,6 +1,6 @@
-# OpenAPI и CLI
+# OpenAPI and CLI
 
-Контроллер — источник правды. Серверный бинарь с `--emit-spec spec.json` пишет описание всех контроллеров, с `--emit-openapi openapi.json` — документ OpenAPI 3.1. CLI работает по `spec.json`:
+The controller is the source of truth. The server binary with `--emit-spec spec.json` writes a description of all controllers, and with `--emit-openapi openapi.json` an OpenAPI 3.1 document. The CLI works from `spec.json`:
 
 <!-- $MDX skip -->
 ```sh
@@ -11,9 +11,9 @@ kre migrate up --url mariadb://user:pass@localhost/db
 kre generate controller dogs name:string age:int born:time good:bool
 ```
 
-`kre generate controller` — как `rails generate scaffold` и `nest g resource`: тип с `[@@deriving table, dto]` (поля из аргументов `имя:тип`, типы `string`, `int`, `float`, `bool`, `time`; по умолчанию `name:string`), DTO создания, сервис в памяти (`Make ()`, его потом заменяет сервис с базой), CRUD-контроллер и тест с примерными значениями. Всё ложится в существующие библиотеки `shared`/`server`, `[%wire]` и `kre client` подхватывают ресурс сами; сгенерированный проект собирается и проходит свой тест (`test/scaffold/new.t`).
+`kre generate controller` is like `rails generate scaffold` and `nest g resource`: a type with `[@@deriving table, dto]` (fields from `name:type` arguments, types `string`, `int`, `float`, `bool`, `time`; by default `name:string`), a create DTO, an in-memory service (`Make ()`, later replaced by a database-backed service), a CRUD controller and a test with sample values. Everything goes into the existing `shared`/`server` libraries; `[%wire]` and `kre client` pick up the resource on their own; the generated project builds and passes its test (`test/scaffold/new.t`).
 
-`spec` — то, что ppx сгенерировал в контроллере:
+`spec` is what the ppx generated in the controller:
 
 <!-- $MDX file=../examples/cats/server/cats_controller.ml -->
 ```ocaml

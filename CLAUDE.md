@@ -27,7 +27,7 @@ dune build @all && dune test && dune build @fmt
 - One row of a phase table = one commit with tests. Phases in order.
 - If the design does not fit reality (a library version, a ppx limitation),
   edit `DESIGN.md` with the reason first, then the code.
-- Do not widen a phase: new ideas go to "Открытые вопросы" in `DESIGN.md`.
+- Do not widen a phase: new ideas go to "Open questions" in `DESIGN.md`.
 
 ## Code
 

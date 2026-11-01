@@ -1,105 +1,105 @@
-# Kre — дизайн NestJS-подобного фреймворка на OCaml
+# Kre — design of a NestJS-like framework in OCaml
 
 Oct 31, 2026 · @Mr
 
-## Цель и принципы
+## Goals and principles
 
-Kre — фуллстек-фреймворк на OCaml, который воспроизводит структуру и главы [docs.nestjs.com](https://docs.nestjs.com/) средствами OCaml 5.5: сервер на Dream, фронтенд на Melange, общий код в `shared/`. Документация Kre повторяет оглавление Nest глава в главу; глава считается закрытой, когда её примеры из Nest переписаны на Kre и компилируются.
+Kre is a full-stack framework in OCaml. It reproduces the structure and chapters of [docs.nestjs.com](https://docs.nestjs.com/) with OCaml 5.5 means: the server on Dream, the frontend on Melange, shared code in `shared/`. The Kre documentation follows the Nest table of contents chapter by chapter; a chapter is closed when its Nest examples are rewritten in Kre and compile.
 
-Принципы, которые решают спорные вопросы при разработке:
+Principles that settle disputed questions during development:
 
-1. **Не воспроизводить то, что в OCaml уже есть; DI — при сборке, не в рантайме.** Проводку зависимостей делает ppx `[%wire]` (аналог `@ComponentScan` + `@Autowired`) по модулям и функторам: ошибки DI — ошибки компиляции. Рантайм-контейнера, токенов и рефлексии нет; ООП не используется — только модули, функторы и функции. Nest-овские `@Module`, DI-контейнер, `forwardRef`, Discovery, Module reference — это компенсация отсутствия модульной системы в TS. У нас модуль = singleton-провайдер, `.mli` = exports, `main.ml` = composition root, зависимости = module-dependent functions (modular explicits, OCaml 5.5). Разрешение зависимостей — на этапе компиляции, а не старта.
-2. **ppx только там, где нужен рефлекшн.** Маршруты из сигнатур хендлеров, кодеки и валидация DTO, конфиг из env, типизированные пути на фронте. Всё остальное — обычные функции и модули.
-3. **Dream не оборачиваем.** `Dream.request`, `Dream.middleware`, `Dream.response`, сессии, CSRF, websockets, static — используются напрямую. Kre добавляет слой выше, не прячет слой ниже.
-4. **Контроллер — источник правды.** Из него (через `spec`) генерируются типизированный Melange-клиент и OpenAPI. Контракт нигде не дублируется руками.
-5. **Один синтаксис для сервера и клиента.** Пользовательский код на обоих концах читается одинаково: атрибуты на `let`, `[@@deriving …]` на типах.
-6. **Illegal states unrepresentable, минимум кода.** Никаких `assert false`, никаких `Obj.magic`, ошибки ppx — через `Location.raise_errorf` с текстом, объясняющим, что исправить.
+1. **Do not reproduce what OCaml already has; DI happens at build time, not at runtime.** Dependency wiring is done by the ppx `[%wire]` (the analogue of `@ComponentScan` + `@Autowired`) over modules and functors: DI errors are compile errors. There is no runtime container, no tokens, no reflection; OOP is not used — only modules, functors and functions. Nest's `@Module`, DI container, `forwardRef`, Discovery and Module reference compensate for the lack of a module system in TS. In Kre a module = a singleton provider, `.mli` = exports, `main.ml` = composition root, dependencies = module-dependent functions (modular explicits, OCaml 5.5). Dependencies are resolved at compile time, not at startup.
+2. **ppx only where reflection is needed.** Routes from handler signatures, DTO codecs and validation, config from env, typed paths on the frontend. Everything else is plain functions and modules.
+3. **Dream is not wrapped.** `Dream.request`, `Dream.middleware`, `Dream.response`, sessions, CSRF, websockets, static — are used directly. Kre adds a layer above; it does not hide the layer below.
+4. **The controller is the source of truth.** The typed Melange client and OpenAPI are generated from it (via `spec`). The contract is never duplicated by hand.
+5. **One syntax for server and client.** User code reads the same on both ends: attributes on `let`, `[@@deriving …]` on types.
+6. **Illegal states unrepresentable, minimal code.** No `assert false`, no `Obj.magic`; ppx errors go through `Location.raise_errorf` with a message that explains what to fix.
 
-Не делаем в первых фазах: ORM (вместо него sqlgg + `table`), GraphQL, microservices/transporters, queues, MongoDB, platform-agnosticism (только Dream), Devtools-граф, Observability-SaaS.
+Not done in the first phases: ORM (sqlgg + `table` instead), GraphQL, microservices/transporters, queues, MongoDB, platform-agnosticism (Dream only), Devtools graph, Observability SaaS.
 
-## Стек и версии
+## Stack and versions
 
-Сервер и клиент — OCaml 5.5.1 в одном opam-switch: Melange `7.0.1-55` собран под 5.5, modular explicits компилируются и в native, и в JS (проверено в фазе 0).
+Server and client use OCaml 5.5.1 in one opam switch: Melange `7.0.1-55` is built for 5.5, and modular explicits compile both to native and to JS (verified in phase 0).
 
-| Компонент | Версия / выбор | Зачем |
+| Component | Version / choice | Why |
 | --- | --- | --- |
-| OCaml | 5.5.0 ([релиз 19 июня 2026](https://ocaml.org/changelog/2026-06-19-ocaml-550)) | modular explicits `(module M : S) -> …`, полиморфные параметры, GC |
-| ppxlib | ≥ 0.38.0 (в switch — 0.39.0) | все ppx Kre |
-| dune | ≥ 3.21 (в switch — 3.24) | `(modes :standard melange)` для shared, `melange.emit` |
+| OCaml | 5.5.0 ([released June 19, 2026](https://ocaml.org/changelog/2026-06-19-ocaml-550)) | modular explicits `(module M : S) -> …`, polymorphic parameters, GC |
+| ppxlib | ≥ 0.38.0 (0.39.0 in the switch) | all Kre ppx |
+| dune | ≥ 3.21 (3.24 in the switch) | `(modes :standard melange)` for shared, `melange.emit` |
 | Dream | 1.0.0 | HTTP, sessions, CSRF, websocket, static |
-| routes | 2.0.0 | типизированные пути на обоих концах |
-| Lwt + lwt\_ppx | 6.1 | монада сервера; `let%lwt`, `match%lwt` |
-| Melange | 7.0.1-55 (OCaml 5.5) | фронтенд, `Js.Promise` |
-| reason-react + mlx | текущие | компоненты, JSX-синтаксис в `.mlx` |
-| jsonkit | собственная | JSON-тип и `[@@deriving jsonschema]`, native + melange |
-| sqlgg / ppx\_sqlgg | собственный форк | типизированный SQL |
-| cmdliner | текущая | CLI `kre` |
-| ocamlformat | 0.29 (синтаксис 5.5) | форматирование |
-| cram (dune) + alcotest | текущие | тесты: ppx — cram на вывод `pp.exe`, остальное — alcotest |
+| routes | 2.0.0 | typed paths on both ends |
+| Lwt + lwt\_ppx | 6.1 | server monad; `let%lwt`, `match%lwt` |
+| Melange | 7.0.1-55 (OCaml 5.5) | frontend, `Js.Promise` |
+| reason-react + mlx | current | components, JSX syntax in `.mlx` |
+| jsonkit | in-house | JSON type and `[@@deriving jsonschema]`, native + melange |
+| sqlgg / ppx\_sqlgg | in-house fork | typed SQL |
+| cmdliner | current | `kre` CLI |
+| ocamlformat | 0.29 (5.5 syntax) | formatting |
+| cram (dune) + alcotest | current | tests: ppx — cram on `pp.exe` output, the rest — alcotest |
 
-**Два базовых решения по библиотекам.** Весь JSON — [jsonkit](https://github.com/melange-community/jsonkit): тип `Jsonkit.t`, кодеки, `[@@deriving jsonschema]`; Kre не определяет собственного JSON-типа и не генерирует кодеков сам — чего не хватает, добавляется в jsonkit. Все пути — [routes](https://github.com/anuragsoni/routes) (anuragsoni): типизированный двунаправленный роутер, чистый OCaml, работает и в Melange; одно значение `Routes.path` даёт матчинг на сервере, `sprintf` для клиентов и `string_of_path` для OpenAPI. `Dream.router` со строковыми паттернами не используется; `Kre.App.handler` матчит через `Routes.one_of`/`Routes.match'` и остаётся обычным `Dream.handler`.
+**Two base library decisions.** All JSON is [jsonkit](https://github.com/melange-community/jsonkit): the `Jsonkit.t` type, codecs, `[@@deriving jsonschema]`; Kre does not define its own JSON type and does not generate codecs itself — whatever is missing is added to jsonkit. All paths are [routes](https://github.com/anuragsoni/routes) (anuragsoni): a typed bidirectional router, pure OCaml, works in Melange too; one `Routes.path` value gives matching on the server, `sprintf` for clients and `string_of_path` for OpenAPI. `Dream.router` with string patterns is not used; `Kre.App.handler` matches via `Routes.one_of`/`Routes.match'` and stays a plain `Dream.handler`.
 
-**Правило про версии компилятора (решено в фазе 0).** Melange 7.0.1-55 поддерживает OCaml 5.5, поэтому отдельный switch для клиента не нужен, а синтаксис 5.5 (modular explicits) разрешён везде, включая `shared/` и `client/`. `dune-project` требует `ocaml >= 5.5 & < 5.6`; локальный switch проекта — `opam switch create . 5.5.1`.
+**Compiler version rule (decided in phase 0).** Melange 7.0.1-55 supports OCaml 5.5, so the client needs no separate switch, and 5.5 syntax (modular explicits) is allowed everywhere, including `shared/` and `client/`. `dune-project` requires `ocaml >= 5.5 & < 5.6`; the project's local switch is `opam switch create . 5.5.1`.
 
-**Монады.** Сервер — `Lwt.t`; клиент — `Js.Promise.t`. `Kre_client.Promise` даёт `return`, `let*`, `let+` над `Js.Promise.t` в Melange и над `Lwt.t` в native, поэтому код поверх клиента собирается в обоих режимах (типа-алиаса `Promise.t` нет). Ни один тип в `shared/` не упоминает монаду: контракт между концами — только данные (DTO) и `spec`.
+**Monads.** Server: `Lwt.t`; client: `Js.Promise.t`. `Kre_client.Promise` provides `return`, `let*`, `let+` over `Js.Promise.t` in Melange and over `Lwt.t` in native, so code on top of the client builds in both modes (there is no `Promise.t` type alias). No type in `shared/` mentions a monad: the contract between the ends is only data (DTOs) and `spec`.
 
-**Lwt-конвенции.** Пользовательский код — `lwt_ppx` (`let%lwt`, `match%lwt`, `try%lwt`); сгенерированный ppx-код — `Lwt_result.Syntax` (`let*` над `('a, Error.t) result Lwt.t`), без `lwt_ppx`, чтобы `kre.ppx` не зависел от порядка применения препроцессоров. Исключения в хендлерах ловятся в `Kre.Route.handle` через `Lwt.catch`, не через `try%lwt` в сгенерированном коде. Жизненный цикл — `Lwt_switch` (`run ~on_shutdown` вешает на него). Таймаут на хендлер — `[@@timeout 5.0]` → `Lwt.pick` с `Lwt_unix.sleep`, по умолчанию выключен. Eio и `Lwt_eio` не используются; переход на effects — только вместе с заменой Dream, через тот же `Kre.Route.handle`.
+**Lwt conventions.** User code uses `lwt_ppx` (`let%lwt`, `match%lwt`, `try%lwt`); generated ppx code uses `Lwt_result.Syntax` (`let*` over `('a, Error.t) result Lwt.t`), without `lwt_ppx`, so that `kre.ppx` does not depend on the order in which preprocessors are applied. Exceptions in handlers are caught in `Kre.Route.handle` via `Lwt.catch`, not via `try%lwt` in generated code. Lifecycle: `Lwt_switch` (`run ~on_shutdown` attaches to it). Per-handler timeout: `[@@timeout 5.0]` → `Lwt.pick` with `Lwt_unix.sleep`, off by default. Eio and `Lwt_eio` are not used; a move to effects happens only together with replacing Dream, through the same `Kre.Route.handle`.
 
-**Многоядерность.** Dream однодоменный. Горизонтальное масштабирование — N процессов за балансировщиком; `Kre.App.run ~domains` не планируется.
+**Multicore.** Dream is single-domain. Horizontal scaling is N processes behind a load balancer; `Kre.App.run ~domains` is not planned.
 
-## Структура репозитория и пакеты
+## Repository layout and packages
 
-Один монорепозиторий `kre`, четыре opam-пакета. Пример `examples/cats` — порт примера из Nest-доков и одновременно интеграционный тест.
+One monorepo `kre`, four opam packages. The example `examples/cats` is a port of the example from the Nest docs and also an integration test.
 
 ```
 kre/
   dune-project
-  kre.opam          # kre.shared (Kre_shared, native + melange) и kre (Kre, рантайм сервера, native)
+  kre.opam          # kre.shared (Kre_shared, native + melange) and kre (Kre, server runtime, native)
   kre-ppx.opam      # ppx: controller, dto, config, table
   kre-client.opam   # Kre_client: Http, Router, Path, Search + ppx search/params/path (melange)
-  kre-cli.opam      # бинарь kre
+  kre-cli.opam      # kre binary
   src/
-    shared/           # Kre_shared: Validation, Codec, Json, Refined — собирается в обоих режимах
+    shared/           # Kre_shared: Validation, Codec, Json, Refined — builds in both modes
     core/             # Kre: Error, Response, Guard, Spec, Route, Controller, App
-    ppx/              # один драйвер, несколько трансформаций (см. раздел ppx)
-    client/           # melange-библиотека
+    ppx/              # one driver, several transformations (see the ppx section)
+    client/           # melange library
     cli/              # cmdliner
   examples/cats/
     dune-project
     shared/           # Cat, Create_cat_dto  (modes :standard melange)
     server/           # Cats_service, Cats_controller, Config, Db
-    client/           # Routes, Cats_page.mlx, gen/cats_client.ml (генерируется)
+    client/           # Routes, Cats_page.mlx, gen/cats_client.ml (generated)
     bin/main.ml
   test/
-    ppx/              # cram-тесты на вывод драйвера: эталон каждой трансформации + каждая ошибка
+    ppx/              # cram tests on driver output: a reference for each transformation + each error
     core/             # alcotest: Error.handler, Codec, Validation, Spec→OpenAPI
-    e2e/              # поднимает examples/cats, дёргает Dream.test и сгенерированный клиент
-  docs/               # зеркало оглавления docs.nestjs.com, по файлу на главу
+    e2e/              # starts examples/cats, calls Dream.test and the generated client
+  docs/               # mirror of the docs.nestjs.com table of contents, one file per chapter
 ```
 
-Правила зависимостей между пакетами:
+Dependency rules between packages:
 
-- `kre.shared` зависит только от jsonkit (native) / jsonkit-melange (melange); Dream и Lwt не видит.
-- `kre` зависит от `kre.shared`, Dream, Lwt, routes, jsonkit; не зависит от ppx.
-- `kre-ppx` зависит от ppxlib и jsonkit (для `dto`); генерируемый код ссылается только на `Kre.*`, `Kre_shared.*` и `Jsonkit.*`.
-- `kre-client` зависит от melange, reason-react, jsonkit-melange, `kre.shared`; не зависит от `kre`.
-- `shared/` пользовательского проекта зависит только от jsonkit и `kre.shared` (+ `kre-ppx` для `dto`), собирается в обоих режимах.
+- `kre.shared` depends only on jsonkit (native) / jsonkit-melange (melange); it does not see Dream or Lwt.
+- `kre` depends on `kre.shared`, Dream, Lwt, routes, jsonkit; it does not depend on ppx.
+- `kre-ppx` depends on ppxlib and jsonkit (for `dto`); generated code refers only to `Kre.*`, `Kre_shared.*` and `Jsonkit.*`.
+- `kre-client` depends on melange, reason-react, jsonkit-melange, `kre.shared`; it does not depend on `kre`.
+- The user project's `shared/` depends only on jsonkit and `kre.shared` (+ `kre-ppx` for `dto`) and builds in both modes.
 
-Модульные имена: `Kre_shared` (общие для обоих концов: `Kre_shared.Refined`, `Kre_shared.Codec`, …), `Kre` (сервер: `Kre.Error`, `Kre.App`, …), `Kre_client`, `Kre_ppx` (не экспортируется пользователю). Разделение — решение фазы 0: `shared/` собирается в Melange и не может зависеть от серверной библиотеки, которая тянет Dream. Ре-экспорт `Kre_shared` из `Kre` не делается (правило «никаких алиасов»).
+Module names: `Kre_shared` (shared by both ends: `Kre_shared.Refined`, `Kre_shared.Codec`, …), `Kre` (server: `Kre.Error`, `Kre.App`, …), `Kre_client`, `Kre_ppx` (not exported to the user). The split is a phase 0 decision: `shared/` builds in Melange and cannot depend on the server library, which pulls in Dream. `Kre_shared` is not re-exported from `Kre` (the "no aliases" rule).
 
-## Сквозной пример: cats
+## Running example: cats
 
-Этот код — критерий приёмки фазы 1: он должен компилироваться и работать end-to-end. Это порт `CatsController` / `CatsService` / `CreateCatDto` из Nest-доков.
+This code is the phase 1 acceptance criterion: it must compile and work end-to-end. It is a port of `CatsController` / `CatsService` / `CreateCatDto` from the Nest docs.
 
-**shared/cat.ml** — тип ответа, виден обоим концам:
+**shared/cat.ml** — the response type, visible to both ends:
 
 ```ocaml
 type t = { id : int; name : string; age : int; breed : string }
 [@@deriving dto]
-(* генерирует: of_json, to_json, jsonschema *)
+(* generates: of_json, to_json, jsonschema *)
 ```
 
-**shared/create\_cat\_dto.ml** — тело запроса. Ограничения живут в opaque-типах полей, а не в атрибутах: невалидное значение `Name.t` не существует.
+**shared/create\_cat\_dto.ml** — the request body. Constraints live in the opaque field types, not in attributes: an invalid `Name.t` value does not exist.
 
 ```ocaml
 module Name  = Kre_shared.Refined.String (struct let name = "name"  let min = 1 let max = 64 end)
@@ -108,13 +108,13 @@ module Breed = Kre_shared.Refined.Enum   (struct let name = "breed" let values =
 
 type t = { name : Name.t; age : Age.t; breed : Breed.t }
 [@@deriving dto]
-(* генерирует: of_json, to_json, jsonschema, validate (здесь — identity) *)
+(* generates: of_json, to_json, jsonschema, validate (identity here) *)
 
-(* escape hatch для разового правила без своего типа: *)
+(* escape hatch for a one-off rule without its own type: *)
 type quick = { nickname : string [@validate max_length 16] } [@@deriving dto]
 ```
 
-**server/cats\_service.ml** — провайдер. Модуль = singleton, состояние внутри (`private readonly cats: Cat[] = []`):
+**server/cats\_service.ml** — a provider. Module = singleton, the state lives inside (`private readonly cats: Cat[] = []`):
 
 ```ocaml
 module type S = sig
@@ -134,7 +134,7 @@ let find_all () = Lwt.return (Dynarray.to_list cats)
 let find id = Lwt.return (Dynarray.find_opt (fun c -> c.Cat.id = id) cats)
 ```
 
-**server/cats\_controller.ml** — контроллер. Модульные параметры хендлеров = зависимости (modular explicits):
+**server/cats\_controller.ml** — a controller. Handler module parameters = dependencies (modular explicits):
 
 ```ocaml
 [@@@controller "cats"]
@@ -158,7 +158,7 @@ let create (module Cats : Cats_service.S)
 [@@post] [@@status 201]
 ```
 
-**server/logger\_middleware.ml** — middleware как в Nest, но это просто `Dream.middleware`:
+**server/logger\_middleware.ml** — middleware as in Nest, but it is just a `Dream.middleware`:
 
 ```ocaml
 let use : Dream.middleware = fun next req ->
@@ -166,7 +166,7 @@ let use : Dream.middleware = fun next req ->
   next req
 ```
 
-**bin/main.ml** — composition root; это и есть `AppModule`:
+**bin/main.ml** — the composition root; this is the `AppModule`:
 
 ```ocaml
 let () =
@@ -176,13 +176,13 @@ let () =
     [ Cats_controller.register (module Cats_service) ]
 ```
 
-**client/gen/cats\_client.ml** — генерируется командой `kre client` из `spec` сервера:
+**client/gen/cats\_client.ml** — generated by the `kre client` command from the server's `spec`:
 
 ```ocaml
 val find_all : ?limit:int -> unit -> (Cat.t list, Kre_client.Error.t) result Promise.t
 val find_one : id:int -> (Cat.t, Kre_client.Error.t) result Promise.t
 val create   : body:Create_cat_dto.t -> (Cat.t, Kre_client.Error.t) result Promise.t
-(* параметр user с [@guard] в клиент не попадает *)
+(* the user parameter with [@guard] does not reach the client *)
 ```
 
 **client/routes.ml** — typed router:
@@ -211,7 +211,7 @@ end
 let router = make [ Cats.index; Cats.show ]
 ```
 
-**client/cats\_page.mlx** — компонент; `Link` с неверными `params` не компилируется:
+**client/cats\_page.mlx** — a component; a `Link` with wrong `params` does not compile:
 
 ```ocaml
 let show ~data ~params:_ ~search:_ =
@@ -224,38 +224,38 @@ let show ~data ~params:_ ~search:_ =
     </div>
 ```
 
-## Пример приложения целиком: shelter
+## A whole application: shelter
 
-Приют для котов: пользователи, коты, усыновления. Задействовано всё из документа: opaque-типы, `table` + sqlgg, modular explicits, guards, `[@@authorize]`, `[@@transactional]`, live loaders, routes, typed router на фронте, Actuator. Это второй интеграционный пример (`examples/shelter`), критерий приёмки фазы 2.
+A cat shelter: users, cats, adoptions. It uses everything in this document: opaque types, `table` + sqlgg, modular explicits, guards, `[@@authorize]`, `[@@transactional]`, live loaders, routes, the typed router on the frontend, Actuator. This is the second integration example (`examples/shelter`), an acceptance criterion of phase 2.
 
 ```
 shelter/
   shared/   user.ml  cat.ml  adoption.ml  login_dto.ml  session.ml
-            create_cat_dto.ml  rename_dto.ml  adopt_dto.ml      (+ melange/ — те же файлы)
-  schema/   credential.ml  schema.ml                            (таблица только сервера; печать DDL/CRUD)
+            create_cat_dto.ml  rename_dto.ml  adopt_dto.ml      (+ melange/ — the same files)
+  schema/   credential.ml  schema.ml                            (server-only table; prints DDL/CRUD)
   server/   config.ml  settings.ml  database.ml  inserted.ml  auth.ml
             users_service.ml  cats_service.ml  adoptions_service.ml
             auth_controller.ml  cats_controller.ml  adoptions_controller.ml
             sql/queries.sql  migrations/0001_init.sql
-  client/   pages.mlx  routes.mlx  scenario.mlx                 (*_client.ml генерирует kre client)
+  client/   pages.mlx  routes.mlx  scenario.mlx                 (*_client.ml is generated by kre client)
   bin/      main.ml                                             (let app = [%wire])
   test/     test_shelter.ml  run_scenario.ml
 ```
 
-**Как сделано (фаза 2)** — отличия от наброска ниже, каждое с причиной:
+**As built (phase 2)** — differences from the sketch below, each with its reason:
 
-- Вход — JWT (`Kre.Jwt`), не cookie-сессия: `fetch` в node не хранит cookies, а e2e идёт из node. Токен несёт `User.t` в claims, поэтому `Auth.current` — `Guard.check` без запроса в БД и без middleware; `Auth.admin` даёт доказательство `Auth.Admin.t`.
-- Пароли — отдельная таблица `credentials` (`schema/credential.ml`, PBKDF2-SHA256 из `kdf`, сравнение `Eqaf`), а не `password_hash` в `User.t`: тип, который уходит клиенту, не содержит хеша вовсе. `Credential.verify` возвращает `User.Id.t` как доказательство.
-- `role`, `status` — варианты с `[@@deriving dto]`, которые стали скалярами (см. «Варианты» в dto); `Ptime`-полей нет — у `table` нет типа времени.
-- Миграция `0001_init.sql` — это вывод `schema.exe migration`; правило `diff` в `server/sql/dune` роняет `dune test`, если таблицу поменяли без миграции.
-- `Kre.Db.conn` общего нет: сервисы берут `Kre.Db.S with type conn = Kre_db_mariadb.Client.t`. `~conn` в сервисах тоже нет: `Cats.adopt` и `Adoptions.adopt` зовут `Db.with_conn` и попадают в транзакцию хендлера.
-- `[@@transactional]` проверен откатом: третье усыновление уже обновило кота, лимит «2 на участника» возвращает `Error` — кот снова доступен, live-событий нет.
-- `Config.interface` (по умолчанию `127.0.0.1`): Dream слушает `localhost`, который на macOS — `::1`.
-- Тесты: `test_shelter` (alcotest через `Dream.test` и `[%wire]`, MariaDB) и `run_scenario` (запускает `bin/main.exe` и сценарий Melange-клиента в node: регистрация, 403, усыновление, 409, live `cats`, разметка страницы входа). Alias `@examples/shelter/test/shelter`, база — `KRE_TEST_SHELTER_URL`; в CI — job `db`.
+- Login uses JWT (`Kre.Jwt`), not a cookie session: `fetch` in node does not store cookies, and the e2e test runs from node. The token carries `User.t` in its claims, so `Auth.current` is a `Guard.check` with no database query and no middleware; `Auth.admin` gives the evidence `Auth.Admin.t`.
+- Passwords live in a separate `credentials` table (`schema/credential.ml`, PBKDF2-SHA256 from `kdf`, comparison with `Eqaf`), not in a `password_hash` field of `User.t`: the type sent to the client has no hash at all. `Credential.verify` returns `User.Id.t` as evidence.
+- `role` and `status` are variants with `[@@deriving dto]` that became scalars (see "Variants" in dto); there are no `Ptime` fields — `table` has no time type.
+- The migration `0001_init.sql` is the output of `schema.exe migration`; a `diff` rule in `server/sql/dune` fails `dune test` if a table changes without a migration.
+- There is no shared `Kre.Db.conn`: services take `Kre.Db.S with type conn = Kre_db_mariadb.Client.t`. Services have no `~conn` either: `Cats.adopt` and `Adoptions.adopt` call `Db.with_conn` and join the handler's transaction.
+- `[@@transactional]` is tested with a rollback: the third adoption has already updated the cat, the "2 per member" limit returns `Error` — the cat is available again, and there are no live events.
+- `Config.interface` (default `127.0.0.1`): Dream listens on `localhost`, which on macOS is `::1`.
+- Tests: `test_shelter` (alcotest via `Dream.test` and `[%wire]`, MariaDB) and `run_scenario` (starts `bin/main.exe` and the Melange client scenario in node: registration, 403, adoption, 409, live `cats`, login page markup). Alias `@examples/shelter/test/shelter`, database `KRE_TEST_SHELTER_URL`; in CI, the `db` job.
 
-Ниже — исходный набросок; код примера — в `examples/shelter`.
+Below is the original sketch; the example code is in `examples/shelter`.
 
-### shared — типы, одни на оба конца
+### shared — types, the same on both ends
 
 ```ocaml
 (* user.ml *)
@@ -266,7 +266,7 @@ type t = {
   email : Email.t; [@unique]
   role  : role;    [@default Member]
 } [@@deriving table ~name:"users", dto]
-(* table под melange ничего не эмитит; dto — и там, и там *)
+(* table emits nothing under melange; dto emits on both *)
 
 (* cat.ml *)
 module Name = Kre_shared.Refined.String (struct let name = "name" let min = 1 let max = 64 end)
@@ -296,7 +296,7 @@ type t = { name : Cat.Name.t; age : Cat.Age.t } [@@deriving dto]
 type t = { cat_id : int } [@@deriving dto]
 ```
 
-### server — конфиг, auth, сервисы
+### server — config, auth, services
 
 ```ocaml
 (* config.ml *)
@@ -309,7 +309,7 @@ type t = {
 ```
 
 ```sql
--- queries/cats.sql  (sqlgg; типы против schema.sql, который собрал [@@deriving table])
+-- queries/cats.sql  (sqlgg; types checked against schema.sql, built by [@@deriving table])
 -- @available
 SELECT id, name, age, status, owner_id FROM cats WHERE status = 'available' ORDER BY id;
 -- @by_id
@@ -336,7 +336,7 @@ module Make (Db : Kre.Db.S) : S = struct
       Lwt.return (Option.bind row (fun r -> if Argon2.verify r.password_hash password then Some (User.of_row r) else None)))
 end
 
-(* cats_service.ml — Kre.Db.conn один для всех драйверов, поэтому сигнатура не зависит от Db *)
+(* cats_service.ml — Kre.Db.conn is the same for all drivers, so the signature does not depend on Db *)
 module type S = sig
   val available : unit -> Cat.t list Lwt.t
   val find      : int -> Cat.t option Lwt.t
@@ -355,7 +355,7 @@ module Make (Db : Kre.Db.S) : S = struct
     Lwt.return (if n = 1 then Ok () else Error (Kre.Error.conflict "cat is not available"))
 end
 
-(* adoptions_service.ml — зависимость от другого сервиса = функторный параметр *)
+(* adoptions_service.ml — a dependency on another service = a functor parameter *)
 module type S = sig
   val adopt : conn:Kre.Db.conn -> cat:int -> user:int -> (Adoption.t, Kre.Error.t) result Lwt.t
 end
@@ -380,7 +380,7 @@ let admin   : unit Kre.Guard.t   = fun req ->
   current req >|= Result.bind ~f:(fun u -> if u.User.role = Admin then Ok () else Error (Kre.Error.forbidden "admin only"))
 ```
 
-### server — контроллеры
+### server — controllers
 
 ```ocaml
 (* auth_controller.ml *)
@@ -403,7 +403,7 @@ let logout (req : Dream.request) () : unit Lwt.t = Dream.invalidate_session req
 [@@@controller "cats"]
 
 let index (module Cats : Cats_service.S) () : Cat.t list Lwt.t = Cats.available ()
-[@@get] [@@live ["cats"]]            (* фронт перезапросит при изменении cats *)
+[@@get] [@@live ["cats"]]            (* the frontend refetches when cats changes *)
 
 let show (module Cats : Cats_service.S) ~(id : int) : (Cat.t, Kre.Error.t) result Lwt.t =
   Cats.find id >|= Option.to_result ~none:(Kre.Error.not_found "cat")
@@ -427,10 +427,10 @@ let adopt (module Adoptions : Adoptions_service.S)
     ~(body : Adopt_dto.t) : (Adoption.t, Kre.Error.t) result Lwt.t =
   Adoptions.adopt ~conn ~cat:body.cat_id ~user:user.id
 [@@post] [@@status 201] [@@transactional]
-(* Error → rollback + 409; Ok → commit + Live.publish "cats" и "adoptions" (из writes sqlgg/table) *)
+(* Error → rollback + 409; Ok → commit + Live.publish "cats" and "adoptions" (from sqlgg/table writes) *)
 ```
 
-### bin/main.ml — весь composition root
+### bin/main.ml — the whole composition root
 
 ```ocaml
 let () =
@@ -447,7 +447,7 @@ let () =
       Kre.Actuator.routes ~config:(Config.pp config) () ]
 ```
 
-Забыли `(module Users)` — не компилируется. Переименовали `Cat.name` — не компилируются `cats.sql` (через `schema.sql`), `Create_cat_dto`, клиент, страницы.
+Forget `(module Users)` and it does not compile. Rename `Cat.name` and `cats.sql` (via `schema.sql`), `Create_cat_dto`, the client and the pages stop compiling.
 
 ### client
 
@@ -493,29 +493,29 @@ let v ~data ~params:_ ~search:_ =
     </div>
 ```
 
-Страница `/cats` подписана на `cats`: пока один пользователь смотрит список, другой усыновляет — список обновляется без кода подписки. Ошибка 409 из `[@@transactional]` приходит в `Toast.error` как Problem Details.
+The `/cats` page subscribes to `cats`: while one user views the list and another adopts a cat, the list updates with no subscription code. A 409 error from `[@@transactional]` reaches `Toast.error` as Problem Details.
 
-## Kre.Core — рантайм сервера
+## Kre.Core — server runtime
 
-Сигнатуры ниже — `.mli` из `src/shared` и `src/core` в том виде, в каком они собраны в фазе 0; ppx генерирует код только против них. Всё, чего здесь нет, в рантайм не попадает без правки этого раздела.
+The signatures below are the `.mli` files from `src/shared` and `src/core` as built in phase 0; ppx generates code only against them. Nothing that is not listed here gets into the runtime without editing this section.
 
-### Kre\_shared — общий для сервера и клиента (native + melange)
+### Kre\_shared — shared by server and client (native + melange)
 
 ```ocaml
-(* Kre_shared.Validation — ошибки и правила; Nest: class-validator *)
+(* Kre_shared.Validation — errors and rules; Nest: class-validator *)
 module Validation : sig
   type error = { path : string list; rule : string; message : string }
-  type t = private { first : error; rest : error list }   (* непустой набор *)
-  exception Invalid of t                (* бросают jsonkit-декодеры; Json.parse ловит *)
+  type t = private { first : error; rest : error list }   (* non-empty set *)
+  exception Invalid of t                (* raised by jsonkit decoders; Json.parse catches it *)
   type 'a rule
   val fail : rule:string -> string -> t
   val ok_exn : ('a, t) result -> 'a
   val to_list : t -> error list
   val to_json : t -> Jsonkit.t
   val rule : name:string -> ('a -> ('a, string) result) -> 'a rule
-  val check : 'a rule list -> 'a -> ('a, t) result   (* все упавшие правила, не fail-fast *)
-  val field : string -> 'a rule list -> 'a -> ('a, t) result   (* check + путь [name] *)
-  module Syntax : sig   (* аппликативно: and+ накапливает ошибки обеих сторон *)
+  val check : 'a rule list -> 'a -> ('a, t) result   (* all failed rules, not fail-fast *)
+  val field : string -> 'a rule list -> 'a -> ('a, t) result   (* check + path [name] *)
+  module Syntax : sig   (* applicative: and+ accumulates the errors of both sides *)
     val ( let+ ) : ('a, t) result -> ('a -> 'b) -> ('b, t) result
     val ( and+ ) : ('a, t) result -> ('b, t) result -> ('a * 'b, t) result
   end
@@ -526,20 +526,20 @@ module Validation : sig
   val email : string rule
 end
 
-(* Kre_shared.Asset и Icon — фаза 3: значения, которые дают только [%asset] и [%icon] *)
+(* Kre_shared.Asset and Icon — phase 3: values that only [%asset] and [%icon] produce *)
 module Asset : sig
   type t
-  val checked : string -> t        (* для ppx *)
+  val checked : string -> t        (* for ppx *)
   val url : t -> string
 end
 module Icon : sig
   type t
-  val checked : name:string -> string -> t   (* для ppx *)
+  val checked : name:string -> string -> t   (* for ppx *)
   val name : t -> string
   val svg : t -> string
 end
 
-(* Kre_shared.Time — фаза 3: момент времени UTC; RFC 3339 в JSON и URL, секунды в базе *)
+(* Kre_shared.Time — phase 3: a UTC instant; RFC 3339 in JSON and URLs, seconds in the database *)
 module Time : sig
   type t
   include Scalar.S with type t := t
@@ -548,7 +548,7 @@ module Time : sig
   val compare : t -> t -> int
 end
 
-(* Kre_shared.Page — фаза 3: страница списка; Spring Page *)
+(* Kre_shared.Page — phase 3: a page of a list; Spring Page *)
 module Page : sig
   type 'a t = private { items : 'a list; page : int; size : int; total : int }
   module Request : sig
@@ -564,7 +564,7 @@ module Page : sig
   module Make (J : Json.S) : Json.S with type t = J.t t
 end
 
-(* Kre_shared.Search — фаза 3: кодек query-строки ↔ запись; [@@deriving search] *)
+(* Kre_shared.Search — phase 3: query string ↔ record codec; [@@deriving search] *)
 module Search : sig
   type 's t
   type ('a, 'b) presence = Required : ('a, 'a) presence | Optional : ('a, 'a option) presence
@@ -579,11 +579,11 @@ module Search : sig
   val encode : 's t -> 's -> (string * string) list
 end
 
-(* Kre_shared.Json — форма, которую даёт [@@deriving json, jsonschema] из jsonkit *)
+(* Kre_shared.Json — the shape that [@@deriving json, jsonschema] from jsonkit produces *)
 module Json : sig
   module type S = sig
     type t
-    val of_json : Jsonkit.t -> t          (* jsonkit-конвенция: бросает *)
+    val of_json : Jsonkit.t -> t          (* jsonkit convention: raises *)
     val to_json : t -> Jsonkit.t
     val t_jsonschema : Jsonkit.Jsonschema.t
   end
@@ -591,12 +591,12 @@ module Json : sig
   module List (J : S) : S with type t = J.t list
 end
 
-(* Kre_shared.Scalar — значение, которое живёт и в JSON, и в сегменте пути/query; Nest: ParseIntPipe *)
+(* Kre_shared.Scalar — a value that lives both in JSON and in a path/query segment; Nest: ParseIntPipe *)
 module Scalar : sig
   module type S = sig
     type t
     include Json.S with type t := t
-    val name : string                     (* "int", "string", … — в Spec *)
+    val name : string                     (* "int", "string", … — in Spec *)
     val of_string : string -> (t, Validation.t) result
     val to_string : t -> string
   end
@@ -606,17 +606,17 @@ module Scalar : sig
 end
 ```
 
-`Kre_shared.Refined` — см. раздел dto.
+`Kre_shared.Refined` — see the dto section.
 
-### Kre — сервер (native)
+### Kre — server (native)
 
 ```ocaml
-(* Kre.Error — единый тип ошибок; Nest: HttpException + exception filters *)
+(* Kre.Error — the single error type; Nest: HttpException + exception filters *)
 module Error : sig
   type status = [ Dream.client_error | Dream.server_error | `Unprocessable_Entity ]
   type t = private {
     status : status; code : string; type_ : string; detail : string;
-    extensions : (string * Jsonkit.t) list;   (* доп. члены Problem Details верхнего уровня *)
+    extensions : (string * Jsonkit.t) list;   (* extra top-level Problem Details members *)
   }
   exception E of t
   type handler = Dream.request -> t -> Dream.response Lwt.t   (* exception filter *)
@@ -633,42 +633,42 @@ module Error : sig
   val fail : t -> 'a Lwt.t
 end
 
-(* Kre.Response — явный JSON-ответ; остальное (text, html, redirect, stream) — сам Dream *)
+(* Kre.Response — an explicit JSON response; the rest (text, html, redirect, stream) is plain Dream *)
 module Response : sig
   val json : ?status:Dream.status -> (module J : Kre_shared.Json.S) -> J.t -> Dream.response Lwt.t
 end
 
-(* Kre.Guard — извлечение значения из запроса; Nest: guards + custom param decorators *)
+(* Kre.Guard — extracts a value from the request; Nest: guards + custom param decorators *)
 module Guard : sig
   type 'a t = Dream.request -> ('a, Error.t) result Lwt.t
   val field : 'a Dream.field -> missing:Error.t -> 'a t
   val header : string -> string t
   val both : 'a t -> 'b t -> ('a * 'b) t
-  val session : string -> string t                     (* поле сессии, иначе 401 *)
+  val session : string -> string t                     (* session field, else 401 *)
   val map : ('a -> 'b) -> 'a t -> 'b t
-  val check : ('a -> ('b, Error.t) result) -> 'a t -> 'b t   (* роль → доказательство *)
+  val check : ('a -> ('b, Error.t) result) -> 'a t -> 'b t   (* role → evidence *)
   val optional : 'a t -> 'a option t
 end
 
-(* Kre.Spec — рантайм-описание контроллера; источник для kre client / kre openapi *)
+(* Kre.Spec — runtime description of a controller; the source for kre client / kre openapi *)
 module Spec : sig
   type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
   type presence = Required | Optional | Repeated
   type location = Path | Query of presence | Header of presence | Cookie of presence
-                | Search                       (* фаза 3: вся query-строка в запись, [@search] *)
+                | Search                       (* phase 3: the whole query string into a record, [@search] *)
   type dto = { name : string; schema : Jsonkit.Jsonschema.t }
   type param = { name : string; location : location; scalar : string; schema : Jsonkit.Jsonschema.t }
   type returns = Unit | Text | Json of value | Events of value | Raw
   type route = {
     verb : verb; path : string; name : string; params : param list;
     body : dto option; returns : returns; status : Dream.status; guards : string list;
-    live : string list;                          (* [@@live], фаза 2 *)
+    live : string list;                          (* [@@live], phase 2 *)
   }
   type t = { prefix : string; version : int option; routes : route list }
   val to_json : t -> Jsonkit.t
 end
 
-(* Kre.Route — то, во что ppx превращает хендлер; логика здесь, не в сгенерированном коде *)
+(* Kre.Route — what ppx turns a handler into; the logic lives here, not in generated code *)
 module Route : sig
   type handler = Dream.request -> (Dream.response, Error.t) result Lwt.t
   type t = private { verb : Spec.verb; middleware : Dream.middleware list; target : handler Routes.route }
@@ -692,26 +692,26 @@ module Controller : sig
   val v : ?middleware:Dream.middleware list -> ?error_handler:Error.handler -> spec:Spec.t -> Route.t list -> t
 end
 
-(* Kre.App — сборка и запуск *)
+(* Kre.App — assemble and run *)
 module App : sig
   type tls = Development_certificate | Certificate of { certificate_file : string; key_file : string }
   val handler : ?middleware:Dream.middleware list -> ?error_handler:Error.handler -> Controller.t list -> Dream.handler
   val run : ?interface:string -> ?port:int -> ?tls:tls -> ?middleware:Dream.middleware list ->
     ?error_handler:Error.handler -> ?on_start:(unit -> unit Lwt.t) -> ?on_shutdown:(unit -> unit Lwt.t) ->
-    ?commands:Command.t list -> Controller.t list -> unit   (* argv: команда → выполнить её; иначе сервер *)
+    ?commands:Command.t list -> Controller.t list -> unit   (* argv: a command → run it; otherwise the server *)
 end
 
-(* Kre.Etag — фаза 3: ETag из тела ответа 200 на GET/HEAD, If-None-Match → 304; [@@etag] *)
+(* Kre.Etag — phase 3: ETag from the body of a 200 response to GET/HEAD, If-None-Match → 304; [@@etag] *)
 module Etag : sig
   val middleware : Dream.middleware
 end
 
-(* Kre.Retry — фаза 3: повтор при исключении, пауза удваивается; [@@retry n] [@@backoff s] *)
+(* Kre.Retry — phase 3: retry on exception, the delay doubles; [@@retry n] [@@backoff s] *)
 module Retry : sig
   val run : ?backoff:float -> attempts:int -> (unit -> 'a Lwt.t) -> 'a Lwt.t
 end
 
-(* Kre.Command — фаза 3: команды бинаря; [@@command "…"] генерирует, [%wire] собирает, App.run ~commands запускает *)
+(* Kre.Command — phase 3: binary commands; [@@command "…"] generates, [%wire] collects, App.run ~commands runs *)
 module Command : sig
   type t
   type args = (string * string) list
@@ -723,7 +723,7 @@ module Command : sig
   val invoke : t list -> string list -> invocation
 end
 
-(* Kre.Job — фаза 3: очереди в БД; [@@job q] регистрирует обработчик, воркер — хуки провайдера *)
+(* Kre.Job — phase 3: database-backed queues; [@@job q] registers a handler, the worker is provider hooks *)
 module Job : sig
   type 'a queue
   type handler
@@ -741,17 +741,17 @@ module Job : sig
   module Make (Db : Db.S) (Config : sig val poll : float val attempts : int end) : S
 end
 
-(* Kre.Profiler — фаза 3: запросы и их SQL в dev; /__kre/profiler *)
+(* Kre.Profiler — phase 3: requests and their SQL in dev; /__kre/profiler *)
 module Profiler : sig
   type entry = { method_ : string; target : string; status : int; milliseconds : float; queries : string list }
-  val sql : string -> unit                 (* драйверы *)
+  val sql : string -> unit                 (* drivers *)
   val middleware : Dream.middleware
   val controller : Controller.t
   val recent : unit -> entry list
   val repeated : entry -> (string * int) list   (* N+1 *)
 end
 
-(* Kre.Mail — фаза 3: письма; провайдеры Smtp и Outbox *)
+(* Kre.Mail — phase 3: emails; Smtp and Outbox providers *)
 module Mail : sig
   type t = private { from : Kre_shared.Refined.Email.t; to_ : Kre_shared.Refined.Email.t;
                      cc : Kre_shared.Refined.Email.t list; subject : string; text : string; html : string option }
@@ -763,18 +763,18 @@ module Mail : sig
   module Outbox () : sig include S val sent : unit -> t list val controller : Controller.t end
 end
 
-(* Kre.Assets — фаза 3: /assets/<имя>.<хеш>.<расширение> с вечным кэшем; ссылки даёт [%asset] *)
+(* Kre.Assets — phase 3: /assets/<name>.<hash>.<extension> with a permanent cache; [%asset] gives the links *)
 module Assets : sig
   val middleware : dir:string -> Dream.middleware
 end
 
-(* Kre.Signed — фаза 3: подписанные ссылки; [@@signed secret] *)
+(* Kre.Signed — phase 3: signed links; [@@signed secret] *)
 module Signed : sig
   val url : ?now:float -> secret:string -> expires_in:float -> string -> string
   val guard : ?now:(unit -> float) -> secret:string -> unit -> unit Guard.t
 end
 
-(* Kre.Wiring — то, что собирает [%wire] *)
+(* Kre.Wiring — what [%wire] assembles *)
 module Wiring : sig
   type t = private { controllers : Controller.t list; on_start : unit -> unit Lwt.t;
                      on_shutdown : unit -> unit Lwt.t; health : Actuator.check list;
@@ -783,11 +783,11 @@ module Wiring : sig
     on_shutdown:(unit -> unit Lwt.t) list -> ?jobs:Schedule.job list ->
     ?health:Actuator.check list -> ?commands:Command.t list ->
     ?beans:Actuator.bean list -> unit -> t
-  module type ALL = sig type t val all : t list end   (* параметр «все провайдеры I.S» *)
-  val profile : unit -> string                       (* KRE_ENV или "dev" — для [@@@profile] *)
+  module type ALL = sig type t val all : t list end   (* parameter "all I.S providers" *)
+  val profile : unit -> string                       (* KRE_ENV or "dev" — for [@@@profile] *)
 end
 
-(* Kre.Token — API-токены; [@@ability "x"] зовёт Tokens.ability "x" *)
+(* Kre.Token — API tokens; [@@ability "x"] calls Tokens.ability "x" *)
 module Token : sig
   val table : Table.t
   type t = private { id : string; owner : string; abilities : string list }
@@ -801,7 +801,7 @@ module Token : sig
   module Make (Db : Db.S) : S
 end
 
-(* Kre.Lock — фаза 3: замки в базе; [@@lock "name"] зовёт Lock.exclusive *)
+(* Kre.Lock — phase 3: locks in the database; [@@lock "name"] calls Lock.exclusive *)
 module Lock : sig
   val table : Table.t
   module type S = sig
@@ -810,137 +810,137 @@ module Lock : sig
   module Make (Db : Db.S) : S
 end
 
-(* Kre.Live — live loaders, фаза 2 *)
+(* Kre.Live — live loaders, phase 2 *)
 module Live : sig
-  val publish : string list -> unit                        (* хранилища без SQL *)
-  val read : string -> unit                                (* драйвер: SELECT, для проверки [@@live] *)
-  val wrote : string -> unit                               (* драйвер: INSERT/UPDATE/DELETE *)
+  val publish : string list -> unit                        (* stores without SQL *)
+  val read : string -> unit                                (* driver: SELECT, to check [@@live] *)
+  val wrote : string -> unit                               (* driver: INSERT/UPDATE/DELETE *)
   val deferred : (unit -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t   (* Db.transaction *)
-  val audit : string list -> Dream.middleware              (* ppx для [@@live] *)
+  val audit : string list -> Dream.middleware              (* ppx for [@@live] *)
   val subscribe : string list -> string Lwt_stream.t * (unit -> unit)
   val controller : Controller.t                            (* GET /__kre/live?table=… *)
 end
 ```
 
-Отклонения от первой версии этого раздела (фаза 0) и почему:
+Deviations from the first version of this section (phase 0) and why:
 
-- `Kre.run`/`Kre.app` → `Kre.App.run`/`Kre.App.handler`: обёрточный модуль dune не может содержать значения без ре-экспорта подмодулей алиасами, а алиасы запрещены.
-- `Codec.t` (запись) → модули `Kre_shared.Scalar.S`: одна сущность «значение в JSON и в URL», `Refined.Make` собирается через `include` без алиасов, а ppx передаёт `(module Kre_shared.Scalar.Int)` как modular explicit.
-- `Json.DTO` с `validate` убран: проверка — часть `of_json` (parse, don't validate). Все ошибки разбора тела — `Validation.t`; невалидный JSON-текст — 400, ошибки полей и типов — 422.
-- `Error.t`: статус ограничен 4xx/5xx, `details : Jsonkit.t option` → `extensions` (Problem Details раскладывает их на верхний уровень, поэтому это объект, а не любое значение); `Response.t` (алиас `Dream.response`) и обёртки над `Dream.html`/`redirect`/`stream` убраны — принцип «Dream не оборачиваем».
-- `Spec.param.required : bool` → `location = Path | Query of presence`; `?tls:bool` → вариант `tls`.
-- `error_handler` получает запрос: Problem Details требует `instance`.
-- `Validation.regex` и `Refined.Regex` отложены: регулярки нужны в обоих режимах, а `Str` есть только в native (см. открытые вопросы).
+- `Kre.run`/`Kre.app` → `Kre.App.run`/`Kre.App.handler`: a dune wrapper module cannot contain values without re-exporting its submodules through aliases, and aliases are forbidden.
+- `Codec.t` (a record) → `Kre_shared.Scalar.S` modules: one entity for "a value in JSON and in a URL"; `Refined.Make` is built with `include` without aliases, and ppx passes `(module Kre_shared.Scalar.Int)` as a modular explicit.
+- `Json.DTO` with `validate` is removed: the check is part of `of_json` (parse, don't validate). All body parsing errors are `Validation.t`; invalid JSON text is 400, field and type errors are 422.
+- `Error.t`: the status is limited to 4xx/5xx, `details : Jsonkit.t option` → `extensions` (Problem Details spreads them onto the top level, so it is an object, not an arbitrary value); `Response.t` (an alias of `Dream.response`) and the wrappers over `Dream.html`/`redirect`/`stream` are removed — the "we do not wrap Dream" principle.
+- `Spec.param.required : bool` → `location = Path | Query of presence`; `?tls:bool` → the `tls` variant.
+- `error_handler` receives the request: Problem Details requires `instance`.
+- `Validation.regex` and `Refined.Regex` are deferred: regexes are needed in both modes, but `Str` exists only in native (see open questions).
 
-Поведение `App`: каждый маршрут — `Route.t` с методом; `App.handler` собирает по `Routes.one_of` на метод и матчит путь из `Dream.target` без query. `MatchWithTrailingSlash` → 301 на путь без слеша с тем же query. Нет маршрута → `error_handler` с `Error.not_found`. Все ответы-ошибки идут через `error_handler` (по умолчанию `Error.to_response`); `Error.E` из хендлера → его статус; прочие исключения → 500 `internal` и лог. Порядок: глобальные middleware → матчинг → контроллерные (`[@@@use]`) → хендлерные (`[@@use]`) → guards → парсинг параметров → тело хендлера (Nest Request lifecycle). `App.run` вызывает `on_start`, затем `Dream.serve` до SIGINT/SIGTERM, затем `on_shutdown`.
+`App` behaviour: each route is a `Route.t` with a method; `App.handler` builds one `Routes.one_of` per method and matches the path from `Dream.target` without the query. `MatchWithTrailingSlash` → 301 to the path without the slash, with the same query. No route → `error_handler` with `Error.not_found`. All error responses go through `error_handler` (by default `Error.to_response`); `Error.E` from a handler → its status; other exceptions → 500 `internal` and a log entry. Order: global middleware → matching → controller middleware (`[@@@use]`) → handler middleware (`[@@use]`) → guards → parameter parsing → handler body (Nest Request lifecycle). `App.run` calls `on_start`, then `Dream.serve` until SIGINT/SIGTERM, then `on_shutdown`.
 
 ## ppx: controller
 
-Одна глобальная трансформация ppxlib (`Driver.register_transformation ~impl`) по всему structure файла. Она работает чисто синтаксически: типов она не видит, поэтому всё, что нужно для генерации, берётся из аннотаций. Правило: **хендлер без аннотации типа возврата — ошибка компиляции.**
+One global ppxlib transformation (`Driver.register_transformation ~impl`) over the whole structure of a file. It is purely syntactic: it does not see types, so everything needed for generation comes from annotations. Rule: **a handler without a return type annotation is a compile error.**
 
-### Атрибуты
+### Attributes
 
-| Атрибут | Где | Payload | Nest-аналог |
+| Attribute | Where | Payload | Nest equivalent |
 | --- | --- | --- | --- |
-| `[@@@controller "cats"]` | первый item файла | строка-префикс; `""` допустимо | `@Controller('cats')` |
-| `[@@@version 2]` | floating | int → префикс `/v2` (режим URI) | `@Controller({ version: '2' })` |
+| `[@@@controller "cats"]` | first item of the file | prefix string; `""` is allowed | `@Controller('cats')` |
+| `[@@@version 2]` | floating | int → prefix `/v2` (URI mode) | `@Controller({ version: '2' })` |
 | `[@@@use [m1; m2]]` | floating | `Dream.middleware list` | `MiddlewareConsumer.forRoutes` |
-| `[@@@guards [g1; g2]]` | floating | `unit Guard.t list` — проверяют, значение отбрасывают | `@UseGuards` на классе |
-| `[@@@inject: module X : S]` | floating | зависимость, доступная всему файлу (для хелперов) | constructor injection |
-| `[@@get ""]` `[@@post]` `[@@put ":id"]` `[@@patch]` `[@@delete]` | на `let` | строка-путь относительно префикса; пустая/отсутствующая = `""` | `@Get(':id')` |
-| `[@@status 201]` | на `let` | int | `@HttpCode(201)` |
-| `[@@use [...]]`, `[@@guards [...]]` | на `let` | как floating, но для одного хендлера | `@UseGuards` на методе |
-| `[@@header ("Cache-Control", "no-store")]` | на `let` | пара строк, повторяемый | `@Header()` |
-| `[@@redirect "/x"]` | на `let` | строка (+ опц. status) | `@Redirect` |
-| `[@@sse]` | на `let` | нет; возврат `τ Lwt_stream.t` | `@Sse` |
-| `[@guard e]` / `[@from e]` | на параметре | `e : 'a Guard.t`; синонимы | `@UseGuards` + custom param decorator |
+| `[@@@guards [g1; g2]]` | floating | `unit Guard.t list` — they check and discard the value | `@UseGuards` on a class |
+| `[@@@inject: module X : S]` | floating | a dependency available to the whole file (for helpers) | constructor injection |
+| `[@@get ""]` `[@@post]` `[@@put ":id"]` `[@@patch]` `[@@delete]` | on `let` | path string relative to the prefix; empty/missing = `""` | `@Get(':id')` |
+| `[@@status 201]` | on `let` | int | `@HttpCode(201)` |
+| `[@@use [...]]`, `[@@guards [...]]` | on `let` | like floating, but for one handler | `@UseGuards` on a method |
+| `[@@header ("Cache-Control", "no-store")]` | on `let` | pair of strings, repeatable | `@Header()` |
+| `[@@redirect "/x"]` | on `let` | string (+ optional status) | `@Redirect` |
+| `[@@sse]` | on `let` | none; returns `τ Lwt_stream.t` | `@Sse` |
+| `[@guard e]` / `[@from e]` | on a parameter | `e : 'a Guard.t`; synonyms | `@UseGuards` + custom param decorator |
 
-### Форма хендлера
+### Handler shape
 
 ```ocaml
-let name (module M1 : S1) … (module Mn : Sn)   (* 0..n модульных параметров — зависимости *)
+let name (module M1 : S1) … (module Mn : Sn)   (* 0..n module parameters — dependencies *)
     ~p1 ?p2 ?(p3 = default) …                   (* labelled/optional — path/query/body/guard *)
-    (req : Dream.request)?                        (* опциональный позиционный *)
-    ()                                            (* обязателен, если нет других позиционных *)
+    (req : Dream.request)?                        (* optional positional *)
+    ()                                            (* required if there are no other positionals *)
     : <return-type> = body
 [@@verb path] [@@…]
 ```
 
-### Классификация параметров
+### Parameter classification
 
-В порядке проверки:
+In order of checking:
 
-1. Label встречается как `:label` в полном пути (префикс + путь хендлера) → **path**. Тип обязателен в аннотации.
-2. Label = `body` → **body**. Тип `T.t` (или список) → модуль `T : Kre_shared.Json.S`; генерируется `Kre.Route.body (module T)`: не-JSON → 400, ошибки разбора и правил → 422.
-3. Параметр несёт `[@guard e]`/`[@from e]` → **guard**: `e req` вычисляется до тела; `Error` → ответ; в `spec` и в клиент не попадает.
-4. Всё остальное labelled/optional → **query**, тип обязателен. `?(x : τ option)` и `~(x : τ option)` = необязательный; `?(x : τ = d)` = необязательный с дефолтом (дефолт применяет сам хендлер, ppx передаёт `?x`); `~(x : τ)` = обязательный, отсутствие → 400; `~(x : τ list)` → повторяемый `?x=a&x=b`.
-5. Позиционный с аннотацией `Dream.request` → сырой запрос. Любой другой позиционный, кроме финального `()`, — ошибка.
+1. The label occurs as `:label` in the full path (prefix + handler path) → **path**. The type annotation is required.
+2. Label = `body` → **body**. Type `T.t` (or a list) → module `T : Kre_shared.Json.S`; generates `Kre.Route.body (module T)`: non-JSON → 400, parse and rule errors → 422.
+3. The parameter carries `[@guard e]`/`[@from e]` → **guard**: `e req` is evaluated before the body; `Error` → response; it does not appear in `spec` or in the client.
+4. Everything else labelled/optional → **query**, the type is required. `?(x : τ option)` and `~(x : τ option)` = optional; `?(x : τ = d)` = optional with a default (the handler applies the default itself, ppx passes `?x`); `~(x : τ)` = required, missing → 400; `~(x : τ list)` → repeatable `?x=a&x=b`.
+5. A positional with the annotation `Dream.request` → the raw request. Any other positional, except the final `()`, is an error.
 
-Подбор модуля по типу (синтаксически): `int → Kre_shared.Scalar.Int`, `int64`, `float`, `bool`, `string` — аналогично; `T.t → T` (для path/query `T : Kre_shared.Scalar.S`, для body и результата `T : Kre_shared.Json.S`); `τ list` в body/результате → `Kre_shared.Json.List (τ)`. Иной тип → ошибка с перечислением форм. `[@codec e]` не реализован: свой разбор — это свой модуль `Scalar.S` (например, `Refined.Make`).
+Module selection by type (syntactic): `int → Kre_shared.Scalar.Int`, `int64`, `float`, `bool`, `string` — likewise; `T.t → T` (for path/query `T : Kre_shared.Scalar.S`, for body and result `T : Kre_shared.Json.S`); `τ list` in body/result → `Kre_shared.Json.List (τ)`. Any other type → an error listing the forms. `[@codec e]` is not implemented: custom parsing is a custom `Scalar.S` module (for example, `Refined.Make`).
 
-### Инъекция из запроса: `[@from]` и `Kre.Extract`
+### Injection from the request: `[@from]` and `Kre.Extract`
 
-Все параметр-декораторы Nest (`@Req`, `@Res`, `@Headers`, `@Ip`, `@Session`, `@HostParam`, `@Query()` целиком, `createParamDecorator`) — это один механизм: параметр с `[@from e]`, где `e : 'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t`. Параметр может быть labelled (`~ip:(string [@from Extract.ip])`) или **позиционным** (`(ip : string [@from Extract.ip])`) — Nest-стиль; это уточняет правило 5 выше: позиционный параметр либо `Dream.request`, либо `()`, либо несёт `[@from]`.
+All Nest parameter decorators (`@Req`, `@Res`, `@Headers`, `@Ip`, `@Session`, `@HostParam`, whole `@Query()`, `createParamDecorator`) are one mechanism: a parameter with `[@from e]`, where `e : 'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t`. The parameter can be labelled (`~ip:(string [@from Extract.ip])`) or **positional** (`(ip : string [@from Extract.ip])`) — Nest style; this refines rule 5 above: a positional parameter is either `Dream.request`, or `()`, or carries `[@from]`.
 
-ppx для хендлера с n такими параметрами генерирует n последовательных `let*` в обёртке — арность статическая, тип каждого извлечения проверяется компилятором против аннотации. Порядок извлечения — слева направо; первая `Error` прерывает цепочку.
+For a handler with n such parameters, ppx generates n sequential `let*` in the wrapper — the arity is static, and the compiler checks the type of each extraction against the annotation. Extraction order is left to right; the first `Error` stops the chain.
 
 ```ocaml
 let find_all (module Cats : Cats_service.S)
     (req : Dream.request)                                  (* @Req() *)
     (ip : string [@from Extract.ip])                       (* @Ip() *)
     (ua : string option [@from Extract.header "user-agent"])  (* @Headers('user-agent') *)
-    (sess : Session.t [@from Auth.session])                (* @Session() / свой декоратор *)
+    (sess : Session.t [@from Auth.session])                (* @Session() / custom decorator *)
     () : Cat.t list Lwt.t = …
 [@@get]
 ```
 
-`Kre.Extract` — стандартные извлечения, в `Core`:
+`Kre.Extract` — standard extractions, in `Core`:
 
 ```ocaml
 module Extract : sig
   val req     : Dream.request Guard.t
   val ip      : string Guard.t
   val host    : string Guard.t
-  val header  : string -> string option Guard.t           (* None, если нет *)
-  val header_exn : string -> string Guard.t               (* 400, если нет *)
+  val header  : string -> string option Guard.t           (* None if missing *)
+  val header_exn : string -> string Guard.t               (* 400 if missing *)
   val headers : (string * string) list Guard.t
   val cookie  : string -> string option Guard.t
-  val query   : (string * string) list Guard.t            (* @Query() целиком *)
-  val search  : 's Kre_shared.Search.t -> 's Guard.t    (* фаза 3: @Query() dto, [@search] *)
-  val params  : (string * string) list Guard.t            (* @Param() целиком *)
+  val query   : (string * string) list Guard.t            (* whole @Query() *)
+  val search  : 's Kre_shared.Search.t -> 's Guard.t    (* phase 3: @Query() dto, [@search] *)
+  val params  : (string * string) list Guard.t            (* whole @Param() *)
   val body_raw : string Guard.t
-  val body_json : Jsonkit.t Guard.t                       (* @Body() без DTO *)
+  val body_json : Jsonkit.t Guard.t                       (* @Body() without a DTO *)
   val session : string -> string option Guard.t           (* Dream.session_field *)
   val field   : 'a Dream.field -> missing:Error.t -> 'a Guard.t
 end
 ```
 
-Свой декоратор (`createParamDecorator`) — обычное значение: `let tenant : Tenant.t Guard.t = fun req -> …`. Комбинаторы в `Guard`: `map`, `both`, `optional : 'a t -> 'a option t`, `with_default`. `@Res()` аналога нет намеренно: ответ — возвращаемое значение, а для полного контроля есть `Response.t Lwt.t`.
+A custom decorator (`createParamDecorator`) is a plain value: `let tenant : Tenant.t Guard.t = fun req -> …`. Combinators in `Guard`: `map`, `both`, `optional : 'a t -> 'a option t`, `with_default`. There is intentionally no `@Res()` equivalent: the response is the return value, and for full control there is `Response.t Lwt.t`.
 
-### Тип возврата
+### Return type
 
-Распознаваемые формы аннотации (`τ` — тип данных, `E` = `Kre.Error.t`):
+Recognised annotation forms (`τ` — data type, `E` = `Kre.Error.t`):
 
-| Аннотация | Сериализация | `Spec.returns` |
+| Annotation | Serialization | `Spec.returns` |
 | --- | --- | --- |
-| `unit Lwt.t` | пустой ответ, статус по умолчанию 204 | `Unit` |
+| `unit Lwt.t` | empty response, default status 204 | `Unit` |
 | `string Lwt.t` | `text/plain` | `Text` |
 | `T.t Lwt.t` | `T.to_json`, `application/json` | `Json ("T", T.jsonschema)` |
-| `T.t list Lwt.t`, `T.t option Lwt.t` | JSON-массив / JSON или 404 | `Json` с обёрткой в схеме |
-| `T.t M.t Lwt.t` (фаза 3) | контейнер `M.Make (T)`, например `Cat.t Kre_shared.Page.t` → `Kre_shared.Page.Make (Cat)`; свой контейнер — модуль с `'a t` и `Make (J : Json.S)` | `Json` |
-| `(τ, E) result Lwt.t` | как τ; `Error e` → `error_handler` | как τ |
-| `Dream.response Lwt.t` | как есть | `Raw` |
-| `T.t Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, по событию `data: <json>` на элемент (`Kre.Route.events`) | `Events` |
+| `T.t list Lwt.t`, `T.t option Lwt.t` | JSON array / JSON or 404 | `Json` with a wrapper in the schema |
+| `T.t M.t Lwt.t` (phase 3) | container `M.Make (T)`, for example `Cat.t Kre_shared.Page.t` → `Kre_shared.Page.Make (Cat)`; a custom container is a module with `'a t` and `Make (J : Json.S)` | `Json` |
+| `(τ, E) result Lwt.t` | as τ; `Error e` → `error_handler` | as τ |
+| `Dream.response Lwt.t` | as is | `Raw` |
+| `T.t Lwt_stream.t Lwt.t` + `[@@sse]` | `text/event-stream`, one `data: <json>` event per element (`Kre.Route.events`) | `Events` |
 
-Не-`Lwt` возврат — ошибка «handler must return … Lwt.t». Аннотация, не подпадающая под таблицу, — ошибка с перечислением форм.
+A non-`Lwt` return is an error "handler must return … Lwt.t". An annotation that does not match the table is an error listing the forms.
 
-### Зависимости (modular explicits)
+### Dependencies (modular explicits)
 
-Модульные параметры всех хендлеров объединяются по имени. Одно имя с разными сигнатурами — ошибка. Объединённый список становится параметрами `register` в порядке первого появления. Хендлеры остаются как написаны, со своими modular explicits; `register` вызывает их как `find_one (module Cats) ~id`. Функтор `Make` из первой версии плана не нужен (решение фазы 1): так меньше переписывания, хендлер можно вызвать в тесте напрямую, а `[@@@inject]` для хелперов отложен.
+The module parameters of all handlers are merged by name. One name with different signatures is an error. The merged list becomes the parameters of `register`, in order of first appearance. Handlers stay as written, with their own modular explicits; `register` calls them as `find_one (module Cats) ~id`. The `Make` functor from the first version of the plan is not needed (phase 1 decision): this means less rewriting, a handler can be called directly in a test, and `[@@@inject]` for helpers is deferred.
 
-### Что генерируется
+### What is generated
 
-Файл остаётся как был (атрибуты Kre снимаются), в конец добавляются три элемента. Для `cats` с хендлером `find_one (module Cats : Cats_service.S) ~(id : int)`:
+The file stays as it was (Kre attributes are removed), and three items are appended at the end. For `cats` with the handler `find_one (module Cats : Cats_service.S) ~(id : int)`:
 
 ```ocaml
 module Paths = struct
@@ -961,56 +961,56 @@ let register (module Cats : Cats_service.S) =
                 (fun __kre_request -> find_one (module Cats) ~id:__kre_arg_id))) ]
 ```
 
-Извлечения (query, body, `[@guard]`/`[@from]`) идут цепочкой `let open Kre.Route.Syntax in let* … in`, слева направо; первая `Error` прерывает цепочку. Хендлер без зависимостей даёт `register ()`. Функции `Paths` принимают `()`, чтобы путь был полиморфным: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. Путь сегмента — `Kre.Route.segment (module M) ":name"`: отказ `M.of_string` — это `NoMatch`, то есть 404. Полные эталоны вывода — `test/ppx/controller.t`.
+Extractions (query, body, `[@guard]`/`[@from]`) form a chain `let open Kre.Route.Syntax in let* … in`, left to right; the first `Error` stops the chain. A handler without dependencies gives `register ()`. `Paths` functions take `()` so that the path is polymorphic: `Routes.sprintf (Cats_controller.Paths.find_one ()) 42 = "/cats/42"`. A segment path is `Kre.Route.segment (module M) ":name"`: a failure of `M.of_string` is `NoMatch`, i.e. 404. Full reference outputs are in `test/ppx/controller.t`.
 
-`Kre.Route` — модуль рантайма: `handle` оборачивает guards, сериализацию и маппинг ошибок; `query`, `body`, `segment`, `ok`, `Syntax.let*` — всё, что вызывает сгенерированный код. Логики в сгенерированном коде нет.
+`Kre.Route` is a runtime module: `handle` wraps guards, serialization and error mapping; `query`, `body`, `segment`, `ok`, `Syntax.let*` are everything the generated code calls. The generated code contains no logic.
 
-Фаза 2: `[@@header (k, v)]` (повторяемый, на успешный ответ), `[@@redirect "/url"]` (хендлер с `unit Lwt.t`, статус по умолчанию 302), `[@@timeout 5.0]` (`Lwt.pick` со сном, по истечении — 504 `timeout`), `[@@@error_handler h]` (`Kre.Error.handler` для ошибок маршрутов этого контроллера) — сделаны, пример — `docs/examples/legacy_controller.ml`. `[@@@inject]` не нужен: хелпер принимает модуль параметром, как хендлер. `[@codec e]` не нужен: свой разбор — свой модуль `Scalar.S`. `[@@sse]` — отдельной строкой.
+Phase 2: `[@@header (k, v)]` (repeatable, on a successful response), `[@@redirect "/url"]` (handler with `unit Lwt.t`, default status 302), `[@@timeout 5.0]` (`Lwt.pick` with a sleep; on expiry — 504 `timeout`), `[@@@error_handler h]` (`Kre.Error.handler` for the route errors of this controller) — done, example: `docs/examples/legacy_controller.ml`. `[@@@inject]` is not needed: a helper takes a module as a parameter, like a handler. `[@codec e]` is not needed: custom parsing is a custom `Scalar.S` module. `[@@sse]` has a row of its own.
 
-### Ошибки ppx (все через `Location.raise_errorf`, с локацией на виновный узел)
+### ppx errors (all via `Location.raise_errorf`, located at the offending node)
 
-- `[@@@controller]` не первый item; два `[@@@controller]` в файле.
-- `[@@get]` на `let` с паттерном не-идентификатором, на `let rec`, на `and`.
-- Отсутствие аннотации типа возврата; неподдерживаемая форма.
-- Path-параметр из пути без соответствующего label (`":id"`, но нет `~id`), и наоборот — label совпадает с `:x`, но тип не аннотирован.
-- Два параметра `body`; `body` без типа `T.t`.
-- Позиционный параметр без аннотации `Dream.request`.
-- Конфликт сигнатур модульного параметра.
-- `[@@status]` вне 100–599; `[@@sse]` без `Lwt_stream.t`.
+- `[@@@controller]` is not the first item; two `[@@@controller]` in one file.
+- `[@@get]` on a `let` whose pattern is not an identifier, on `let rec`, on `and`.
+- Missing return type annotation; unsupported form.
+- A path parameter from the path without a matching label (`":id"`, but no `~id`), and the reverse — the label matches `:x`, but the type is not annotated.
+- Two `body` parameters; `body` without a `T.t` type.
+- A positional parameter without the `Dream.request` annotation.
+- Conflicting signatures of a module parameter.
+- `[@@status]` outside 100–599; `[@@sse]` without `Lwt_stream.t`.
 
-Каждая ошибка — отдельный случай в cram-тесте `test/ppx/errors.t` (вывод `pp.exe -impl`).
+Each error is a separate case in the cram test `test/ppx/errors.t` (output of `pp.exe -impl`).
 
-## DI и остальные примитивы Nest
+## DI and the other Nest primitives
 
-Все примитивы Overview-раздела Nest выражаются без контейнера. Таблица ниже — нормативная: так, и только так, переводится каждая концепция.
+All primitives of the Nest Overview section are expressed without a container. The table below is normative: each concept is translated this way and only this way.
 
-| Nest | Kre | Механизм |
+| Nest | Kre | Mechanism |
 | --- | --- | --- |
-| Provider (`@Injectable`, singleton) | модуль с `module type S` в `.mli` | состояние — top-level значения модуля |
-| Provider с зависимостями | функтор `Make (Db : Db.S) (Log : Logger.S) : S` | применяется в `main.ml` |
-| Constructor injection | модульные параметры хендлера `(module Cats : Cats_service.S)` | modular explicits → параметры `register` |
-| `useValue` / `useClass` / `useFactory` | другой модуль того же `S`; фабрика = `let%lwt` в `main` до `Kre.App.run` | — |
-| Dynamic module `forRoot(cfg)` | функтор с конфиг-модулем: `Cache.Make (struct let ttl = 60 end)` | — |
-| Scope.DEFAULT | модуль | — |
-| Scope.REQUEST | `Dream.field` + `Guard.field` | значение кладёт middleware, читает `[@guard]` |
-| Scope.TRANSIENT | обычная функция | — |
-| `@Module({imports, providers, exports})` | `main.ml` + `.mli` + dune `(libraries)` | не существует как сущность |
-| Circular dependency / `forwardRef` | ошибка компиляции | — |
+| Provider (`@Injectable`, singleton) | a module with `module type S` in `.mli` | state is the module's top-level values |
+| Provider with dependencies | functor `Make (Db : Db.S) (Log : Logger.S) : S` | applied in `main.ml` |
+| Constructor injection | handler module parameters `(module Cats : Cats_service.S)` | modular explicits → `register` parameters |
+| `useValue` / `useClass` / `useFactory` | another module of the same `S`; factory = `let%lwt` in `main` before `Kre.App.run` | — |
+| Dynamic module `forRoot(cfg)` | functor with a config module: `Cache.Make (struct let ttl = 60 end)` | — |
+| Scope.DEFAULT | module | — |
+| Scope.REQUEST | `Dream.field` + `Guard.field` | middleware sets the value, `[@guard]` reads it |
+| Scope.TRANSIENT | plain function | — |
+| `@Module({imports, providers, exports})` | `main.ml` + `.mli` + dune `(libraries)` | does not exist as an entity |
+| Circular dependency / `forwardRef` | compile error | — |
 | Middleware | `Dream.middleware`; `[@@@use]` / `[@@use]` / `Kre.App.run ~middleware` | — |
-| Middleware с зависимостями | `let use (module Log : Logger.S) : Dream.middleware = …` | применяется в `[@@@use [Logger.use (module Log)]]` |
-| Guard (`canActivate`) | `'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t` | `[@guard e]` даёт значение; `[@@guards [e]]` только проверяет |
-| Pipe (`ParseIntPipe`) | аннотация типа параметра | `Codec` |
-| Pipe (`ValidationPipe`) | `[@@deriving dto]` → `validate` | автоматически на `body` |
-| Custom pipe | `[@codec e]` на параметре / `Codec.custom` | — |
+| Middleware with dependencies | `let use (module Log : Logger.S) : Dream.middleware = …` | applied in `[@@@use [Logger.use (module Log)]]` |
+| Guard (`canActivate`) | `'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t` | `[@guard e]` yields a value; `[@@guards [e]]` only checks |
+| Pipe (`ParseIntPipe`) | parameter type annotation | `Codec` |
+| Pipe (`ValidationPipe`) | `[@@deriving dto]` → `validate` | automatic on `body` |
+| Custom pipe | `[@codec e]` on a parameter / `Codec.custom` | — |
 | Interceptor (before/after) | `Dream.middleware` | — |
-| Interceptor (transform response) | middleware над `Dream.response` или явный `Response.json` | RxJS не вводим |
-| Exception filter | `Kre.App.run ~error_handler`; на контроллер — `[@@@error_handler f]` | `Error.t -> Dream.response Lwt.t` |
-| `HttpException` | `Error.t` в `result` или `Error.fail` | — |
-| Custom param decorator (`@User()`) | `[@from Auth.current]` | любой `'a Guard.t` |
-| Execution context | позиционный `(req : Dream.request)` | — |
-| Lifecycle (`onModuleInit`, `onApplicationShutdown`) | `Kre.App.run ~on_start ~on_shutdown` | `Lwt_switch` внутри |
+| Interceptor (transform response) | middleware over `Dream.response` or an explicit `Response.json` | we do not introduce RxJS |
+| Exception filter | `Kre.App.run ~error_handler`; per controller — `[@@@error_handler f]` | `Error.t -> Dream.response Lwt.t` |
+| `HttpException` | `Error.t` in `result` or `Error.fail` | — |
+| Custom param decorator (`@User()`) | `[@from Auth.current]` | any `'a Guard.t` |
+| Execution context | positional `(req : Dream.request)` | — |
+| Lifecycle (`onModuleInit`, `onApplicationShutdown`) | `Kre.App.run ~on_start ~on_shutdown` | `Lwt_switch` inside |
 
-### Проводка: `[%wire]` (фаза 2)
+### Wiring: `[%wire]` (phase 2)
 
 ```ocaml
 (* bin/main.ml *)
@@ -1019,27 +1019,27 @@ let () =
   Kre.App.run ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
 ```
 
-Как `@SpringBootApplication`, `[%wire]` сканирует каталог приложения — родитель каталога с `main.ml` — рекурсивно, пропуская `test`/`tests`, `_build`, `node_modules` и скрытые; копии одного модуля (`copy_files#` для Melange) склеиваются по имени. Сузить — `[%wire "server"; "db"]`, пути от каталога приложения. В dune: `(preprocessor_deps (source_tree ..))` — пересборка при изменении исходников. Компоненты ppx находит сам:
+Like `@SpringBootApplication`, `[%wire]` scans the application directory — the parent of the directory with `main.ml` — recursively, skipping `test`/`tests`, `_build`, `node_modules` and hidden directories; copies of one module (`copy_files#` for Melange) are merged by name. To narrow: `[%wire "server"; "db"]`, paths relative to the application directory. In dune: `(preprocessor_deps (source_tree ..))` — rebuild when sources change. ppx finds the components itself:
 
-| Что в файле | Роль | Nest / Spring |
+| What is in the file | Role | Nest / Spring |
 | --- | --- | --- |
-| `module Make () = …` | провайдер; новый экземпляр | `@Injectable`, `@Scope(PROTOTYPE)` при ручном вызове |
-| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | провайдер с зависимостями; параметры — constructor injection | `@Autowired` в конструкторе |
-| `module type S` без `Make` | синглтон: модуль сам и есть экземпляр | `@Service` |
-| `[@@@controller]` | потребитель: модульные параметры хендлеров → `register` | `@Controller` |
-| остальное | не трогается | — |
+| `module Make () = …` | provider; a new instance | `@Injectable`, `@Scope(PROTOTYPE)` when called by hand |
+| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | provider with dependencies; parameters are constructor injection | `@Autowired` in the constructor |
+| `module type S` without `Make` | singleton: the module itself is the instance | `@Service` |
+| `[@@@controller]` | consumer: handler module parameters → `register` | `@Controller` |
+| everything else | left untouched | — |
 
-Интерфейс провайдера — аннотация результата `Make` в `.ml` или `.mli` (`: Cats_service.S`, `: sig include Kre.Db.S … end`), иначе собственный `module type S`; явно — `[@@@injectable Iface.S]`. Модуль только с `module type S` (без значений и без `Make`) — интерфейс, а не провайдер. `[@@@fallback]` — запасной провайдер (`@ConditionalOnMissingBean`, аналог `@Optional`): используется и создаётся, только если других реализаций интерфейса нет. Если интерфейс дают несколько провайдеров: `[@@@primary]` (`@Primary`), иначе имя параметра функтора, совпадающее с именем провайдера (`(Fake_clock : Clock.S)` — как Spring берёт бин по имени параметра), иначе ошибка сборки. Ошибки сборки с местом: нет провайдера, неоднозначность, цикл (`Clock -> Report -> Clock`). Типы зависимостей проверяет компилятор на сгенерированных применениях функторов.
+A provider's interface is the result annotation of `Make` in `.ml` or `.mli` (`: Cats_service.S`, `: sig include Kre.Db.S … end`), otherwise its own `module type S`; explicitly — `[@@@injectable Iface.S]`. A module with only `module type S` (no values and no `Make`) is an interface, not a provider. `[@@@fallback]` is a fallback provider (`@ConditionalOnMissingBean`, equivalent of `@Optional`): it is used and created only if there are no other implementations of the interface. If several providers give an interface: `[@@@primary]` (`@Primary`), otherwise a functor parameter name that matches the provider name (`(Fake_clock : Clock.S)` — the way Spring picks a bean by parameter name), otherwise a build error. Build errors with a location: no provider, ambiguity, cycle (`Clock -> Report -> Clock`). The compiler checks dependency types on the generated functor applications.
 
-Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Kre.Wiring.t = { controllers; on_start; on_shutdown; health; commands; beans }`; `beans` — граф для `/actuator/beans`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
+Hooks: `let on_start` / `let on_shutdown` in a provider (and in its signature) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; start runs in dependency order, shutdown in reverse. `[%wire]` returns `Kre.Wiring.t = { controllers; on_start; on_shutdown; health; commands; beans }`; `beans` is the graph for `/actuator/beans`. Directory modules must be visible from `main` (libraries `(wrapped false)`). Reference outputs: `test/wire/wire.t`; example: `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
 
-### Guards — пример
+### Guards — example
 
 ```ocaml
 (* server/auth.ml *)
 let user_field : User.t Dream.field = Dream.new_field ~name:"user" ()
 
-(* middleware кладёт пользователя в запрос по сессии/JWT *)
+(* middleware puts the user into the request from the session/JWT *)
 let session (module Users : Users_service.S) : Dream.middleware = fun next req ->
   (match Dream.session_field req "user_id" with
    | None -> Lwt.return_unit
@@ -1049,7 +1049,7 @@ let session (module Users : Users_service.S) : Dream.middleware = fun next req -
      Lwt.return_unit)
   >>= fun () -> next req
 
-(* guard читает его *)
+(* guard reads it *)
 let current : User.t Guard.t = Guard.field user_field ~missing:(Error.unauthorized "login required")
 
 let role r : unit Guard.t = fun req ->
@@ -1057,47 +1057,47 @@ let role r : unit Guard.t = fun req ->
   Lwt.return (Result.bind u (fun u -> if List.mem r u.User.roles then Ok () else Error (Error.forbidden "role")))
 ```
 
-Использование: `~(user : User.t [@guard Auth.current])` в параметрах, ``[@@guards [Auth.role `Admin]]`` на хендлере. Порядок: `[@@@guards]` → `[@@guards]` → `[@guard]`-параметры слева направо.
+Usage: `~(user : User.t [@guard Auth.current])` in parameters, ``[@@guards [Auth.role `Admin]]`` on a handler. Order: `[@@@guards]` → `[@@guards]` → `[@guard]` parameters left to right.
 
-### Request-scoped провайдеры
+### Request-scoped providers
 
-Никакого «bubbling» скоупов: request-scoped значение — это `Dream.field`, который заполняет middleware. Сервис, которому нужно request-значение, получает его аргументом функции, не конструктора. Это сознательное отклонение от Nest: оно убирает целую главу (Injection scopes) и класс ошибок производительности.
+No scope "bubbling": a request-scoped value is a `Dream.field` that middleware fills. A service that needs a request value gets it as a function argument, not a constructor argument. This is a deliberate departure from Nest: it removes a whole chapter (Injection scopes) and a class of performance bugs.
 
 ## ppx: \[@@deriving dto\]
 
-Deriver на записях, вариантах и алиасах; работает в native и melange (стдлиб ≥ 4.12, без `Js`, без yojson — те же ограничения, что у jsonkit). Покрывает главы Validation, Serialization и часть OpenAPI (Types and parameters, Mapped types).
+A deriver on records, variants and aliases; works in native and melange (stdlib ≥ 4.12, no `Js`, no yojson — the same constraints as jsonkit). Covers the Validation and Serialization chapters and part of OpenAPI (Types and parameters, Mapped types).
 
-Генерирует для `type t` модуль формы `Kre_shared.Json.S` (решение фазы 0, см. «Связь с jsonkit»):
+For `type t` it generates a module of the shape `Kre_shared.Json.S` (phase 0 decision, see "Relation to jsonkit"):
 
 ```ocaml
-val of_json      : Jsonkit.t -> t      (* jsonkit [@@deriving json] + правила; бросает Validation.Invalid *)
+val of_json      : Jsonkit.t -> t      (* jsonkit [@@deriving json] + rules; raises Validation.Invalid *)
 val to_json      : t -> Jsonkit.t      (* jsonkit [@@deriving json] *)
-val t_jsonschema : Jsonkit.Jsonschema.t   (* jsonkit [@@deriving jsonschema] + ограничения *)
+val t_jsonschema : Jsonkit.Jsonschema.t   (* jsonkit [@@deriving jsonschema] + constraints *)
 ```
 
-На границе (тело запроса, ответ клиента) вызывается `Kre_shared.Json.parse (module T) json : (T.t, Validation.t) result`. Отдельного `validate` нет: проверка — часть разбора, и после `of_json` значение уже валидно.
+At the boundary (request body, client response) `Kre_shared.Json.parse (module T) json : (T.t, Validation.t) result` is called. There is no separate `validate`: checking is part of parsing, and after `of_json` the value is already valid.
 
-Для `type foo` — те же имена с префиксом `foo_` (конвенция jsonkit: `foo_of_json`, `foo_jsonschema`).
+For `type foo` — the same names with the prefix `foo_` (jsonkit convention: `foo_of_json`, `foo_jsonschema`).
 
-### Рекомендуемый путь: opaque-типы (parse, don't validate)
+### Recommended path: opaque types (parse, don't validate)
 
-Поле DTO должно иметь тип, в котором невалидное значение непредставимо. Тогда `of_json` — единственная точка проверки, а сервис никогда не получает «сырую» строку. `[@validate]` на `string`/`int` — допустимый escape hatch для одноразовых правил, но не основной способ.
+A DTO field must have a type in which an invalid value is unrepresentable. Then `of_json` is the only check point, and the service never receives a "raw" string. `[@validate]` on `string`/`int` is an acceptable escape hatch for one-off rules, but not the main way.
 
-`Kre_shared.Refined` — фабрики opaque-типов, собранные в `shared/` (реализовано в фазе 0):
+`Kre_shared.Refined` — factories of opaque types, built in `shared/` (implemented in phase 0):
 
 ```ocaml
 module type S = sig
   type t
   type repr
-  include Kre_shared.Scalar.S with type t := t   (* of_json/to_json/t_jsonschema + of_string/to_string: работает и в теле, и в path/query *)
-  val of_repr : repr -> (t, Kre_shared.Validation.t) result   (* умный конструктор *)
+  include Kre_shared.Scalar.S with type t := t   (* of_json/to_json/t_jsonschema + of_string/to_string: works both in the body and in path/query *)
+  val of_repr : repr -> (t, Kre_shared.Validation.t) result   (* smart constructor *)
   val to_repr : t -> repr
   val pp : Format.formatter -> t -> unit
 end
 
 module type RULES = sig
   type base
-  val name : string                                         (* title в схеме *)
+  val name : string                                         (* title in the schema *)
   val rules : base Kre_shared.Validation.rule list
   val constraints : (string * Jsonkit.Jsonschema.t) list    (* minLength, enum, format, … *)
 end
@@ -1107,30 +1107,30 @@ module String (C : sig val name : string  val min : int  val max : int end) : S 
 module Int    (C : sig val name : string  val min : int  val max : int end) : S with type repr = int
 module Enum   (C : sig val name : string  val values : string list end)    : S with type repr = string
 module Email  : S with type repr = string
-(* Regex — отложен: нужен regex-движок, работающий и в native, и в melange *)
+(* Regex — deferred: needs a regex engine that works in both native and melange *)
 ```
 
-Связь с `dto`: поле типа `T.t`, где `T : Json.S`, кодируется через `T.of_json`/`T.to_json`, схема — `T.t_jsonschema`. Это ровно то, что вызывает деривер jsonkit для поля типа `T.t`, поэтому opaque-модули из `Refined` встраиваются в jsonkit-записи без участия ppx. Ошибки полей должны собираться аппликативно (не fail-fast) в один `Validation.t` с путями — для этого jsonkit-декодеру нужен режим с накоплением ошибок и путями (открытый вопрос; до него — первая ошибка, путь пустой).
+Relation to `dto`: a field of type `T.t`, where `T : Json.S`, is encoded via `T.of_json`/`T.to_json`, the schema is `T.t_jsonschema`. This is exactly what the jsonkit deriver calls for a field of type `T.t`, so opaque modules from `Refined` plug into jsonkit records without ppx involvement. Field errors must be collected applicatively (not fail-fast) into one `Validation.t` with paths — for this the jsonkit decoder needs a mode that accumulates errors with paths (open question; until then — the first error, empty path).
 
-Кросс-полевые инварианты (пароль = подтверждение, `from < to`) — либо opaque-запись со своим `of_repr`, либо `[@@dto.check f]` на типе, `f : t -> (t, Validation.t) result`, который `of_json` вызывает последним.
+Cross-field invariants (password = confirmation, `from < to`) — either an opaque record with its own `of_repr`, or `[@@dto.check f]` on the type, `f : t -> (t, Validation.t) result`, which `of_json` calls last.
 
-### Идентификаторы: `Kre_shared.Id` (фаза 2)
+### Identifiers: `Kre_shared.Id` (phase 2)
 
 ```ocaml
-module Id = Kre_shared.Id.Make ()          (* в cat.ml: свой тип на каждую сущность *)
+module Id = Kre_shared.Id.Make ()          (* in cat.ml: a distinct type for each entity *)
 type t = { id : Id.t; [@primary] [@auto] [@column int] … } [@@deriving table ~name:"cats", dto]
 let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) : … [@@get ":id"]
 ```
 
-`Id.Make ()` — генеративный функтор: id кота не подставить вместо id владельца. `Id.S` — это `Refined.S` над `int` (`of_repr` пропускает только `≥ 1`) плюс `first`, `succ`, `equal`: значение дают разбор (JSON, путь, query, строка из базы) или `succ`, сервису в памяти не нужна проверка, которая может упасть. Так как `Id.S` — `Scalar.S` и `Json.S`, id работает в пути (`/cats/0` → 404 до хендлера), в теле, в `spec`, в `table` и в клиентском роутере. Шаблон `kre generate controller` создаёт ресурс с `Id`.
+`Id.Make ()` is a generative functor: a cat id cannot be passed in place of an owner id. `Id.S` is `Refined.S` over `int` (`of_repr` accepts only `≥ 1`) plus `first`, `succ`, `equal`: a value comes from parsing (JSON, path, query, a database row) or from `succ`, so an in-memory service needs no check that can fail. Since `Id.S` is `Scalar.S` and `Json.S`, an id works in the path (`/cats/0` → 404 before the handler), in the body, in `spec`, in `table` and in the client router. The `kre generate controller` template creates a resource with `Id`.
 
-### typegist — решение фазы 0: (б), не используется
+### typegist — phase 0 decision: (b), not used
 
-[typegist](https://github.com/dbuenzli/typegist) представляет OCaml-типы как значения, поверх которых пишутся generic-кодеки. Решение — (б): `dto` не генерирует gist, а опирается на деривера jsonkit. Причины: в opam есть только `typegist.0.0.0`; принято, что весь JSON — jsonkit, а в jsonkit уже есть `[@@deriving json]` и `[@@deriving jsonschema]` на обоих бэкендах, так что `dto` сводится к тонкой надстройке (правила, `[@exclude]`, `[@expose]`), и gist дублировал бы jsonkit. Вернуться к вопросу, если понадобятся generic-производные, которых нет в jsonkit (QuickCheck-генераторы, диффы).
+[typegist](https://github.com/dbuenzli/typegist) represents OCaml types as values, on top of which generic codecs are written. The decision is (b): `dto` does not generate a gist and relies on the jsonkit derivers. Reasons: opam has only `typegist.0.0.0`; it was decided that all JSON is jsonkit, and jsonkit already has `[@@deriving json]` and `[@@deriving jsonschema]` on both backends, so `dto` reduces to a thin layer on top (rules, `[@exclude]`, `[@expose]`), and a gist would duplicate jsonkit. Revisit if generic derivations are needed that jsonkit does not have (QuickCheck generators, diffs).
 
-### Как устроен dto (фаза 1)
+### How dto works (phase 1)
 
-`dto` — преобразование препроцессинга (`Driver.register_transformation ~preprocess_impl ~preprocess_intf`), оно отрабатывает до дериверов. `[@@deriving dto]` переписывается в `[@@deriving json, jsonschema]` из jsonkit; `~strict` добавляет `[@@disallow_extra_fields]`. Атрибуты полей не переименовываются: ppxlib сопоставляет атрибут по суффиксу имени, поэтому `[@key]` и `[@default]` видят оба деривера jsonkit (`json.key` и `jsonschema.key`). Если у полей есть `[@validate]`, после типа добавляется обёртка, которая перекрывает `of_json` из jsonkit:
+`dto` is a preprocessing transformation (`Driver.register_transformation ~preprocess_impl ~preprocess_intf`); it runs before the derivers. `[@@deriving dto]` is rewritten to jsonkit's `[@@deriving json, jsonschema]`; `~strict` adds `[@@disallow_extra_fields]`. Field attributes are not renamed: ppxlib matches an attribute by name suffix, so `[@key]` and `[@default]` are seen by both jsonkit derivers (`json.key` and `jsonschema.key`). If fields have `[@validate]`, a wrapper is added after the type that overrides jsonkit's `of_json`:
 
 ```ocaml
 let of_json __kre_json =
@@ -1142,45 +1142,45 @@ let of_json __kre_json =
      { __kre_value with name = __kre_name; tag = __kre_tag })
 ```
 
-`and+` накапливает ошибки всех полей, путь — JSON-ключ поля. Для полей примитивных типов в области видимости должен быть `open Jsonkit.Primitives` (требование jsonkit). Пользовательский `shared/` подключает `(pps jsonkit.ppx kre-ppx)` в native и `(pps melange.ppx jsonkit-melange.ppx kre-ppx)` в melange. Эталоны — `test/ppx/dto.t`.
+`and+` accumulates the errors of all fields; the path is the field's JSON key. For fields of primitive types, `open Jsonkit.Primitives` must be in scope (a jsonkit requirement). The user's `shared/` uses `(pps jsonkit.ppx kre-ppx)` in native and `(pps melange.ppx jsonkit-melange.ppx kre-ppx)` in melange. Reference outputs: `test/ppx/dto.t`.
 
-### Атрибуты полей
+### Field attributes
 
-| Атрибут | Эффект | Nest-аналог |
+| Attribute | Effect | Nest equivalent |
 | --- | --- | --- |
-| `[@key "camelName"]` | имя в JSON (jsonkit `json.key`/`jsonschema.key`) | `@Expose({ name })` |
-| `[@default e]` | поле необязательно в JSON, дефолт при отсутствии (jsonkit) | `@IsOptional` + default |
-| `[@validate r1; r2]` | правила `'a Kre_shared.Validation.rule`, применяются по порядку, ошибки всех правил собираются | class-validator |
+| `[@key "camelName"]` | name in JSON (jsonkit `json.key`/`jsonschema.key`) | `@Expose({ name })` |
+| `[@default e]` | the field is optional in JSON, default when missing (jsonkit) | `@IsOptional` + default |
+| `[@validate r1; r2]` | rules `'a Kre_shared.Validation.rule`, applied in order, errors of all rules are collected | class-validator |
 | `[@validate.custom f]` | `f : t_field -> (t_field, string) result` → `Validation.rule ~name:"custom" f` | `@Validate(Custom)` |
-| `[@exclude]` | не сериализуется в `to_json`; `of_json` требует `[@default]` — фаза 2 | `@Exclude` |
-| `[@expose ~groups:["admin"]]` | сериализуется только при `to_json ~groups` — фаза 2 | `@Expose({ groups })` |
-| `[@nested]` | не нужен: вложенный DTO проверяется своим `T.of_json` | `@ValidateNested` |
+| `[@exclude]` | not serialized in `to_json`; `of_json` requires `[@default]` — phase 2 | `@Exclude` |
+| `[@expose ~groups:["admin"]]` | serialized only with `to_json ~groups` — phase 2 | `@Expose({ groups })` |
+| `[@nested]` | not needed: a nested DTO is checked by its own `T.of_json` | `@ValidateNested` |
 
-Правила валидации — обычные значения `Kre_shared.Validation.*`; ppx лишь вызывает их и собирает `{ path; rule; message }`. Новые правила добавляются в рантайм, а не в ppx.
+Validation rules are plain values `Kre_shared.Validation.*`; ppx only calls them and collects `{ path; rule; message }`. New rules are added to the runtime, not to ppx.
 
-### Опции деривера
+### Deriver options
 
-| Опция | Эффект | Nest-аналог |
+| Option | Effect | Nest equivalent |
 | --- | --- | --- |
-| `[@@deriving dto]` | всё выше | — |
-| `[@@deriving dto ~partial_of:T]` | тип = все поля `T.t` как `option`; `validate` применяет правила `T` к присутствующим полям | `PartialType` |
-| `[@@deriving dto ~pick_of:(T, ["name"; "age"])]` / `~omit_of` | подмножество полей `T` | `PickType` / `OmitType` |
-| `[@@deriving dto ~strict]` | неизвестные поля в JSON → 422; в схеме `additionalProperties: false` | `forbidNonWhitelisted` |
+| `[@@deriving dto]` | everything above | — |
+| `[@@deriving dto ~partial_of:T]` | type = all fields of `T.t` as `option`; `validate` applies the rules of `T` to the present fields | `PartialType` |
+| `[@@deriving dto ~pick_of:(T, ["name"; "age"])]` / `~omit_of` | a subset of the fields of `T` | `PickType` / `OmitType` |
+| `[@@deriving dto ~strict]` | unknown fields in JSON → 422; in the schema `additionalProperties: false` | `forbidNonWhitelisted` |
 
-`~partial_of`/`~pick_of` требуют, чтобы `T` был объявлен в том же файле или `T.t` был виден ppx как запись — реализуется через `[@@deriving dto]` на `T`, который дополнительно эмитит `__dto_fields_T` (список полей со схемами) для переиспользования. Это фаза 2; в фазе 1 — только базовый `dto` и `~strict`.
+`~partial_of`/`~pick_of` require `T` to be declared in the same file or `T.t` to be visible to ppx as a record — implemented via `[@@deriving dto]` on `T`, which additionally emits `__dto_fields_T` (the list of fields with schemas) for reuse. This is phase 2; phase 1 has only the base `dto` and `~strict`.
 
-### Варианты
+### Variants
 
-| Форма | JSON |
+| Form | JSON |
 | --- | --- |
-| `A \| B` (без аргументов) | `"a"`: модуль становится `Scalar.S` (`of_string`/`to_string`, JSON Schema `enum`) — годится для пути, query и `[@column string]`; `[@key "x"]` на конструкторе меняет строку |
-| `A of int` | `{"tag":"A","value":1}`; `[@@dto ~tag:"type" ~content:"data"]` меняет ключи |
+| `A \| B` (no arguments) | `"a"`: the module becomes `Scalar.S` (`of_string`/`to_string`, JSON Schema `enum`) — usable for path, query and `[@column string]`; `[@key "x"]` on a constructor changes the string |
+| `A of int` | `{"tag":"A","value":1}`; `[@@dto ~tag:"type" ~content:"data"]` changes the keys |
 | `A of { x : int }` | `{"tag":"A","x":1}` |
-| `t option` | `null` / значение |
+| `t option` | `null` / value |
 
-### Поведение при ошибке тела запроса
+### Behavior on a request body error
 
-Тело не парсится как JSON → `Error.bad_request` (400). JSON есть, но `Json.parse` вернул `Error errors` (не тот тип, отсутствует поле, нарушено правило) → `Error.unprocessable errors` (422), Problem Details:
+The body does not parse as JSON → `Error.bad_request` (400). There is JSON, but `Json.parse` returned `Error errors` (wrong type, missing field, rule violated) → `Error.unprocessable errors` (422), Problem Details:
 
 ```json
 { "type": "urn:kre:error:validation", "title": "Unprocessable Entity", "status": 422,
@@ -1188,21 +1188,21 @@ let of_json __kre_json =
   "errors": [ { "path": ["age"], "rule": "range", "message": "must be between 0 and 40" } ] }
 ```
 
-Клиентская часть (`Kre_client.Error`) парсит этот формат; `errors` доступны компоненту формы типизированно.
+The client side (`Kre_client.Error`) parses this format; `errors` are available to the form component in typed form.
 
-### Связь с jsonkit (решено в фазе 0)
+### Relation to jsonkit (decided in phase 0)
 
-`dto` **не дублирует** jsonkit: весь JSON в Kre — jsonkit. В jsonkit 1.1.0 (opam) уже есть `[@@deriving json]` (`of_json`/`to_json`, бросают `Jsonkit.Of_json_error`) и `[@@deriving jsonschema]` (`t_jsonschema`) — и в native (`Jsonkit.t = Yojson.Basic.t`), и в melange (`Jsonkit.t = Js.Json.t`); `Jsonkit.Jsonschema.t` на обоих — один и тот же полиморфный вариант. Поэтому:
+`dto` **does not duplicate** jsonkit: all JSON in Kre is jsonkit. jsonkit 1.1.0 (opam) already has `[@@deriving json]` (`of_json`/`to_json`, raising `Jsonkit.Of_json_error`) and `[@@deriving jsonschema]` (`t_jsonschema`) — both in native (`Jsonkit.t = Yojson.Basic.t`) and in melange (`Jsonkit.t = Js.Json.t`); `Jsonkit.Jsonschema.t` is the same polymorphic variant on both. Therefore:
 
-- `Kre_shared.Json.S` повторяет форму jsonkit-дериверов (`of_json` бросает, имя схемы — `t_jsonschema`), и любой тип с `[@@deriving json, jsonschema]` уже является `Json.S`.
-- Граница «исключение → result» — одна функция `Json.parse`, она же превращает `Jsonkit.Of_json_error` в `Validation.t` с правилом `type`.
-- Собственный вклад `dto` — правила `[@validate]`, `[@exclude]`/`[@expose]`, `~strict`; накопление ошибок с путями — доработка jsonkit, не Kre.
-- jsonkit поставляется двумя библиотеками (`jsonkit`, `jsonkit-melange`), поэтому код, который собирается в обоих режимах, — это две dune-библиотеки с одинаковым `name` из одних исходников (`copy_files#`). Так устроен `kre.shared` / `kre-client.shared`; так же `kre new` будет генерировать `shared/` пользовательского проекта.
-- Кодирование вариантов — как у jsonkit (`["A", 1]`), таблица «Варианты» выше будет приведена к нему при реализации `dto` в фазе 1.
+- `Kre_shared.Json.S` follows the shape of the jsonkit derivers (`of_json` raises, the schema name is `t_jsonschema`), and any type with `[@@deriving json, jsonschema]` is already a `Json.S`.
+- The "exception → result" boundary is one function, `Json.parse`; it also turns `Jsonkit.Of_json_error` into a `Validation.t` with the rule `type`.
+- The contribution of `dto` itself is `[@validate]` rules, `[@exclude]`/`[@expose]`, `~strict`; accumulating errors with paths is an improvement to jsonkit, not to Kre.
+- jsonkit ships as two libraries (`jsonkit`, `jsonkit-melange`), so code that builds in both modes is two dune libraries with the same `name` from the same sources (`copy_files#`). This is how `kre.shared` / `kre-client.shared` is set up; `kre new` will generate the user project's `shared/` the same way.
+- Variant encoding follows jsonkit (`["A", 1]`); the "Variants" table above will be aligned with it when `dto` is implemented in phase 1.
 
 ## ppx: \[@@deriving config\]
 
-Типизированный конфиг из переменных окружения, с проверкой при старте. Глава Configuration в Nest (`ConfigModule.forRoot` + Joi) сводится к одной записи.
+A typed config from environment variables, checked at startup. The Nest Configuration chapter (`ConfigModule.forRoot` + Joi) reduces to a single record.
 
 ```ocaml
 (* server/config.ml *)
@@ -1216,21 +1216,21 @@ type t = {
 [@@deriving config]
 ```
 
-Генерирует:
+Generates:
 
 ```ocaml
 val load     : ?env:(string -> string option) -> unit -> (t, string list) result
-  (* все ошибки сразу: ["DATABASE_URL: missing"; "PORT: not an int: 'abc'"] *)
-val load_exn : ?env:(string -> string option) -> unit -> t   (* печатает список и exit 1 *)
-val pp       : Format.formatter -> t -> unit                 (* [@secret] печатается как *** *)
+  (* all errors at once: ["DATABASE_URL: missing"; "PORT: not an int: 'abc'"] *)
+val load_exn : ?env:(string -> string option) -> unit -> t   (* prints the list and exits 1 *)
+val pp       : Format.formatter -> t -> unit                 (* [@secret] is printed as *** *)
 ```
 
-Поддерживаемые типы полей: `int`, `int64`, `float`, `bool` (`true/1/yes`, `false/0/no` — `Kre.Config.Flag`), `string`, `T.t` с `T : Kre_shared.Scalar.S` (например, `Refined.Email.t`), `τ option` (отсутствие = `None`, `[@default]` запрещён), `τ list` с `[@sep ","]` (один символ). Имя переменной без `[@env]` — имя поля в верхнем регистре. Вложенные записи с `[@prefix "DB_"]` — фаза 2.
+Supported field types: `int`, `int64`, `float`, `bool` (`true/1/yes`, `false/0/no` — `Kre.Config.Flag`), `string`, `T.t` with `T : Kre_shared.Scalar.S` (for example, `Refined.Email.t`), `τ option` (missing = `None`, `[@default]` is forbidden), `τ list` with `[@sep ","]` (one character). The variable name without `[@env]` is the field name in upper case. Nested records with `[@prefix "DB_"]` — phase 2.
 
-Реализация (фаза 1) — интерпретатор: на каждое поле генерируется описание `'a Kre.Config.field`, `load` читает все поля через `Kre.Config.read` и `and+` (ошибки накапливаются), `pp` печатает `NAME=value` по строке через `Kre.Config.show`, `[@secret]` — `Kre.Config.secret field`, печатается как `***`. Эталон — `test/ppx/config.t`.
+Implementation (phase 1) is an interpreter: for each field a `'a Kre.Config.field` description is generated, `load` reads all fields via `Kre.Config.read` and `and+` (errors accumulate), `pp` prints `NAME=value` one per line via `Kre.Config.show`, `[@secret]` is `Kre.Config.secret field`, printed as `***`. Reference output: `test/ppx/config.t`.
 
 ```ocaml
-(* Kre.Config — рантайм [@@deriving config] *)
+(* Kre.Config — runtime of [@@deriving config] *)
 type env = string -> string option
 type ('a, 'b) presence = Required : ('a, 'a) presence | Optional : ('a, 'a option) presence | Default : 'a -> ('a, 'a) presence
 type 'a field
@@ -1241,24 +1241,24 @@ val read : env -> 'a field -> ('a, string list) result
 val show : 'a field -> 'a -> string * string
 val pp : Format.formatter -> (string * string) list -> unit
 val exit_on_error : ('a, string list) result -> 'a
-val dotenv : ?env:env -> string list -> env          (* слои .env под реальным окружением *)
-val profile : ?dir:string -> ?env:env -> unit -> env  (* config/default.env, затем config/$KRE_ENV.env *)
+val dotenv : ?env:env -> string list -> env          (* .env layers under the real environment *)
+val profile : ?dir:string -> ?env:env -> unit -> env  (* config/default.env, then config/$KRE_ENV.env *)
 module Syntax : sig val ( let+ ) : … val ( and+ ) : … end
 module Flag : Kre_shared.Scalar.S with type t = bool
 ```
 
-`.env`-файлы не меняют окружение процесса (`putenv` не используется): `dotenv`/`profile` возвращают функцию поиска, которая передаётся в `load ~env`. Порядок: реальное окружение → последний файл → … → первый файл; отсутствующий файл пропускается; строки `KEY=VALUE`, `export KEY=VALUE`, кавычки и `#`-комментарии.
+`.env` files do not change the process environment (`putenv` is not used): `dotenv`/`profile` return a lookup function that is passed to `load ~env`. Order: real environment → last file → … → first file; a missing file is skipped; lines `KEY=VALUE`, `export KEY=VALUE`, quotes and `#` comments.
 
-## Данные: Db, sqlgg, \[@@deriving table\], миграции
+## Data: Db, sqlgg, \[@@deriving table\], migrations
 
-ORM не пишем. Одна глава Data вместо пяти у Nest: запросы — sqlgg, схема — `table`, миграции — `kre migrate`.
+No ORM. One Data chapter instead of Nest's five: queries are sqlgg, the schema is `table`, migrations are `kre migrate`.
 
 ### Kre.Db
 
-Реализовано в фазе 1. sqlgg уже содержит traits для MariaDB (`sqlgg.mariadb`: `Sqlgg_mariadb.Make (IO) (Mariadb.Nonblocking.S) (Types)`), поэтому `Kre.Db` не реализует traits, а даёт пул и транзакции; запросы — модули sqlgg, применённые к traits драйвера.
+Implemented in phase 1. sqlgg already contains traits for MariaDB (`sqlgg.mariadb`: `Sqlgg_mariadb.Make (IO) (Mariadb.Nonblocking.S) (Types)`), so `Kre.Db` does not implement traits; it provides a pool and transactions. Queries are sqlgg modules applied to the driver's traits.
 
 ```ocaml
-(* Kre.Db — в ядре, без C-зависимостей *)
+(* Kre.Db — in the core, no C dependencies *)
 module type DRIVER = sig
   type conn
   val connect : string -> conn Lwt.t
@@ -1266,17 +1266,17 @@ module type DRIVER = sig
   val start : conn -> unit Lwt.t
   val commit : conn -> unit Lwt.t
   val rollback : conn -> unit Lwt.t
-  val query : conn -> string -> string option list -> string option list list Lwt.t   (* фаза 3: ? → $n у Postgres *)
+  val query : conn -> string -> string option list -> string option list list Lwt.t   (* phase 3: ? → $n for Postgres *)
 end
 module type S = sig
   type conn
-  val query : string -> string option list -> string option list list Lwt.t   (* через with_conn: внутри транзакции — в ней *)
-  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool; внутри транзакции — её соединение *)
-  val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/исключение → rollback; внутри другой — присоединяется *)
+  val query : string -> string option list -> string option list list Lwt.t   (* via with_conn: inside a transaction, runs in it *)
+  val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool; inside a transaction, its connection *)
+  val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/exception → rollback; inside another one, joins it *)
 end
 module Make (Driver : DRIVER) (Config : sig val url : string val size : int end) : S with type conn = Driver.conn
 
-(* Kre_db_mariadb — отдельный пакет kre-db-mariadb (C-биндинги) *)
+(* Kre_db_mariadb — separate package kre-db-mariadb (C bindings) *)
 module Client : Mariadb.Nonblocking.S with type 'a future = 'a Lwt.t
 module Sql : Sqlgg_traits.M_io with type 'a connection = Client.t and type 'a IO.future = 'a Lwt.t
                                 and type Types.Int.t = int64 and type Types.Text.t = string
@@ -1284,24 +1284,24 @@ module Sql : Sqlgg_traits.M_io with type 'a connection = Client.t and type 'a IO
 module Driver : Kre.Db.DRIVER with type conn = Client.t      (* mariadb://user:pass@host:port/db?socket=… *)
 ```
 
-Сервис с базой — функтор: `module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) … end`. `Kre_db_pgx` — фаза 2.
+A service with a database is a functor: `module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) … end`. `Kre_db_pgx` is phase 2.
 
-Транзакция как в Spring (фаза 2): `transaction` кладёт своё соединение в ключ Lwt (`Lwt.with_value`, аналог ThreadLocal у `TransactionSynchronizationManager`). Всё, что выполняется внутри неё, — `with_conn` любого сервиса и вложенный `transaction` — берёт это соединение, а не новое из пула. Поэтому сервисам не нужен `~conn` в сигнатуре, чтобы участвовать в транзакции контроллера. Вложенная транзакция — часть внешней (`REQUIRED`): commit или rollback решает внешняя, live-события уходят один раз после её commit. Цена: внутри транзакции запросы идут по одному соединению по очереди, и `Lwt.async`, запущенный внутри, унаследует соединение — фоновую работу запускают после транзакции.
+Transactions as in Spring (phase 2): `transaction` puts its connection into an Lwt key (`Lwt.with_value`, the analogue of the ThreadLocal in `TransactionSynchronizationManager`). Everything that runs inside it, `with_conn` of any service and a nested `transaction`, takes this connection instead of a new one from the pool. So services do not need `~conn` in their signature to take part in a controller's transaction. A nested transaction is part of the outer one (`REQUIRED`): the outer one decides commit or rollback, and live events go out once, after its commit. The cost: inside a transaction, queries run one at a time over one connection, and an `Lwt.async` started inside inherits the connection, so background work is started after the transaction.
 
-Postgres (фаза 2): драйвер — `Kre_db_postgresql` на libpq (пакет `postgresql`), не pgx. Причина: sqlgg-traits требуют `execute_response.affected_rows`, а pgx число изменённых строк читает, но наружу не отдаёт; libpq отдаёт (`cmd_tuples`). Запросы libpq идут через `Lwt_preemptive.detach`: сокет libpq — `int`, а превратить его в `Unix.file_descr` без `Obj.magic` нельзя. Ограничения sqlgg для `-dialect postgresql`: нет `RETURNING`, `BIGSERIAL`, `GENERATED … AS IDENTITY`. Поэтому ключ `[@primary] [@auto]` — `SERIAL`, а `insert_id` драйвер заполняет через `SELECT lastval()` на том же соединении, и сервисы пишутся одинаково для обеих БД. `Kre.Table.schema` получает диалект: у Postgres `DOUBLE PRECISION` и отдельный `CREATE INDEX`; CRUD-запросы общие.
+Postgres (phase 2): the driver is `Kre_db_postgresql` on libpq (the `postgresql` package), not pgx. Reason: sqlgg traits require `execute_response.affected_rows`, and pgx reads the number of changed rows but does not expose it; libpq does (`cmd_tuples`). libpq queries go through `Lwt_preemptive.detach`: the libpq socket is an `int`, and it cannot be turned into a `Unix.file_descr` without `Obj.magic`. sqlgg limitations for `-dialect postgresql`: no `RETURNING`, `BIGSERIAL`, `GENERATED … AS IDENTITY`. So a `[@primary] [@auto]` key is `SERIAL`, and the driver fills `insert_id` with `SELECT lastval()` on the same connection, so services are written the same way for both databases. `Kre.Table.schema` takes a dialect: Postgres has `DOUBLE PRECISION` and a separate `CREATE INDEX`; CRUD queries are shared.
 
 ### sqlgg
 
-Связка `table` + sqlgg — флагманская возможность Kre, которой нет ни у Nest, ни у Rails: **схема — это OCaml-тип, и каждый SQL-запрос проверяется против неё компилятором.** Цепочка:
+The `table` + sqlgg pair is Kre's flagship feature, which neither Nest nor Rails has: **the schema is an OCaml type, and the compiler checks every SQL query against it.** The chain:
 
-1. `[@@deriving table]` на записи генерирует `schema : Kre.Table.t` и dune-правило пишет из всех таких типов `schema.sql` (DDL под выбранный диалект).
-2. sqlgg получает `schema.sql` + пользовательские запросы (`queries/*.sql` или inline через `ppx_sqlgg`) и генерирует типизированные функции; nullability выводится lattice-анализом из форка и совпадает с `option` в записях.
-3. Результаты запросов отображаются в записи через сгенерированный `table`-ом `of_row` (по именам колонок), поэтому `SELECT id, name FROM users` → `User.t`-совместимый тип без ручного маппинга.
-4. `kre migrate diff` сравнивает тот же `schema` со снапшотом и готовит черновик миграции.
+1. `[@@deriving table]` on a record generates `schema : Kre.Table.t`, and a dune rule writes `schema.sql` (DDL for the chosen dialect) from all such types.
+2. sqlgg takes `schema.sql` + user queries (`queries/*.sql` or inline via `ppx_sqlgg`) and generates typed functions; nullability is inferred by the fork's lattice analysis and matches `option` in the records.
+3. Query results are mapped to records through the `of_row` that `table` generates (by column name), so `SELECT id, name FROM users` → a `User.t`-compatible type with no manual mapping.
+4. `kre migrate diff` compares the same `schema` with a snapshot and prepares a draft migration.
 
-Эффект: переименовал поле `email` в записи — не компилируются DTO, клиент, loader на фронте, **и все SQL-запросы, где оно упоминается**, а `kre migrate diff` предлагает `ALTER TABLE`. Ни один слой не узнаёт о расхождении в рантайме.
+Effect: rename the `email` field in a record, and the DTOs, the client, the frontend loader **and every SQL query that mentions it** stop compiling, while `kre migrate diff` proposes an `ALTER TABLE`. No layer learns about the mismatch at runtime.
 
-Пример запроса (sqlgg, файл `queries/users.sql`):
+Example query (sqlgg, file `queries/users.sql`):
 
 ```sql
 -- @find_adults_by_breed
@@ -1310,17 +1310,17 @@ FROM users u JOIN cats c ON c.owner_id = u.id
 WHERE c.breed = @breed AND u.age >= @min_age
 ```
 
-сгенерированная сигнатура (под `Kre.Db` как sqlgg-traits):
+generated signature (with `Kre.Db` as the sqlgg traits):
 
 ```ocaml
 val find_adults_by_breed : Db.conn -> breed:string -> min_age:int -> User.t list Lwt.t
 ```
 
-Использование в сервисе — обычный вызов; контроллер его не видит. Kre здесь добавляет три вещи: `Kre.Db` реализует sqlgg-traits (IO = Lwt, параметры, строки); `table` эмитит `schema.sql` и `of_row`; шаблон `kre new` содержит dune-правила для всей цепочки. Сам sqlgg не форкается дальше и не оборачивается.
+Use in a service is a plain call; the controller does not see it. Kre adds three things here: `Kre.Db` implements the sqlgg traits (IO = Lwt, parameters, rows); `table` emits `schema.sql` and `of_row`; the `kre new` template contains dune rules for the whole chain. sqlgg itself is not forked further and not wrapped.
 
-### &#91;@@deriving table\]
+### \[@@deriving table\]
 
-Реализовано: DDL и `of_row` (фаза 1); CRUD (фаза 2) — `Kre.Table.crud` печатает SQL, sqlgg генерирует модуль, деривер даёт `for_insert`/`for_update`. Один общий `spread` невозможен: метки не переставляются у параметра без аннотации типа, а у sqlgg `update` ставит ключ последним, `insert` его не принимает.
+Implemented: DDL and `of_row` (phase 1); CRUD (phase 2): `Kre.Table.crud` prints SQL, sqlgg generates a module, the deriver provides `for_insert`/`for_update`. A single shared `spread` is impossible: labels cannot be reordered on a parameter without a type annotation, and in sqlgg `update` puts the key last while `insert` does not take it.
 
 ```ocaml
 type t = {
@@ -1331,46 +1331,46 @@ type t = {
 }
 [@@deriving table ~name:"cats", dto]
 (* → table : Kre.Table.t
-     of_row : id:int64 -> name:string -> age:int64 -> breed:string -> t   (форма колбэка sqlgg) *)
+     of_row : id:int64 -> name:string -> age:int64 -> breed:string -> t   (shape of the sqlgg callback) *)
 ```
 
-- Типы колонок: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` или `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. Поле абстрактного типа `T.t` (`Refined`) требует `[@column int|string|bool|float]`: ppx не видит представление `T.t`, а тип аргумента `of_row` обязан совпасть с тем, что даёт sqlgg; значение проходит `T.of_string` (`Kre.Table.decode`), то есть правила `Refined` проверяются и на чтении из базы. Время — `Kre_shared.Time.t` (фаза 3, без `[@column]`): в базе `DOUBLE` секунд, на проводе RFC 3339; не `Ptime` и не `TIMESTAMP`, потому что тип нужен и в Melange, а `TIMESTAMP` sqlgg типизирует по-разному в MySQL и Postgres.
-- Атрибуты: `[@primary]`, `[@auto]` (только с `[@primary]`), `[@unique]`, `[@index]` — одна роль на поле; `[@size n]`; `[@references M]` → `FOREIGN KEY … REFERENCES <M.table> (id)`; `[@sql.default "SQL"]` — не `[@default]`, потому что `[@default]` уже значит дефолт jsonkit-деривера (OCaml-значение, а не SQL).
-- `[@created_at]`, `[@updated_at]` (поле `Kre_shared.Time.t`) и `[@version]` (`int`) — фаза 3, как timestamps и `lock_version` в Rails, auditing и `@Version` в JPA. `for_insert` ставит обе метки в `Kre.Table.now ()` и версию 0; `for_update` обновляет `updated_at`, не трогает `created_at` и передаёт прочитанную версию; `crud` печатает `UPDATE … SET …, version = version + 1 WHERE id = @id AND version = @version`. 0 изменённых строк — запись изменили после чтения: сервис отвечает 409 (`examples/shelter/server/cats_service.ml`, `rename`). Пока примеры не выпущены, `0001_init.sql` перегенерируется; после выпуска миграции только добавляются (`kre migrate diff` — фаза 3).
-- `Kre.Table.schema [ Cat.table; … ]` печатает DDL (MariaDB/MySQL). Реестра нет: `schema.sql` собирает маленький бинарь со списком таблиц, dune-правило передаёт его sqlgg (`examples/cats/db/dune`): `sqlgg -dialect mysql -gen caml_io -name Make schema.sql queries/cats.sql`.
-- Под Melange (`(pps … kre-ppx -- -melange)`) `table` ничего не генерирует, `dto` на том же типе работает.
-- Проверено на живой MariaDB 11.8: `examples/cats/db` (вставка через контроллер, чтение `Sql.List.all conn ~limit Cat.of_row` и `Sql.Single.by_id`, откат транзакции); алиас `dune build @examples/cats/db/test/db` с `KRE_TEST_DB_URL`.
+- Column types: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` or `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. A field of an abstract type `T.t` (`Refined`) requires `[@column int|string|bool|float]`: the ppx does not see the representation of `T.t`, and the argument type of `of_row` must match what sqlgg provides; the value goes through `T.of_string` (`Kre.Table.decode`), so `Refined` rules are also checked when reading from the database. Time is `Kre_shared.Time.t` (phase 3, no `[@column]`): `DOUBLE` seconds in the database, RFC 3339 on the wire; not `Ptime` and not `TIMESTAMP`, because the type is also needed in Melange, and sqlgg types `TIMESTAMP` differently in MySQL and Postgres.
+- Attributes: `[@primary]`, `[@auto]` (only with `[@primary]`), `[@unique]`, `[@index]`, one role per field; `[@size n]`; `[@references M]` → `FOREIGN KEY … REFERENCES <M.table> (id)`; `[@sql.default "SQL"]`, not `[@default]`, because `[@default]` already means the jsonkit deriver's default (an OCaml value, not SQL).
+- `[@created_at]`, `[@updated_at]` (a `Kre_shared.Time.t` field) and `[@version]` (`int`) are phase 3, like timestamps and `lock_version` in Rails, auditing and `@Version` in JPA. `for_insert` sets both timestamps to `Kre.Table.now ()` and the version to 0; `for_update` updates `updated_at`, leaves `created_at` alone and passes the version that was read; `crud` prints `UPDATE … SET …, version = version + 1 WHERE id = @id AND version = @version`. 0 changed rows means the record was changed after it was read: the service responds 409 (`examples/shelter/server/cats_service.ml`, `rename`). Until the examples are released, `0001_init.sql` is regenerated; after release, migrations are only added (`kre migrate diff` is phase 3).
+- `Kre.Table.schema [ Cat.table; … ]` prints DDL (MariaDB/MySQL). There is no registry: a small binary with the list of tables builds `schema.sql`, and a dune rule passes it to sqlgg (`examples/cats/db/dune`): `sqlgg -dialect mysql -gen caml_io -name Make schema.sql queries/cats.sql`.
+- Under Melange (`(pps … kre-ppx -- -melange)`) `table` generates nothing; `dto` on the same type works.
+- Tested on a live MariaDB 11.8: `examples/cats/db` (insert through the controller, read with `Sql.List.all conn ~limit Cat.of_row` and `Sql.Single.by_id`, transaction rollback); alias `dune build @examples/cats/db/test/db` with `KRE_TEST_DB_URL`.
 
-### Миграции
+### Migrations
 
-Фаза 1 (реализовано): `migrations/NNNN_name.sql` с секциями `-- migrate:up` и `-- migrate:down`; выражение заканчивается `;` в конце строки, строки-комментарии `--` пропускаются. Применённые версии — в таблице `kre_migrations (version, applied_at)`, она создаётся при первом обращении.
+Phase 1 (implemented): `migrations/NNNN_name.sql` with `-- migrate:up` and `-- migrate:down` sections; a statement ends with `;` at the end of a line, and `--` comment lines are skipped. Applied versions are in the `kre_migrations (version, applied_at)` table, which is created on first access.
 
 ```ocaml
-(* Kre.Migration — поверх того же Kre.Db.DRIVER (в нём есть execute и strings) *)
+(* Kre.Migration — on top of the same Kre.Db.DRIVER (it has execute and strings) *)
 type t = private { version : string; up : string list; down : string list }
 type state = Applied | Pending
 val parse : version:string -> string -> (t, string) result
-val load : string -> (t list, string) result             (* каталог, по имени файла *)
-val create : dir:string -> string -> string              (* следующий NNNN_name.sql *)
+val load : string -> (t list, string) result             (* directory, by file name *)
+val create : dir:string -> string -> string              (* next NNNN_name.sql *)
 val status : (module D : Db.DRIVER) -> D.conn -> t list -> (t * state) list Lwt.t
-val up : (module D : Db.DRIVER) -> D.conn -> t list -> t list Lwt.t        (* все ожидающие, по порядку *)
-val down : (module D : Db.DRIVER) -> D.conn -> t list -> t option Lwt.t    (* последнюю применённую *)
+val up : (module D : Db.DRIVER) -> D.conn -> t list -> t list Lwt.t        (* all pending, in order *)
+val down : (module D : Db.DRIVER) -> D.conn -> t list -> t option Lwt.t    (* the last applied one *)
 ```
 
-В приложении миграции встраиваются в бинарь: `Kre.Migration.of_files [%embed_dir "migrations"]` — ppx `[%embed_dir]` раскрывается в список `(файл, содержимое)` при сборке (dune: `(preprocessor_deps (glob_files migrations/*.sql))`), поэтому сервер не зависит от рабочего каталога. CLI: `kre migrate up|down|status --url URL --dir migrations` (`--url` или `DATABASE_URL`), `kre migrate new NAME`. MariaDB коммитит DDL неявно, поэтому миграция из нескольких выражений не атомарна: при сбое посередине база остаётся в промежуточном состоянии, версия не записывается. Проверено на MariaDB (`examples/cats/db/test`, алиас `@db`): пустая база → `up` → схема на месте → `down`, плюс те же шаги через CLI.
+In an application, migrations are embedded in the binary: `Kre.Migration.of_files [%embed_dir "migrations"]`. The `[%embed_dir]` ppx expands to a list of `(file, contents)` at build time (dune: `(preprocessor_deps (glob_files migrations/*.sql))`), so the server does not depend on the working directory. CLI: `kre migrate up|down|status --url URL --dir migrations` (`--url` or `DATABASE_URL`), `kre migrate new NAME`. MariaDB commits DDL implicitly, so a migration with several statements is not atomic: on a failure midway the database stays in an intermediate state and the version is not recorded. Tested on MariaDB (`examples/cats/db/test`, alias `@db`): empty database → `up` → schema in place → `down`, plus the same steps through the CLI.
 
-Фаза 3: `kre migrate diff` сравнивает `schema` всех `table`-типов со снапшотом и генерирует SQL-черновик, который разработчик правит руками; у sqlgg уже есть `-diff`/`-migrate`, сначала проверить их. Автоприменение диффа без просмотра — никогда.
+Phase 3: `kre migrate diff` compares the `schema` of all `table` types with a snapshot and generates a draft SQL that the developer edits by hand; sqlgg already has `-diff`/`-migrate`, check those first. Applying a diff automatically without review: never.
 
-## Генерация клиента и OpenAPI из spec
+## Client and OpenAPI generation from spec
 
-Контракт живёт в контроллере; `spec` — его рантайм-отражение; всё остальное — кодогенерация из `spec`. Нет отдельного «файла контракта», который мог бы разойтись с кодом.
+The contract lives in the controller; `spec` is its runtime reflection; everything else is code generation from `spec`. There is no separate "contract file" that could drift from the code.
 
-### Цепочка
+### Chain
 
-1. ppx эмитит в каждый контроллер `spec : Kre.Spec.t`.
-2. `Kre.App.run` получает список контроллеров, а с ним и все `spec` — отдельный реестр не нужен.
-3. С флагом `--emit-spec FILE` (JSON-массив `Spec.to_json`) или `--emit-openapi FILE` `App.run` пишет файл и не стартует сервер; `kre` читает массив обратно через `Spec.of_json`.
-4. `kre client --spec spec.json --out client/gen/` пишет melange-модули; dune rule в шаблоне проекта запускает шаги 3–4 автоматически:
+1. The ppx emits `spec : Kre.Spec.t` into every controller.
+2. `Kre.App.run` receives the list of controllers, and with it all the `spec`s, so no separate registry is needed.
+3. With the `--emit-spec FILE` flag (a JSON array of `Spec.to_json`) or `--emit-openapi FILE`, `App.run` writes the file and does not start the server; `kre` reads the array back with `Spec.of_json`.
+4. `kre client --spec spec.json --out client/gen/` writes melange modules; a dune rule in the project template runs steps 3–4 automatically:
 
 ```
 (rule (targets spec.json) (deps %{exe:../bin/main.exe})
@@ -1379,9 +1379,9 @@ val down : (module D : Db.DRIVER) -> D.conn -> t list -> t option Lwt.t    (* п
       (action (run kre client --spec spec.json --controller cats --out cats_client.ml)))
 ```
 
-### Генерируемый клиент
+### Generated client
 
-На каждый контроллер — модуль `<prefix>_client` (`kre client --spec spec.json --controller cats --out cats_client.ml`). Эталон для cats:
+One module `<prefix>_client` per controller (`kre client --spec spec.json --controller cats --out cats_client.ml`). Reference output for cats:
 
 ```ocaml
 let find_all ?limit () =
@@ -1401,14 +1401,14 @@ let create ~body =
     (Kre_client.Wire.Json (module Cat))
 ```
 
-Правила: path-параметры → `~name`, query `Required`/`Repeated` → `~name`, `Optional` → `?name`, тело → `~body`; `()` в конце, если параметров нет или есть необязательные. Guard-параметры в клиент не попадают. Типы не печатаются: их выводит компилятор из модулей в `spec` (`value.module_`), поэтому DTO обязаны лежать в `shared/`. Путь собирается из сегментов (`Wire.segment` кодирует), без библиотеки routes: она не собирается под Melange.
+Rules: path parameters → `~name`, query `Required`/`Repeated` → `~name`, `Optional` → `?name`, body → `~body`; `()` at the end if there are no parameters or some are optional. Guard parameters do not go into the client. Types are not printed: the compiler infers them from the modules in `spec` (`value.module_`), so DTOs must live in `shared/`. The path is built from segments (`Wire.segment` encodes), without the routes library: it does not build under Melange.
 
-**Один и тот же сгенерированный файл** компилируется против двух библиотек с одним именем `Kre_client`: `kre-client` (Melange, `fetch`, `Js.Promise.t`) и `kre-client.native` (cohttp, `Lwt.t`). Флаг `--target` не нужен. Native-вариант используется в e2e: `examples/cats/client_native` генерирует клиент dune-правилом из `main.exe --emit-spec` и гоняет его против живого сервера.
+**The same generated file** compiles against two libraries with the same name `Kre_client`: `kre-client` (Melange, `fetch`, `Js.Promise.t`) and `kre-client.native` (cohttp, `Lwt.t`). No `--target` flag is needed. The native variant is used in e2e: `examples/cats/client_native` generates the client with a dune rule from `main.exe --emit-spec` and runs it against a live server.
 
-### Kre\_client.Http и Wire
+### Kre\_client.Http and Wire
 
 ```ocaml
-(* общие для обоих бэкендов *)
+(* shared by both backends *)
 module Wire : sig
   type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
   type response = { status : int; body : string }
@@ -1426,40 +1426,40 @@ module Error : sig
   val of_response : status:int -> string -> t
   val message : t -> string
 end
-(* свой у каждого бэкенда; promise = Js.Promise.t или Lwt.t *)
+(* one per backend; promise = Js.Promise.t or Lwt.t *)
 module Http : sig
-  val base_url : string ref                       (* "" = same origin; ?base у request — фаза 3, [%http_client] *)
-  val headers : (string * string) list ref        (* auth, csrf — упрощённые interceptors *)
+  val base_url : string ref                       (* "" = same origin; ?base on request is phase 3, [%http_client] *)
+  val headers : (string * string) list ref        (* auth, csrf — simplified interceptors *)
   val request : Wire.verb -> path:string list -> ?query:(string * string) list list -> ?body:string ->
     'a Wire.returns -> ('a, Error.t) result promise
-  (* только native, фаза 3: куда идут запросы *)
+  (* native only, phase 3: where requests go *)
   type exchange = { verb : Wire.verb; target : string; headers : (string * string) list; body : string option }
   type transport = Network | Local of (exchange -> Wire.response Lwt.t)
   val transport : transport ref
 end
 
-(* kre-client.testing — фаза 3; Nest Testing + supertest, Spring MockMvc *)
+(* kre-client.testing — phase 3; Nest Testing + supertest, Spring MockMvc *)
 module Kre_testing : sig
   val use : ?middleware:Dream.middleware list -> Kre.Controller.t list -> unit   (* transport := Local (App.handler …) *)
 end
 ```
 
-Тест вызывает те же сгенерированные функции, что и фронтенд (`Cats_client.create ~body`), но без сокета: `Kre_testing.use` подменяет транспорт на обработчик приложения в том же процессе. Ошибка в пути, теле или типе ответа — ошибка компиляции теста, а не 400 в рантайме; пример — `examples/cats/client_native/test_in_process.ml`.
+A test calls the same generated functions as the frontend (`Cats_client.create ~body`), but without a socket: `Kre_testing.use` replaces the transport with the application handler in the same process. A mistake in the path, body or response type is a compile error in the test, not a 400 at runtime; example: `examples/cats/client_native/test_in_process.ml`.
 
 ### OpenAPI
 
-`--emit-openapi` (и `kre openapi --spec`) строит документ 3.1 через `Kre.Openapi.document ~title ~version specs`: `paths` из `spec.routes`, `components.schemas` из `jsonschema` всех встреченных DTO (имя модуля = имя схемы), `parameters` из `Codec.schema`, `responses` с кодом из `status` и envelope ошибки для 4xx. Теги — префиксы контроллеров. Описания операций — атрибуты `[@@summary "…"]` и `[@@description "…"]` на хендлере (как `@ApiOperation`), они попадают в `Spec.route` и OpenAPI; docstrings не используются, потому что комментарии над функциями запрещены правилами кода. Схемы DTO с простым именем модуля (`Cat`) уходят в `components.schemas` и подключаются `$ref`; остальные (`Kre_shared.Scalar.Int`, `Kre_shared.Json.List (Cat)`) встраиваются. Ошибки — `default`-ответ `application/problem+json` со схемой `Problem`. Документ cats проходит `openapi-spec-validator` (шаг CI). Swagger UI — фаза 2.
+`--emit-openapi` (and `kre openapi --spec`) builds a 3.1 document with `Kre.Openapi.document ~title ~version specs`: `paths` from `spec.routes`, `components.schemas` from the `jsonschema` of every DTO encountered (module name = schema name), `parameters` from `Codec.schema`, `responses` with the code from `status` and the error envelope for 4xx. Tags are controller prefixes. Operation descriptions are the `[@@summary "…"]` and `[@@description "…"]` attributes on the handler (like `@ApiOperation`); they go into `Spec.route` and OpenAPI. Docstrings are not used, because the code rules forbid comments above functions. DTO schemas with a simple module name (`Cat`) go into `components.schemas` and are referenced with `$ref`; the rest (`Kre_shared.Scalar.Int`, `Kre_shared.Json.List (Cat)`) are inlined. Errors are a `default` response `application/problem+json` with the `Problem` schema. The cats document passes `openapi-spec-validator` (a CI step). Swagger UI is phase 2.
 
-## Frontend: Kre\_client и typed router
+## Frontend: Kre\_client and typed router
 
-Модель — TanStack Router: маршрут как значение с типами `params`/`search`/`data`, `Link` и `navigate` проверяются компилятором, loader на маршруте, вложенные layouts. React — через reason-react, разметка — `.mlx`.
+The model is TanStack Router: a route is a value with `params`/`search`/`data` types, the compiler checks `Link` and `navigate`, the loader is on the route, layouts nest. React is through reason-react, markup is `.mlx`.
 
 ### Kre\_client.Router
 
-Реализовано в фазе 1 (`src/client/router.ml`):
+Implemented in phase 1 (`src/client/router.ml`):
 
 ```ocaml
-type parent                                         (* layout'ы вокруг маршрутов *)
+type parent                                         (* layouts around routes *)
 type ('p, 's, 'd) route
 type any = Any : ('p, 's, 'd) route -> any
 type t
@@ -1468,7 +1468,7 @@ val root : ?layout:(children:React.element -> React.element) -> unit -> parent
 val nest : parent -> layout:(children:React.element -> React.element) -> parent
 val no_data : 'p -> 's -> unit Js.Promise.t
 val child :
-  ?live:string list ->                              (* фаза 2: перезапуск loader по /__kre/live *)
+  ?live:string list ->                              (* phase 2: rerun the loader on /__kre/live *)
   parent -> path:'p Path.t -> search:'s Search.t ->
   loader:('p -> 's -> 'd Js.Promise.t) ->
   component:(data:'d -> params:'p -> search:'s -> React.element) -> ('p, 's, 'd) route
@@ -1482,57 +1482,57 @@ module View : sig   (* <View router /> *)
 end
 ```
 
-Отличия от первой версии (фаза 1):
-- `?search` и `?loader` «по умолчанию unit» не типизируются в OCaml (необязательный аргумент не может менять тип результата), поэтому они обязательны: `~search:Kre_shared.Search.none`, `~loader:Kre_client.Router.no_data`.
-- Пути маршрутов абсолютные; родитель (`parent`) даёт только layout'ы. Параметры родителя не наследуются — запись `params` описывает весь путь.
-- `link` — функция, а не полиморфный компонент: ошибка в `params` — ошибка типов на вызове (`test/router/link.t`).
-- Матчинг — сверху вниз по списку `make`; неразобранный `search` — как отсутствие маршрута (`not_found`). Loader вызывается в `useEffect` при смене URL; ответ устаревшего URL отбрасывается по ключу. Кэш loader'ов, `preload`, `use_params`/`use_search`/`use_loader_data`, `on_error` — фаза 2.
-- URL читается через `ReasonReactRouter.useUrl`; `?server_url` — для серверного рендера.
+Differences from the first version (phase 1):
+- `?search` and `?loader` "defaulting to unit" cannot be typed in OCaml (an optional argument cannot change the result type), so they are required: `~search:Kre_shared.Search.none`, `~loader:Kre_client.Router.no_data`.
+- Route paths are absolute; the parent (`parent`) provides only layouts. Parent parameters are not inherited: the `params` record describes the whole path.
+- `link` is a function, not a polymorphic component: a mistake in `params` is a type error at the call site (`test/router/link.t`).
+- Matching goes top to bottom through the `make` list; an unparsed `search` counts as no route (`not_found`). The loader is called in `useEffect` when the URL changes; a response for a stale URL is dropped by key. Loader cache, `preload`, `use_params`/`use_search`/`use_loader_data`, `on_error` are phase 2.
+- The URL is read through `ReasonReactRouter.useUrl`; `?server_url` is for server-side rendering.
 
-### Path, Search, Params — ppx в kre-ppx
+### Path, Search, Params — ppx in kre-ppx
 
-Библиотека routes не собирается под Melange, поэтому `Kre_client.Path` — свой: шаблон сегментов + `decode`/`encode` в ассоциативный список. Путь и тип параметров объявляются вместе, чтобы ppx сверил имена:
+The routes library does not build under Melange, so `Kre_client.Path` is our own: a segment template + `decode`/`encode` to an association list. The path and the parameter type are declared together so that the ppx can check the names:
 
 ```ocaml
 type params = { id : int } [@@deriving params ~path:"/cats/:id"]   (* → params_path : params Kre_client.Path.t *)
 type search = { limit : int; [@default 20] breed : string option } [@@deriving search]   (* → search_codec : search Kre_shared.Search.t *)
-let index = Kre_client.Router.child root ~path:[%path "/cats"] ~search:search_codec …   (* [%path] — только без параметров *)
+let index = Kre_client.Router.child root ~path:[%path "/cats"] ~search:search_codec …   (* [%path] — only without parameters *)
 ```
 
-`params`: поле на каждый `:name` и наоборот, иначе ошибка со списком расхождений; типы полей — `Scalar.S`. `search`: `τ option` — необязательный, `τ list` — повторяемый, `[@default e]` — с дефолтом, иначе обязательный; ошибки разбора — `Validation.t` с путём `[name]`. Типы — те же `Kre_shared.Scalar`, что у сервера и клиента API.
+`params`: one field for every `:name` and vice versa, otherwise an error listing the mismatches; field types are `Scalar.S`. `search`: `τ option` is optional, `τ list` is repeated, `[@default e]` has a default, otherwise required; parse errors are `Validation.t` with path `[name]`. The types are the same `Kre_shared.Scalar` as in the server and the API client.
 
-### Почему контроллер не принимает путь страничного роутера (решено после фазы 1)
+### Why the controller does not take the page router's path (decided after phase 1)
 
-Рассматривали `[@@get Cat_routes.params_path]` с общим для сервера и фронта `Path` и хендлером `~(params : Cat_routes.params)`. Не делаем:
+We considered `[@@get Cat_routes.params_path]` with a `Path` shared by server and frontend and a handler `~(params : Cat_routes.params)`. Not doing it:
 
-- Дублирования, которое это убрало бы, почти нет. Клиент API уже генерируется из `spec` контроллера. Совпадают только пути страницы и API, но это разные вещи: в реальном приложении API уходит под `/api` или `/v2`, а страницы называются как удобно пользователю.
-- ppx перестал бы видеть сегменты пути в тексте. Сверку `:id` с параметром, `Paths` на routes и `spec` пришлось бы перенести в рантайм, а сейчас всё это проверяется при компиляции.
-- Хендлер стал бы принимать запись вместо меток (`~id`), то есть дальше от Nest. Пришлось бы иметь две реализации матчинга или отказаться от trie routes на сервере.
+- There is almost no duplication for it to remove. The API client is already generated from the controller's `spec`. Only the page and API paths coincide, but they are different things: in a real application the API moves under `/api` or `/v2`, and pages are named for the user's convenience.
+- The ppx would stop seeing path segments in the source text. Checking `:id` against the parameter, `Paths` on routes and `spec` would have to move to runtime, while now all of it is checked at compile time.
+- The handler would take a record instead of labels (`~id`), which is further from Nest. We would need two matching implementations or give up the routes trie on the server.
 
-Строковые пути в контроллере уже типизированы: ppx строит `Routes.path` из строки и типов меток, а `Cats_controller.Paths` даёт типизированные значения для ссылок и тестов. Вернуться к вопросу, если появится реальный случай, где путь страницы и API обязаны совпадать.
+String paths in the controller are already typed: the ppx builds `Routes.path` from the string and the label types, and `Cats_controller.Paths` provides typed values for links and tests. Revisit the question if a real case appears where the page path and the API path must coincide.
 
-### Компоненты
+### Components
 
-`Link` — обычный компонент reason-react над `Router.link`; `.mlx`-синтаксис даёт `<Link route=… params=… search=…>`. Ошибка в `params` — ошибка типов в компоненте, не в рантайме.
+`Link` is a plain reason-react component over `Router.link`; `.mlx` syntax gives `<Link route=… params=… search=…>`. A mistake in `params` is a type error in the component, not at runtime.
 
-JSX пишется только в `.mlx`: диалект подключён в `dune-project` (`mlx-pp` для сборки, `ocamlformat-mlx` 0.29.0.1 для `@fmt`), ручных `[@JSX]` и `React.createElement` нет ни в примерах, ни в `src/client/router.mlx`.
+JSX is written only in `.mlx`: the dialect is enabled in `dune-project` (`mlx-pp` for the build, `ocamlformat-mlx` 0.29.0.1 for `@fmt`); there are no hand-written `[@JSX]` or `React.createElement` in the examples or in `src/client/router.mlx`.
 
-### Что не делаем
+### What we do not do
 
-File-based routing (`routes/cats.$id.tsx`) — не нужен: дерево из значений даёт то же самое без кодогенерации по файловой системе. SSR Melange-компонентов — не в скоупе; серверный HTML — Dream eml/tyxml как опция.
+File-based routing (`routes/cats.$id.tsx`) is not needed: a tree of values gives the same result without code generation from the file system. SSR of Melange components is out of scope; server HTML is Dream eml/tyxml as an option.
 
-## Тестирование
+## Testing
 
-Четыре уровня, каждый — свой каталог в `test/`. Nest-овский `Test.createTestingModule` не нужен: подмена зависимости — применение функтора/`register` к другому модулю.
+Four levels, each its own directory in `test/`. Nest's `Test.createTestingModule` is not needed: replacing a dependency is applying the functor/`register` to a different module.
 
-| Уровень | Инструмент | Что проверяет |
+| Level | Tool | What it checks |
 | --- | --- | --- |
-| ppx | cram на выводе `pp.exe -impl` | каждая трансформация: эталонный сгенерированный код; каждая ошибка ppx — отдельный тест с ожидаемым сообщением |
-| core | alcotest | `Error.to_response`, `Codec`, `Validation`, `Refined`, `Spec.to_json`, OpenAPI-генератор, `Route.handle` с подменённым запросом |
-| контроллеры (unit) | alcotest + `Dream.test` | `Cats_controller.register (module Fake_cats)` → `Kre.App.handler` → `Dream.test handler (Dream.request ~method_:`GET \~target:"/cats/1" "")\` → статус/тело |
-| e2e | alcotest, запуск `examples/cats` | сервер на случайном порту; сгенерированный native-вариант клиента (тот же генератор с `--target native` поверх cohttp) ходит по всем маршрутам; OpenAPI валидируется схемой 3.1 |
+| ppx | cram on the output of `pp.exe -impl` | every transformation: reference generated code; every ppx error is a separate test with the expected message |
+| core | alcotest | `Error.to_response`, `Codec`, `Validation`, `Refined`, `Spec.to_json`, the OpenAPI generator, `Route.handle` with a substituted request |
+| controllers (unit) | alcotest + `Dream.test` | `Cats_controller.register (module Fake_cats)` → `Kre.App.handler` → `Dream.test handler (Dream.request ~method_:`GET \~target:"/cats/1" "")\` → status/body |
+| e2e | alcotest, running `examples/cats` | server on a random port; the generated native client (the same generator with `--target native` over cohttp) hits every route; OpenAPI is validated against the 3.1 schema |
 
-Пример unit-теста контроллера с фейковым сервисом:
+Example unit test of a controller with a fake service:
 
 ```ocaml
 module Fake_cats : Cats_service.S = struct
@@ -1549,41 +1549,41 @@ let test_404 () =
   Lwt.return_unit
 ```
 
-Клиентский роутер тестируется в node через melange: `Path` матчинг и `Search` round-trip — property-тесты (`Search.parse (Search.print s) = Ok s`). Если принят typegist, генераторы для property-тестов берутся из gist.
+The client router is tested in node through melange: `Path` matching and `Search` round-trip are property tests (`Search.parse (Search.print s) = Ok s`). If typegist is adopted, the generators for property tests come from gist.
 
 ## CLI kre
 
-Бинарь на cmdliner, зеркало `nest` CLI. Генераторы пишут файлы по шаблонам из `examples/cats`; ничего не делают «магически» — только файлы, которые разработчик и так написал бы руками.
+A cmdliner binary, mirroring the `nest` CLI. Generators write files from templates taken from `examples/cats`; they do nothing "magically", only the files the developer would write by hand anyway.
 
-| Команда | Делает | Nest |
+| Command | Does | Nest |
 | --- | --- | --- |
-| `kre new NAME` | dune-project, 4 каталога, cats-пример, CI, `.ocamlformat`, opam-файлы | `nest new` |
-| `kre generate controller cats` | `server/cats_controller.ml` с `[@@@controller]` и CRUD-заготовкой, `shared/cat.ml`, `shared/create_cat_dto.ml` | `nest g resource` |
-| `kre generate service cats` | `server/cats_service.ml` + `.mli` с `module type S` | `nest g service` |
+| `kre new NAME` | dune-project, 4 directories, cats example, CI, `.ocamlformat`, opam files | `nest new` |
+| `kre generate controller cats` | `server/cats_controller.ml` with `[@@@controller]` and a CRUD skeleton, `shared/cat.ml`, `shared/create_cat_dto.ml` | `nest g resource` |
+| `kre generate service cats` | `server/cats_service.ml` + `.mli` with `module type S` | `nest g service` |
 | `kre generate dto name` | `shared/name_dto.ml` | — |
-| `kre client --spec --out [--target melange\|native]` | типизированные клиенты из spec | openapi-generator |
-| `kre openapi --spec --out` | OpenAPI 3.1 JSON; то же, что `main.exe --emit-openapi` | `@nestjs/swagger` |
-| `kre migrate up\|down\|status\|new NAME` | SQL-миграции (фаза 1), `diff` (фаза 3) | TypeORM CLI |
-| `kre routes` | таблица маршрутов из spec | — |
-| `kre start [--watch]` | `dune build -w` + перезапуск `main.exe`; melange-пересборка — через dune же | `nest start --watch` |
+| `kre client --spec --out [--target melange\|native]` | typed clients from spec | openapi-generator |
+| `kre openapi --spec --out` | OpenAPI 3.1 JSON; same as `main.exe --emit-openapi` | `@nestjs/swagger` |
+| `kre migrate up\|down\|status\|new NAME` | SQL migrations (phase 1), `diff` (phase 3) | TypeORM CLI |
+| `kre routes` | route table from spec | — |
+| `kre start [--watch]` | `dune build -w` + restart of `main.exe`; melange rebuild also through dune | `nest start --watch` |
 
-`kre routes`, `kre openapi` и `kre client` читают `spec.json`, который пишет серверный бинарь (`--emit-spec`), поэтому сериализация `spec` одна. Шаблоны — файлы `src/cli/templates/<new|controller|service|dto>/…/*.tmpl` (`data_only_dirs`); при сборке `embed.exe` встраивает их в бинарь. Подстановки — `{{name}}`, `{{plural}}`, `{{Plural}}`, `{{singular}}`, `{{Singular}}`, в путях — слова `plural`/`singular`; единственное число — без конечной `s`. `kre new` пока без клиента и без БД: `shared/` (native + melange), `server/` с health-контроллером, `bin/main.ml`, тест; `generate controller` — ресурс как `nest g resource` (тип и DTO в `shared/`, сервис в памяти, контроллер, тест в `test/<plural>/`), регистрацию в `main.ml` разработчик добавляет сам. Перезаписи нет: если хоть один файл существует, не пишется ничего.
+`kre routes`, `kre openapi` and `kre client` read the `spec.json` that the server binary writes (`--emit-spec`), so there is one serialization of `spec`. Templates are files `src/cli/templates/<new|controller|service|dto>/…/*.tmpl` (`data_only_dirs`); at build time `embed.exe` embeds them in the binary. Substitutions are `{{name}}`, `{{plural}}`, `{{Plural}}`, `{{singular}}`, `{{Singular}}`, and in paths the words `plural`/`singular`; the singular is the name without the trailing `s`. `kre new` has no client and no database yet: `shared/` (native + melange), `server/` with a health controller, `bin/main.ml`, a test; `generate controller` makes a resource like `nest g resource` (type and DTO in `shared/`, in-memory service, controller, test in `test/<plural>/`), and the developer adds the registration in `main.ml` by hand. No overwriting: if even one file exists, nothing is written.
 
-## Заимствования из Spring
+## Borrowed from Spring
 
-Nest задаёт структуру; из Spring берём пять вещей, которых у Nest нет или они слабее. Все пять в Spring реализованы runtime-прокси (AOP); у нас это compile-time переписывание ppx, поэтому ловушек вроде self-invocation нет.
+Nest sets the structure; from Spring we take five things that Nest lacks or does worse. Spring implements all five with runtime proxies (AOP); we use compile-time ppx rewriting, so traps like self-invocation do not exist.
 
-| Spring | Kre | Фаза |
+| Spring | Kre | Phase |
 | --- | --- | --- |
-| Problem Details (RFC 9457, `application/problem+json`) | формат `Error.to_json` и клиентского `Error.t` | 0 |
-| `@PreAuthorize("… #id == principal.id")` | `[@@authorize f]` — типизированная функция над извлечёнными параметрами | 2 |
-| `@Transactional` | `[@@transactional]`; соединение — неявно через ключ Lwt (или явно `[@from Db.tx]`) | 2 |
+| Problem Details (RFC 9457, `application/problem+json`) | format of `Error.to_json` and of the client `Error.t` | 0 |
+| `@PreAuthorize("… #id == principal.id")` | `[@@authorize f]` — a typed function over the extracted parameters | 2 |
+| `@Transactional` | `[@@transactional]`; the connection is implicit via an Lwt key (or explicit `[@from Db.tx]`) | 2 |
 | Actuator | `Kre.Actuator.routes` | 2 |
-| Profiles | `KRE_ENV` + слои `config/*.env` — сделано | 1 |
+| Profiles | `KRE_ENV` + `config/*.env` layers — done | 1 |
 
-### Problem Details — заменяет envelope ошибки
+### Problem Details — replaces the error envelope
 
-Этот формат **заменяет** JSON ошибки, описанный в разделах Core и dto. `Error.t` остаётся тем же, меняется сериализация:
+This format **replaces** the error JSON described in the Core and dto sections. `Error.t` stays the same; the serialization changes:
 
 ```json
 { "type": "urn:kre:error:validation", "title": "Unprocessable Entity", "status": 422,
@@ -1591,26 +1591,26 @@ Nest задаёт структуру; из Spring берём пять вещей
   "errors": [ { "path": ["age"], "rule": "range", "message": "must be between 0 and 40" } ] }
 ```
 
-`type` = `urn:kre:error:<code>` (переопределяется `Error.make ~type_`), `instance` = `Dream.target`, `details` раскладываются как расширения верхнего уровня. Content-Type `application/problem+json`. `Kre_client.Error` парсит ровно это.
+`type` = `urn:kre:error:<code>` (overridden with `Error.make ~type_`), `instance` = `Dream.target`, `details` are spread as top-level extensions. Content-Type `application/problem+json`. `Kre_client.Error` parses exactly this.
 
 ### `[@@authorize]`
 
-Реализовано в фазе 2. Замыкание вызывается после разбора всех параметров (path, query, body, `[@from]`) и до тела; ему передаются аргументы хендлера с теми же метками.
+Implemented in phase 2. The closure is called after all parameters are parsed (path, query, body, `[@from]`) and before the body; it receives the handler arguments with the same labels.
 
 ```ocaml
 let read ~(user : string [@guard Roles.user]) ~(id : int) : string Lwt.t = …
 [@@get ":id"] [@@authorize fun ~user ~id -> owns ~user ~id]
 ```
 
-- Payload — буквальная функция `fun ~a ~b -> …`: по меткам ppx решает, что передать. Метка, которой нет у хендлера, — ошибка компиляции; тип проверяет компилятор.
-- Результат — только `(unit, Kre.Error.t) result Lwt.t`; вариант с `bool Lwt.t` из первой версии убран (булева слепота). `Error e` становится ответом (обычно 403).
-- Зависимости хендлера доступны замыканию по имени: оно генерируется внутри `register`, где модули уже связаны.
+- The payload is a literal function `fun ~a ~b -> …`: ppx uses the labels to decide what to pass. A label the handler does not have is a compile error; the compiler checks the type.
+- The result is only `(unit, Kre.Error.t) result Lwt.t`; the `bool Lwt.t` variant from the first version is removed (boolean blindness). `Error e` becomes the response (usually 403).
+- The handler's dependencies are available to the closure by name: it is generated inside `register`, where the modules are already bound.
 
-Отличие от `[@@guards]`: guard видит только запрос, `authorize` — типизированные параметры. Пример — `docs/examples/notes_controller.ml`.
+Difference from `[@@guards]`: a guard sees only the request; `authorize` sees the typed parameters. Example — `docs/examples/notes_controller.ml`.
 
 ### `[@@transactional]`
 
-Реализовано в фазе 2:
+Implemented in phase 2:
 
 ```ocaml
 let adopt (module Adoptions : Adoptions_service.S)
@@ -1621,259 +1621,259 @@ let adopt (module Adoptions : Adoptions_service.S)
 [@@post] [@@transactional]
 ```
 
-Как `@Transactional` в Spring: соединение в коде не видно, сервисы внутри пользуются обычным `Db.with_conn` и попадают в транзакцию (см. «Kre.Db»). В Nest такого декоратора нет — там `dataSource.transaction(…)`/`QueryRunner` руками или сторонний `@nestjs-cls/transactional`.
+Like `@Transactional` in Spring: the connection is not visible in the code; services inside use the usual `Db.with_conn` and join the transaction (see "Kre.Db"). Nest has no such decorator — there you call `dataSource.transaction(…)`/`QueryRunner` by hand or use the third-party `@nestjs-cls/transactional`.
 
-`Kre.Db.S` получил `tx : conn Guard.t` (читает соединение из поля запроса) и `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (открывает транзакцию или присоединяется к открытой, кладёт соединение в поле, `Ok` → commit, `Error`/исключение → rollback). ppx берёт модуль из единственной зависимости `Kre.Db.S` хендлера или из параметра `[@from M.tx]`, если он есть (тогда соединение приходит параметром явно, как `examples/cats/db/batch_controller.ml`), и оборачивает разбор параметров и вызов хендлера в `M.within`; guards выполняются до транзакции. `[@@transactional]` без зависимости `Kre.Db.S`, с двумя такими без `[@from M.tx]`, и `[@from M.tx]` без `[@@transactional]` — ошибки компиляции. Опции изоляции и `read_only` — когда понадобятся. Пример — `examples/shelter/server/adoptions_controller.ml`; проверки — алиасы `@db` и `@shelter`.
+`Kre.Db.S` gained `tx : conn Guard.t` (reads the connection from a request field) and `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (opens a transaction or joins the open one, puts the connection in the field, `Ok` → commit, `Error`/exception → rollback). ppx takes the module from the handler's single `Kre.Db.S` dependency, or from the `[@from M.tx]` parameter if there is one (then the connection arrives explicitly as a parameter, as in `examples/cats/db/batch_controller.ml`), and wraps parameter parsing and the handler call in `M.within`; guards run before the transaction. `[@@transactional]` without a `Kre.Db.S` dependency, with two such dependencies and no `[@from M.tx]`, and `[@from M.tx]` without `[@@transactional]` are compile errors. Isolation options and `read_only` — when needed. Example — `examples/shelter/server/adoptions_controller.ml`; tests — the `@db` and `@shelter` aliases.
 
 ### Actuator
 
-`Kre.Actuator.routes : config:(module Config.S) -> ?metrics:bool -> unit -> Kre.Controller.t`, монтируется как обычный контроллер под `/actuator`:
+`Kre.Actuator.routes : config:(module Config.S) -> ?metrics:bool -> unit -> Kre.Controller.t`, mounted as an ordinary controller under `/actuator`:
 
-| Путь | Содержимое |
+| Path | Contents |
 | --- | --- |
-| `/health` | `{"status":"up","checks":{"db":"up"}}`; проверки регистрируются `Actuator.check ~name f` |
-| `/info` | версия, git sha, время сборки (из dune `%{version}` и `git describe` в сборке) |
-| `/env` | конфиг через `Config.pp` — `[@secret]` замазаны |
-| `/routes` | все `spec` в JSON — то же, что `kre routes` |
-| `/beans`, `/beans.mmd` | граф `[%wire]`: провайдеры и контроллеры с их зависимостями (JSON, mermaid); `Actuator.make ~beans:app.beans` |
-| `/metrics` | Prometheus text format: latency по маршруту, коды, `Gc.quick_stat` |
-| `/openapi.json` | то же, что `--emit-openapi` |
+| `/health` | `{"status":"up","checks":{"db":"up"}}`; checks are registered with `Actuator.check ~name f` |
+| `/info` | version, git sha, build time (from dune `%{version}` and `git describe` in the build) |
+| `/env` | config via `Config.pp` — `[@secret]` values masked |
+| `/routes` | all `spec` in JSON — the same as `kre routes` |
+| `/beans`, `/beans.mmd` | the `[%wire]` graph: providers and controllers with their dependencies (JSON, mermaid); `Actuator.make ~beans:app.beans` |
+| `/metrics` | Prometheus text format: latency per route, status codes, `Gc.quick_stat` |
+| `/openapi.json` | the same as `--emit-openapi` |
 
-Закрывается `[@@@guards]` как любой контроллер; по умолчанию — только с loopback.
+Protected with `[@@@guards]` like any controller; by default — loopback only.
 
 ### Profiles
 
-`Kre.Config.profile ()` читает `config/default.env`, затем `config/${KRE_ENV}.env` (по умолчанию `dev`), затем реальное окружение; позже — приоритетнее. Использование: `Config.load_exn ~env:(Kre.Config.profile ()) ()`. Провайдер под окружение — `[@@@profile "dev"]`: `[%wire]` строит `let module X = (val (match Kre.Wiring.profile () with "dev" -> (module Dev.Make () : I.S) | _ -> (module X.Make () : I.S)))`, так что собирается только выбранный. Нужен провайдер без профиля; у участников группы нет хуков, `[@@on_event]`, `[@@job]`, `[@@health]` и расписаний — снаружи виден только `I.S`.
+`Kre.Config.profile ()` reads `config/default.env`, then `config/${KRE_ENV}.env` (default `dev`), then the real environment; later sources take precedence. Usage: `Config.load_exn ~env:(Kre.Config.profile ()) ()`. A provider for one environment — `[@@@profile "dev"]`: `[%wire]` builds `let module X = (val (match Kre.Wiring.profile () with "dev" -> (module Dev.Make () : I.S) | _ -> (module X.Make () : I.S)))`, so only the selected one is built. A provider without a profile is required; group members have no hooks, `[@@on_event]`, `[@@job]`, `[@@health]` or schedules — only `I.S` is visible from outside.
 
-## Заимствования из IHP
+## Borrowed from IHP
 
-IHP (Rails для Haskell) силён там, где Nest и Spring пусты: живые данные без ручных подписок, веб-инструменты разработчика и DB-backed jobs. Берём четыре идеи; одна из них у нас получается строже, чем в IHP.
+IHP (Rails for Haskell) is strong where Nest and Spring are empty: live data without manual subscriptions, web developer tools, and DB-backed jobs. We take four ideas; one of them comes out stricter than in IHP.
 
-| IHP | Kre | Фаза |
+| IHP | Kre | Phase |
 | --- | --- | --- |
-| Auto Refresh (страница обновляется при изменении таблиц, которые она читала) | Live loaders: зависимости маршрута от таблиц известны **статически** из sqlgg | 2 |
-| Scripts (одноразовые скрипты с контекстом приложения) | `[@@command]` (фаза 3, `docs/commands.md`) вместо `kre generate script` + `kre run NAME` | 3 |
-| Jobs как таблицы (`CREATE TABLE … job`) | `Kre.Job` (фаза 3): одна таблица `kre_jobs` и типизированные очереди вместо таблицы на тип задачи | ✅ |
-| IDE: Schema Designer, Data browser, Logs | `kre dev` — веб-UI поверх Actuator | 3 |
-| Schema.sql как источник правды, типы из него | **не берём** направление, берём импорт: `kre import-schema` для brownfield | 1 |
+| Auto Refresh (the page refreshes when the tables it read change) | Live loaders: a route's table dependencies are known **statically** from sqlgg | 2 |
+| Scripts (one-off scripts with the application context) | `[@@command]` (phase 3, `docs/commands.md`) instead of `kre generate script` + `kre run NAME` | 3 |
+| Jobs as tables (`CREATE TABLE … job`) | `Kre.Job` (phase 3): one `kre_jobs` table and typed queues instead of a table per job type | ✅ |
+| IDE: Schema Designer, Data browser, Logs | `kre dev` — a web UI on top of Actuator | 3 |
+| Schema.sql as the source of truth, types from it | we **do not take** the direction, we take the import: `kre import-schema` for brownfield | 1 |
 
-### Live loaders — Auto Refresh через статический анализ
+### Live loaders — Auto Refresh via static analysis
 
-IHP отслеживает таблицы, прочитанные при рендере, в рантайме, и слушает Postgres `LISTEN/NOTIFY`. У нас обе половины известны на этапе компиляции, потому что sqlgg парсит SQL:
+IHP tracks the tables read during rendering at runtime and listens to Postgres `LISTEN/NOTIFY`. For us both halves are known at compile time, because sqlgg parses SQL:
 
-1. sqlgg знает, какие таблицы **читает** каждый запрос и какие **пишет** (`INSERT/UPDATE/DELETE`). Kre расширяет сгенерированный код метаданными `reads : string list`, `writes : string list` на функцию.
-2. Хендлер, вызывающий сервисные функции, не знает их таблиц статически (это уже за пределами ppx). Поэтому зависимости объявляются на хендлере: `[@@live ["cats"; "users"]]`, а e2e-тест проверяет, что объявленное ⊇ фактически прочитанного (рантайм считает `reads` вызванных sqlgg-функций в режиме `KRE_ENV=test`). Расхождение — падение теста, не тихая потеря обновлений.
-3. После коммита транзакции (или после любой пишущей sqlgg-функции вне транзакции) `Kre.Live.publish` рассылает `Table_changed t` — без триггеров в БД, поэтому работает и на MariaDB/TiDB, где нет `NOTIFY`. Для Postgres опционально `LISTEN/NOTIFY`, чтобы ловить внешние записи.
-4. `spec.route.live : string list` попадает в сгенерированный клиент: `Cats_client.find_all` получает `~subscribe:true`, а `Router.child ~live:true` перезапускает loader при событии по SSE-каналу `/__kre/live`. Для multi-process — pub/sub через Redis или Postgres; один процесс — in-memory.
+1. sqlgg knows which tables each query **reads** and which it **writes** (`INSERT/UPDATE/DELETE`). Kre extends the generated code with per-function metadata `reads : string list`, `writes : string list`.
+2. A handler that calls service functions does not know their tables statically (that is beyond ppx). So dependencies are declared on the handler: `[@@live ["cats"; "users"]]`, and an e2e test checks that the declared set ⊇ the set actually read (the runtime counts the `reads` of the called sqlgg functions in `KRE_ENV=test` mode). A mismatch is a test failure, not a silent loss of updates.
+3. After a transaction commits (or after any writing sqlgg function outside a transaction) `Kre.Live.publish` broadcasts `Table_changed t` — without DB triggers, so it also works on MariaDB/TiDB, which have no `NOTIFY`. For Postgres, `LISTEN/NOTIFY` is optional, to catch external writes.
+4. `spec.route.live : string list` goes into the generated client: `Cats_client.find_all` gets `~subscribe:true`, and `Router.child ~live:true` reruns the loader on an event from the SSE channel `/__kre/live`. For multi-process — pub/sub via Redis or Postgres; for one process — in-memory.
 
-Результат: `Cats.index` на фронте обновляется, когда кто-то добавил кота, без единой строки кода подписки в приложении — и с проверяемым списком зависимостей.
+Result: `Cats.index` on the frontend updates when someone adds a cat, without a single line of subscription code in the application — and with a checkable dependency list.
 
 ### Scripts
 
-`kre generate script backfill_ages` создаёт `scripts/backfill_ages.ml` с заготовкой `let main (module Db : Db.S) (config : Config.t) = …`; `kre run backfill_ages` собирает и запускает с тем же `Config.load` и пулом, что и сервер. Это замена `rake`-задачам и «вот бы быстро прогнать одну миграцию данных».
+`kre generate script backfill_ages` creates `scripts/backfill_ages.ml` with the stub `let main (module Db : Db.S) (config : Config.t) = …`; `kre run backfill_ages` builds and runs it with the same `Config.load` and pool as the server. This replaces `rake` tasks and "if only I could quickly run one data migration".
 
-### Jobs как таблицы
+### Jobs as tables
 
-Сделано в фазе 3 иначе, чем ниже: одна таблица `kre_jobs` с JSON-нагрузкой и очереди `'a Kre.Job.queue` (имя + dto). Таблица на тип задачи дала бы миграцию и сгенерированный код на каждую очередь, а тип нагрузки всё равно проверяет dto. См. `docs/jobs.md`. Исходный набросок:
+Done in phase 3 differently from what follows: one `kre_jobs` table with a JSON payload and `'a Kre.Job.queue` queues (name + dto). A table per job type would need a migration and generated code for each queue, while dto checks the payload type anyway. See `docs/jobs.md`. The original sketch:
 
 ```ocaml
 type t = { id : int [@primary] [@auto]; cat_id : int; email : string }
 [@@deriving table ~name:"send_welcome_jobs" ~job]
 ```
 
-`~job` добавляет колонки `status`, `attempts`, `run_at`, `last_error`, `locked_by` и генерирует `enqueue : t -> unit Lwt.t` и `Worker.run ~handler:(t -> (unit, string) result Lwt.t) ~concurrency ~retry`. Очередь — сама таблица с `SELECT … FOR UPDATE SKIP LOCKED`; никакого Redis для базового случая. Это реализация главы Queues (фаза 3) по умолчанию; BullMQ-подобный бекенд — только если понадобится.
+`~job` adds the columns `status`, `attempts`, `run_at`, `last_error`, `locked_by` and generates `enqueue : t -> unit Lwt.t` and `Worker.run ~handler:(t -> (unit, string) result Lwt.t) ~concurrency ~retry`. The queue is the table itself with `SELECT … FOR UPDATE SKIP LOCKED`; no Redis for the basic case. This is the default implementation of the Queues chapter (phase 3); a BullMQ-like backend — only if needed.
 
 ### kre dev
 
-Веб-UI на том же порту под `/__kre/`: список маршрутов (`spec`), схема и данные таблиц (из `Kre.Table.Registry` + sqlgg-запросов, редактирование строк), логи запросов в реальном времени (SSE), статус live-подписок, OpenAPI. Schema Designer как в IHP не делаем: схема — OCaml-код, редактор ей не нужен. Включается только при `KRE_ENV=dev`.
+A web UI on the same port under `/__kre/`: the route list (`spec`), table schema and data (from `Kre.Table.Registry` + sqlgg queries, row editing), real-time request logs (SSE), live subscription status, OpenAPI. We do not build a Schema Designer as in IHP: the schema is OCaml code and needs no editor. Enabled only with `KRE_ENV=dev`.
 
-### Направление истины: тип, не SQL
+### Direction of truth: the type, not SQL
 
-IHP держит `Schema.sql` и генерирует типы. Мы держим OCaml-записи (там живут opaque-типы и `dto`) и генерируем `schema.sql`. Для brownfield (существующая MariaDB/TiDB) — `kre import-schema --url … --out shared/gen/`: sqlgg парсит `SHOW CREATE TABLE` и пишет записи с `[@@deriving table, dto]`, которые дальше правятся руками и становятся источником. Одноразовый импорт, не двусторонняя синхронизация.
+IHP keeps `Schema.sql` and generates types. We keep OCaml records (where opaque types and `dto` live) and generate `schema.sql`. For brownfield (an existing MariaDB/TiDB) — `kre import-schema --url … --out shared/gen/`: sqlgg parses `SHOW CREATE TABLE` and writes records with `[@@deriving table, dto]`, which are then edited by hand and become the source. A one-off import, not two-way sync.
 
-## Заимствования из Rails, Symfony и ещё раз Spring/Nest/IHP (фаза 3)
+## Borrowed from Rails, Symfony and again Spring/Nest/IHP (phase 3)
 
-Правило переноса то же: только функции, модули, функторы и ppx; никаких классов, рефлексии и рантайм-реестров. Если идея в оригинале держится на рантайм-магии (ActiveRecord callbacks, Doctrine proxies, AOP), берём результат, а механизм заменяем проверкой при сборке. Что уже есть (контроллеры, DI, guards, interceptors, dto, config, events, cron, cache, SSE/WS, JWT, Actuator, live loaders, table + sqlgg, миграции, typed client и router, `[@@transactional]`, `[@@authorize]`), сюда не входит.
+The porting rule is the same: only functions, modules, functors and ppx; no classes, reflection or runtime registries. If an idea in the original relies on runtime magic (ActiveRecord callbacks, Doctrine proxies, AOP), we take the result and replace the mechanism with a build-time check. What already exists (controllers, DI, guards, interceptors, dto, config, events, cron, cache, SSE/WS, JWT, Actuator, live loaders, table + sqlgg, migrations, typed client and router, `[@@transactional]`, `[@@authorize]`) is not included here.
 
-| # | Откуда | Kre | Волна |
+| # | Source | Kre | Wave |
 | --- | --- | --- | --- |
-| 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Kre.Table.crud` печатает `by_<col>` для `[@unique]` (одна строка), `[@index]` и `[@references]` (список) и `count`; sqlgg их типизирует | ✅ |
-| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | ✅ |
-| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` на любой функции → `Kre.Retry.run`; повтор при исключении. Не interceptor: в Spring это аннотация метода сервиса, и у нас тоже | ✅ |
-| 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф (`Wiring.beans`); `/actuator/beans` (JSON) и `/actuator/beans.mmd` (mermaid) | ✅ |
-| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `kre-client.testing`: сгенерированный типизированный клиент идёт в обработчик приложения без сокета (`Kre_testing.use`) | ✅ |
-| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. Кодек переехал в `Kre_shared.Search` (native и Melange): один `Cat_search.codec` у сервера (`Kre.Extract.search`), у страничного роутера и у клиента (`Spec.Search`, `Wire.search`) | ✅ |
-| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Kre_shared.Page`: `Request.t` — готовая search-запись (`?page&size`, page ≥ 1, size 1–100) для `[@search]`; `'a t` с `total`; `-- @page` (`LIMIT/OFFSET`) в `Table.crud`; возврат `Cat.t Kre_shared.Page.t`, клиент получает тот же тип | ✅ |
-| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Kre_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
-| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Kre.Job`: типизированные очереди (`'a queue` = имя + dto), одна таблица `kre_jobs` (`Kre.Job.table`), `FOR UPDATE SKIP LOCKED`, повторы с удвоением паузы, `dead` после `attempts`; `[@@job q]` в провайдере, воркер — хуки провайдера `Kre.Job.S`, их запускает `[%wire]`. `enqueue` идёт через `Db` и попадает в открытую транзакцию | ✅ |
-| 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Kre_shared.Time` (RFC 3339, native и Melange, `DOUBLE` секунд в базе), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …`, 0 строк → 409 | ✅ |
-| 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` с сегментом `:cat` — сегмент разбирается `Cat.Id` (тип `M.t` → `M.Id`: ppx не видит типа загрузчика), `Kre.Route.load` → 404; `[@@authorize]` получает загруженную запись | ✅ |
-| 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `kre generate controller dogs name:string age:int born:time good:bool` (шаблоны фазы 1 + поля): тип с `[@@deriving table, dto]`, DTO, сервис в памяти, контроллер, тест с примерными значениями; проект собирается и проходит тест (`test/scaffold/new.t`). SQL и страницы `.mlx` не генерируются: правило sqlgg живёт в dune проекта, а страницы зависят от роутера приложения | ✅ |
-| 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: переходы — `function` по конструкторам (опечатка — ошибка компиляции), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native и Melange (`docs/workflow.md`) | ✅ |
-| 14 | Symfony Profiler, Rails dev log и Bullet, Spring `httpexchanges` | `Kre.Profiler`: middleware собирает по запросу SQL (драйверы и `Db.query` зовут `Profiler.sql`), время, статус; `/__kre/profiler` (HTML) и `.json`, пометка N+1 (≥ 3 одинаковых запроса); только `KRE_ENV=dev` | ✅ |
-| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Kre.Mail`: `t` (адресат обязателен, `Refined.Email.t`), `render` (RFC 5322, multipart, кодирование темы), провайдеры `Smtp (Config)` (без TLS) и `Outbox ()` с превью `/__kre/mail`. Письмо не в `.mlx`: серверного рендера reason-react в native нет | ✅ |
-| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — сигнатура вызовов → функтор `(Config : sig val url : string val headers : … end)` поверх `Kre_client.Http`/`Wire` (`Http.request ?base`); native и Melange (`docs/http-client.md`) | ✅ |
-| 17 | Ссылки на статику, проверяемые при сборке | `[%asset "logo.png"]` → `Kre_shared.Asset.t` с адресом `/assets/logo.<хеш>.png` (нет файла — ошибка сборки с подсказкой похожего имени); `[%icon "cat"]` → `Kre_shared.Icon.t`, SVG из `assets/icons/cat.svg`, вшитый при сборке; `Kre.Assets.middleware ~dir` отдаёт файлы с вечным кэшем; `Kre_client.Icon.view` рисует иконку | ✅ |
+| 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Kre.Table.crud` prints `by_<col>` for `[@unique]` (one row), `[@index]` and `[@references]` (a list), and `count`; sqlgg types them | ✅ |
+| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` on GET: ETag from the body, `If-None-Match` → 304 | ✅ |
+| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` on any function → `Kre.Retry.run`; retry on exception. Not an interceptor: in Spring it is an annotation on a service method, and the same for us | ✅ |
+| 4 | Nest Devtools (module graph), Spring `/actuator/beans` | `[%wire]` exposes the graph (`Wiring.beans`); `/actuator/beans` (JSON) and `/actuator/beans.mmd` (mermaid) | ✅ |
+| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `kre-client.testing`: the generated typed client calls the application handler without a socket (`Kre_testing.use`) | ✅ |
+| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | the whole query string into a record with `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. The codec moved to `Kre_shared.Search` (native and Melange): one `Cat_search.codec` for the server (`Kre.Extract.search`), the page router and the client (`Spec.Search`, `Wire.search`) | ✅ |
+| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Kre_shared.Page`: `Request.t` is a ready-made search record (`?page&size`, page ≥ 1, size 1–100) for `[@search]`; `'a t` with `total`; `-- @page` (`LIMIT/OFFSET`) in `Table.crud`; return `Cat.t Kre_shared.Page.t`, the client gets the same type | ✅ |
+| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` on a function with module parameters in a separate file: `[%wire]` collects `app.commands`, `App.run ~commands` runs `main.exe seed --count 3` between `on_start` and `on_shutdown`; options come from labels, parsing — `Kre_shared.Scalar` (no cmdliner: the same modules as for query) | ✅ |
+| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Kre.Job`: typed queues (`'a queue` = name + dto), one `kre_jobs` table (`Kre.Job.table`), `FOR UPDATE SKIP LOCKED`, retries with a doubling delay, `dead` after `attempts`; `[@@job q]` in a provider, the worker is the hooks of the `Kre.Job.S` provider, started by `[%wire]`. `enqueue` goes through `Db` and joins the open transaction | ✅ |
+| 10 | Rails timestamps and `lock_version`, JPA `@Version` and auditing, Doctrine Timestampable | `Kre_shared.Time` (RFC 3339, native and Melange, `DOUBLE` seconds in the database), `[@created_at]`, `[@updated_at]`, `[@version]` in `table`; `update` with `WHERE version = …`, 0 rows → 409 | ✅ |
+| 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | entity parameter: `~(cat : (Cat.t[@load Cats.find]))` with the `:cat` segment — the segment is parsed by `Cat.Id` (type `M.t` → `M.Id`: ppx does not see the loader's type), `Kre.Route.load` → 404; `[@@authorize]` receives the loaded record | ✅ |
+| 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `kre generate controller dogs name:string age:int born:time good:bool` (phase 1 templates + fields): a type with `[@@deriving table, dto]`, DTO, in-memory service, controller, test with sample values; the project builds and passes the test (`test/scaffold/new.t`). SQL and `.mlx` pages are not generated: the sqlgg rule lives in the project's dune, and pages depend on the application's router | ✅ |
+| 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: transitions are a `function` over constructors (a typo is a compile error), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native and Melange (`docs/workflow.md`) | ✅ |
+| 14 | Symfony Profiler, Rails dev log and Bullet, Spring `httpexchanges` | `Kre.Profiler`: a middleware collects per request the SQL (drivers and `Db.query` call `Profiler.sql`), time, status; `/__kre/profiler` (HTML) and `.json`, N+1 flag (≥ 3 identical queries); `KRE_ENV=dev` only | ✅ |
+| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Kre.Mail`: `t` (recipient required, `Refined.Email.t`), `render` (RFC 5322, multipart, subject encoding), providers `Smtp (Config)` (no TLS) and `Outbox ()` with a preview at `/__kre/mail`. Mail is not in `.mlx`: there is no server-side reason-react rendering in native | ✅ |
+| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — a signature of calls → a functor `(Config : sig val url : string val headers : … end)` on top of `Kre_client.Http`/`Wire` (`Http.request ?base`); native and Melange (`docs/http-client.md`) | ✅ |
+| 17 | Static asset links checked at build time | `[%asset "logo.png"]` → `Kre_shared.Asset.t` with the address `/assets/logo.<hash>.png` (missing file — build error with a hint of a similar name); `[%icon "cat"]` → `Kre_shared.Icon.t`, SVG from `assets/icons/cat.svg`, embedded at build time; `Kre.Assets.middleware ~dir` serves files with a permanent cache; `Kre_client.Icon.view` renders the icon | ✅ |
 
-Папка `assets/` лежит в корне приложения (родитель каталога файла, как у `[%wire]`); в dune её нужно указать в `(preprocessor_deps (source_tree ../assets))`, чтобы изменение файла пересобирало ссылки. Хеш — первые 8 символов MD5 содержимого: адрес меняется вместе с файлом, поэтому кэш можно делать вечным. `Kre.Assets.middleware` отдаёт `/assets/<имя>.<хеш>.<расширение>` из каталога и проверяет, что хеш совпадает с текущим файлом (иначе 404, а не старый файл под новым именем).
+The `assets/` folder lives at the application root (the parent of the file's directory, as for `[%wire]`); in dune it must be listed in `(preprocessor_deps (source_tree ../assets))` so that a file change rebuilds the links. The hash is the first 8 characters of the MD5 of the contents: the address changes with the file, so the cache can be permanent. `Kre.Assets.middleware` serves `/assets/<name>.<hash>.<extension>` from the directory and checks that the hash matches the current file (otherwise 404, not an old file under a new name).
 
-Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.
+What we do not take: ActiveRecord callbacks and Doctrine lifecycle events (hidden side effects — for us that is a service function or `Events`), Symfony Flex/recipes and Spring Boot autoconfiguration (we have `[%wire]` at build time), Rails concerns and Symfony bundles (these are modules and dune libraries), HATEOAS.
 
-### Волна 4: ещё из PHP-мира (Laravel, Symfony, Doctrine, API Platform)
+### Wave 4: more from the PHP world (Laravel, Symfony, Doctrine, API Platform)
 
-| # | Что | Kre | Статус |
+| # | What | Kre | Status |
 | --- | --- | --- | --- |
-| 18 | `#[IsGranted]` | `[@@role g]` — guard любого типа, значение не нужно хендлеру | ✅ |
-| 19 | валидация с базой (`#[UniqueEntity]`) | `[@@check f]` — проверка над разобранными аргументами, `Error` → 422 с путями полей; `Kre.Route.validated`; выполняется после `[@@authorize]` | ✅ |
-| 20 | подписанные ссылки | `[@@signed secret]` + `Kre.Signed.url` — `expires` и HMAC-SHA256 последним параметром, иначе 403; `Kre.Signed.guard` | ✅ |
-| 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют поле `Kre_shared.Slug.of_string` из значения столбца-источника; нет поля — ошибка сборки | ✅ |
-| 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` (проверка формата, native и Melange) + `Kre.Ulid.next ()` (48 бит времени, 80 случайных), `[@ulid]` в `table` — `VARCHAR(26)`, без автоинкремента, id вставляется | ✅ |
-| 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`), запускать — `[@@interval]` в провайдере | ✅ |
-| 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud`; условия проверяет sqlgg | ✅ |
-| 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg (`None` — условие снято); на клиенте — search-запись (`examples/shelter/shared/cat_filter.ml`) | ✅ |
-| 26 | связи и жадная загрузка | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) в `Table.crud`, `Kre.Table.group ~key` — дети многих родителей одним запросом (`Cats.owned_by`) | ✅ |
-| 27 | `#[Embedded]` | `[@embedded]` — запись того же `type … and …` хранится столбцами `<поле>_<подполе>`; таблица — запись, которую никто не встраивает; `of_row` собирает вложенную запись, вложенность любой глубины | ✅ |
-| 28 | serializer groups | `[@groups ["admin"]]` в `dto` → `to_json_<group>` и `t_jsonschema_<group>`; без группы поле скрыто (`writeOnly`), поле обязано быть `option` (`[@option]` добавляется); обработчик выбирает представление: `(Member.t [@view "admin"]) Lwt.t` | ✅ |
-| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — провайдер-обёртка; потребители получают обёртку, она — оригинал; несколько обёрток — цепочка в порядке файлов; `Make` обязан принимать `I.S` | ✅ |
-| 30 | tagged iterator | параметр `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` передаёт всех провайдеров `I.S`, кроме самого провайдера и обёрток | ✅ |
-| 31 | `#[When(env)]` | `[@@@profile "dev"]` — провайдер выбирается при запуске по `KRE_ENV` (`Kre.Wiring.profile`); нужен провайдер без профиля; хуки в группе — ошибка сборки | ✅ |
-| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (таблица `kre_locks`: вставка или захват просроченной строки, проверка владельца, снятие в `finalize`, TTL 600 с) — функция не идёт на двух серверах сразу, занятый замок — пропуск | ✅ |
-| 33 | токены API с правами | `Kre.Token.Make (Db)` (таблица `kre_tokens`: ULID, владелец, SHA-256 токена, права через пробел; `*` — всё) + `[@@ability "cats:write"]` — гард `Tokens.ability`, зависимость `Tokens : Kre.Token.S` добавляется в `register` и в `[%wire]`; 401 без токена, 403 без права | ✅ |
-| 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` и `…/:id/delete`; только loopback; `[%wire]` сам добавляет его в `app.controllers` | ✅ |
-| 35 | precognition | заголовок `Precognition: true` на POST/PUT/PATCH/DELETE — разбор, guards, `[@@authorize]` и `[@@check]` без вызова хендлера: 204 `Precognition-Success: true` или та же ошибка (`Kre.Route.precognition`) | ✅ |
-| 36 | `#[ApiResource]` | `[%%resource { service = (module Books : Books.S); entity = Book; actions = [ Index Book_filter; Show; Create Book_draft; Remove ] }]` — до контроллерного прохода раскрывается в обычные обработчики (`[@search]`, `[@load Books.find]`, 201, 204), сервис обязан иметь `page`/`find`/`create`/`remove`; `[%wire]` раскрывает его же | ✅ |
+| 18 | `#[IsGranted]` | `[@@role g]` — a guard of any type; the handler does not need the value | ✅ |
+| 19 | validation against the database (`#[UniqueEntity]`) | `[@@check f]` — a check over the parsed arguments, `Error` → 422 with field paths; `Kre.Route.validated`; runs after `[@@authorize]` | ✅ |
+| 20 | signed URLs | `[@@signed secret]` + `Kre.Signed.url` — `expires` and HMAC-SHA256 as the last parameter, otherwise 403; `Kre.Signed.guard` | ✅ |
+| 21 | slugs | `[@slug_from name]` in `table`: `for_insert`/`for_update` fill the field with `Kre_shared.Slug.of_string` of the source column's value; a missing field is a build error | ✅ |
+| 22 | ULID keys | `Kre_shared.Ulid.Make ()` (format check, native and Melange) + `Kre.Ulid.next ()` (48 bits of time, 80 random), `[@ulid]` in `table` — `VARCHAR(26)`, no auto-increment, the id is inserted | ✅ |
+| 23 | `Prunable` | `[@prune]` on a time field: `-- @prune` in `Table.crud` (`DELETE … WHERE field < @before`); run it with `[@@interval]` in a provider | ✅ |
+| 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` in `Table.crud`; sqlgg checks the conditions | ✅ |
+| 25 | API filters (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` with sqlgg `{ … }?` conditions (`None` — the condition is dropped); on the client — a search record (`examples/shelter/shared/cat_filter.ml`) | ✅ |
+| 26 | relations and eager loading | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) in `Table.crud`, `Kre.Table.group ~key` — children of many parents in one query (`Cats.owned_by`) | ✅ |
+| 27 | `#[Embedded]` | `[@embedded]` — a record from the same `type … and …` is stored as `<field>_<subfield>` columns; the table is the record that nobody embeds; `of_row` assembles the nested record; nesting of any depth | ✅ |
+| 28 | serializer groups | `[@groups ["admin"]]` in `dto` → `to_json_<group>` and `t_jsonschema_<group>`; outside the group the field is hidden (`writeOnly`), the field must be an `option` (`[@option]` is added); the handler picks the representation: `(Member.t [@view "admin"]) Lwt.t` | ✅ |
+| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — a wrapper provider; consumers get the wrapper, the wrapper gets the original; several wrappers form a chain in file order; `Make` must take `I.S` | ✅ |
+| 30 | tagged iterator | parameter `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` passes all `I.S` providers except the provider itself and the wrappers | ✅ |
+| 31 | `#[When(env)]` | `[@@@profile "dev"]` — the provider is chosen at startup by `KRE_ENV` (`Kre.Wiring.profile`); a provider without a profile is required; hooks in a group are a build error | ✅ |
+| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (table `kre_locks`: insert or take over an expired row, owner check, release in `finalize`, TTL 600 s) — the function never runs on two servers at once; a held lock means skip | ✅ |
+| 33 | API tokens with abilities | `Kre.Token.Make (Db)` (table `kre_tokens`: ULID, owner, SHA-256 of the token, space-separated abilities; `*` — everything) + `[@@ability "cats:write"]` — guard `Tokens.ability`, the dependency `Tokens : Kre.Token.S` is added to `register` and to `[%wire]`; 401 without a token, 403 without the ability | ✅ |
+| 34 | queue dashboard | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` and `…/:id/delete`; loopback only; `[%wire]` adds it to `app.controllers` by itself | ✅ |
+| 35 | precognition | the header `Precognition: true` on POST/PUT/PATCH/DELETE — parsing, guards, `[@@authorize]` and `[@@check]` without calling the handler: 204 `Precognition-Success: true` or the same error (`Kre.Route.precognition`) | ✅ |
+| 36 | `#[ApiResource]` | `[%%resource { service = (module Books : Books.S); entity = Book; actions = [ Index Book_filter; Show; Create Book_draft; Remove ] }]` — before the controller pass it expands into ordinary handlers (`[@search]`, `[@load Books.find]`, 201, 204), the service must have `page`/`find`/`create`/`remove`; `[%wire]` expands it too | ✅ |
 
-## Фазы и критерии приёмки
+## Phases and acceptance criteria
 
-Фаза закрыта, когда её критерий выполнен в CI. Порядок внутри фазы — сверху вниз; каждая строка — отдельная задача для Claude Code с собственным PR.
+A phase is closed when its criterion passes in CI. Order within a phase is top to bottom; each row is a separate task for Claude Code with its own PR.
 
-### Фаза 0 — фундамент и решения (1 неделя) — выполнена
+### Phase 0 — foundation and decisions (1 week) — done
 
-| Задача | Критерий |
+| Task | Criterion |
 | --- | --- |
-| Репозиторий, dune-project, 4 opam-пакета, CI (build + test на 5.5) | `dune build @all` зелёный на пустых пакетах |
-| Проверить Melange под 5.5; зафиксировать правило версий для `shared/` | решение записано в разделе «Стек» |
-| Оценить typegist (бенчмарк кодека, Melange-сборка, opam-статус) | решение (а)/(б) записано в разделе dto |
-| Осмотреть jsonkit: что есть из `of_json/to_json`; решить, где живут кодеки | решение записано в разделе dto |
-| `Kre.Error`, `Response`, `Codec`, `Validation`, `Refined`, `Spec`, `Controller`, `run`/`app` по `.mli` из раздела Core | alcotest на каждый модуль; `Kre.App.handler []` отвечает 404 через `Error.to_response` |
+| Repository, dune-project, 4 opam packages, CI (build + test on 5.5) | `dune build @all` green on empty packages |
+| Check Melange under 5.5; fix the version rule for `shared/` | decision recorded in the "Stack" section |
+| Evaluate typegist (codec benchmark, Melange build, opam status) | decision (a)/(b) recorded in the dto section |
+| Inspect jsonkit: what it has of `of_json/to_json`; decide where the codecs live | decision recorded in the dto section |
+| `Kre.Error`, `Response`, `Codec`, `Validation`, `Refined`, `Spec`, `Controller`, `run`/`app` per the `.mli` from the Core section | alcotest for each module; `Kre.App.handler []` responds 404 via `Error.to_response` |
 
-### Фаза 1 — ядро, cats end-to-end (3–4 недели)
+### Phase 1 — core, cats end-to-end (3–4 weeks)
 
-| Задача | Критерий |
+| Task | Criterion |
 | --- | --- |
-| ✅ ppx `controller`: атрибуты, классификация, `Paths`/`spec`/`register`, все ошибки | cram на эталон и каждую ошибку; cats-контроллер компилируется и проходит e2e через `Dream.test` |
-| ✅ ppx `dto` (базовый, `~strict`, `[@validate]`, opaque-поля через `Json.S`) | cram на вывод; e2e cats: 422 с путём поля, `~strict` |
-| ✅ `Kre_shared.Refined` (String, Int, Enum, Email, Make; Regex — открытый вопрос) | схемы содержат ограничения; `of_string` работает в path/query |
-| ✅ ppx `config` (+ `Kre.Config`, profiles) | `load` собирает все ошибки сразу; cram на вывод и ошибки |
-| ✅ `--emit-spec`, `--emit-openapi`; `kre client` (melange + native), `kre openapi`, `kre routes` | OpenAPI cats проходит `openapi-spec-validator`; native-клиент проходит e2e по cats против живого сервера |
-| ✅ `Kre_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: сгенерированный клиент, собранный Melange, в node 22 против живого сервера (`NODE=` задаёт бинарь) |
-| ✅ `Kre_client.Router` + `[%path]`, `search`, `params` | node: `href`, матчинг, `search` с дефолтом и ошибкой, SSR `link` и `View`; cram: `link` с неверными params не компилируется |
-| ✅ `Kre.Db` (пул, транзакции) + `Kre_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg-запросы против сгенерированного `schema.sql` компилируются и выполняются на MariaDB 11.8 (алиас `@db`, отдельная CI-задача) |
-| ✅ `kre migrate up/down/status/new` (+ `Kre.Migration`) | e2e на MariaDB: пустая база → up → down, программно и через CLI |
-| ✅ `kre new`, `kre generate controller/service/dto` | cram (`test/scaffold/new.t`) с установленными пакетами: проект собирается и проходит свой тест; ресурс из `generate controller` собирается и проходит CRUD-тест; существующие файлы не перезаписываются |
-| ✅ Docs: главы Overview + Fundamentals + Validation/Serialization/Configuration + Data (+ OpenAPI/CLI, клиент) | 24 главы в `docs/`; код в них — файлы `examples/cats` и `docs/examples`, mdx (`$MDX file=`) сверяет текст с файлами, а `docs/examples/test` гоняет примеры глав через `Dream.test` |
+| ✅ ppx `controller`: attributes, classification, `Paths`/`spec`/`register`, all errors | cram for the reference output and each error; the cats controller compiles and passes e2e via `Dream.test` |
+| ✅ ppx `dto` (basic, `~strict`, `[@validate]`, opaque fields via `Json.S`) | cram for the output; e2e cats: 422 with the field path, `~strict` |
+| ✅ `Kre_shared.Refined` (String, Int, Enum, Email, Make; Regex — open question) | schemas contain the constraints; `of_string` works in path/query |
+| ✅ ppx `config` (+ `Kre.Config`, profiles) | `load` collects all errors at once; cram for the output and errors |
+| ✅ `--emit-spec`, `--emit-openapi`; `kre client` (melange + native), `kre openapi`, `kre routes` | the cats OpenAPI passes `openapi-spec-validator`; the native client passes e2e on cats against a live server |
+| ✅ `Kre_client`: `Http`, `Error`, `Wire`, `Promise` | `examples/cats/client_js`: the generated client, built by Melange, in node 22 against a live server (`NODE=` sets the binary) |
+| ✅ `Kre_client.Router` + `[%path]`, `search`, `params` | node: `href`, matching, `search` with a default and an error, SSR `link` and `View`; cram: `link` with wrong params does not compile |
+| ✅ `Kre.Db` (pool, transactions) + `Kre_db_mariadb` (sqlgg traits); `table`: `schema`, `schema.sql`, `of_row` | sqlgg queries against the generated `schema.sql` compile and run on MariaDB 11.8 (alias `@db`, a separate CI job) |
+| ✅ `kre migrate up/down/status/new` (+ `Kre.Migration`) | e2e on MariaDB: empty database → up → down, programmatically and via the CLI |
+| ✅ `kre new`, `kre generate controller/service/dto` | cram (`test/scaffold/new.t`) with installed packages: the project builds and passes its test; the resource from `generate controller` builds and passes a CRUD test; existing files are not overwritten |
+| ✅ Docs: chapters Overview + Fundamentals + Validation/Serialization/Configuration + Data (+ OpenAPI/CLI, client) | 24 chapters in `docs/`; their code is files from `examples/cats` and `docs/examples`, mdx (`$MDX file=`) checks the text against the files, and `docs/examples/test` runs the chapter examples via `Dream.test` |
 
-**Критерий фазы 1:** `examples/cats` — порт Nest-примера — собирается (`dune build @all`), `dune test` зелёный, `kre client` регенерирует клиент без диффа, страница `/cats/1` в браузере показывает кота из БД.
+**Phase 1 criterion:** `examples/cats` — a port of the Nest example — builds (`dune build @all`), `dune test` is green, `kre client` regenerates the client with no diff, the page `/cats/1` in the browser shows a cat from the DB.
 
-**Статус (фаза 1 закрыта, кроме ручной проверки в браузере).** `dune build @all` и `dune test` зелёные (`NODE=` для Melange-тестов), `@db` зелёный на MariaDB 11.8; клиент генерируется dune-правилом из `spec.json`, поэтому расхождения с контроллером не бывает. Веб-часть: `examples/cats/web` собирает страницу в ES-модули (React из esm.sh через import map, без бандлера), `bin/web.ml` отдаёт `/static/**` и `page.html` на GET с `Accept: text/html`, остальное — API. С `DATABASE_URL` сервер берёт `Cats_db_service`, применяет миграции на старте; `curl` подтверждает HTML на `/cats/1` для браузера и JSON с котом из базы для `fetch`. Открыть страницу в браузере руками ещё не проверено:
+**Status (phase 1 is closed, except the manual check in a browser).** `dune build @all` and `dune test` are green (`NODE=` for the Melange tests), `@db` is green on MariaDB 11.8; the client is generated by a dune rule from `spec.json`, so it cannot diverge from the controller. Web part: `examples/cats/web` builds the page into ES modules (React from esm.sh via an import map, no bundler), `bin/web.ml` serves `/static/**` and `page.html` on GET with `Accept: text/html`, everything else is the API. With `DATABASE_URL` the server uses `Cats_db_service` and applies migrations at startup; `curl` confirms HTML on `/cats/1` for the browser and JSON with a cat from the database for `fetch`. Opening the page in a browser by hand has not been checked yet:
 
 ```
 SESSION_SECRET=dev DATABASE_URL=mariadb://user:pass@127.0.0.1/cats dune exec examples/cats/bin/main.exe
 open http://localhost:8080/cats/1
 ```
 
-### Фаза 2 — реальное приложение (4–6 недель)
+### Phase 2 — a real application (4–6 weeks)
 
-`[@@sse]` и `[@@@gateway]`/`[@@subscribe]` для websockets с типами из shared; `[@@cron]`; `Events` (типизированная шина); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth-стратегии (session, JWT) + `Auth.role`; helmet/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Kre_db_pgx`. Критерий: главы Security, HTTP, WebSockets, Events, Task scheduling, Caching закрыты.
+`[@@sse]` and `[@@@gateway]`/`[@@subscribe]` for websockets with types from shared; `[@@cron]`; `Events` (typed bus); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth strategies (session, JWT) + `Auth.role`; helmet/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Kre_db_pgx`. Criterion: the Security, HTTP, WebSockets, Events, Task scheduling, Caching chapters are closed.
 
-**Статус фазы 2** (по мере работы):
+**Phase 2 status** (updated as work goes):
 - ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
-- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`; затем транзакция как в Spring: `with_conn`/`transaction` внутри открытой присоединяются к ней, `[@@transactional]` хватает зависимости `Kre.Db.S`
+- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`; then transactions as in Spring: `with_conn`/`transaction` inside an open one join it, `[@@transactional]` needs only a `Kre.Db.S` dependency
 - ✅ helmet/CORS/rate-limit: `Kre.Secure_headers`, `Kre.Cors`, `Kre.Rate_limit` (`docs/security.md`)
-- ✅ `[@@sse]`: тип `T.t Lwt_stream.t Lwt.t` и атрибут обязаны идти вместе; `Kre.Route.events` с явным модулем — GADT-конструктор с `'a Lwt_stream.t` невозможен (тип не инъективен); `kre client` пока пропускает такие маршруты (подписка — `EventSource`)
-- ✅ WebSocket: `Kre.Gateway` (кадры `{event, data}` как в Nest, `on`/`notify` с явными модулями тела и ответа, `send`/`broadcast`, ошибки — событие `error` с Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` видит шлюзы; проверено живым WebSocket из node 22
-- ✅ Actuator: `Kre.Actuator.make` (`/health`, `/info`, `/env`, `/routes`, `/openapi.json`, `/metrics`), `[@@health]` в провайдерах, `Config.pairs` из деривера (`docs/actuator.md`)
-- ✅ кэш: `[@@cache ttl]` (ответ GET по URL, `X-Cache`), `Kre.Cache.memoize` (`find`/`evict`/`clear`) (`docs/caching.md`)
-- ✅ расписание: `[@@cron]` (`Kre_shared.Cron` разбирается в ppx при сборке, `next` без `Unix` — работает и в Melange), `[@@interval]`, `[@@after]`; `Kre.Schedule`, запуск/остановка через `Kre.Wiring` (`docs/task-scheduling.md`)
-- ✅ события: `Kre.Events` (`'a topic` с `Type.Id`, шина `Make ()` как провайдер), `[@@on_event]` в провайдере, подписку генерирует `[%wire]` (`docs/events.md`, `examples/events`)
-- ✅ serialization: `[@exclude]` (writeOnly), `[@transform f]`, mapped types `~partial_of`/`~pick_of`/`~omit_of` с функциями `<x>_of_<t>` и `<x>_apply` (типы того же файла)
-- ✅ страница Controllers: `[@@head]`, `[@@options]`, `[@@all]`, маска `*` + `[@wildcard]`, HEAD через GET, `[@@@host]` + `[@host_param]`
-- ✅ `Kre_shared.Id.Make ()`: типизированные идентификаторы сущностей (`Cat.Id.t`)
-- ✅ interceptors: `Kre.Interceptor.t` (полиморфный `around` над типизированным результатом), `[@@intercept]`/`[@@@intercept]`, готовые `logging`, `timeout`, `map_error`, `tap`, `chain`
-- ✅ декораторы параметров Nest/Spring: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Kre.Extract`), заголовки и cookies в spec/OpenAPI, заголовки в клиенте
-- ✅ DI при сборке: `[%wire]`, провайдеры по форме модуля, `[@@@primary]`, выбор по имени параметра, хуки, ошибки сборки (см. «Проводка»)
+- ✅ `[@@sse]`: the type `T.t Lwt_stream.t Lwt.t` and the attribute must go together; `Kre.Route.events` with an explicit module — a GADT constructor with `'a Lwt_stream.t` is impossible (the type is not injective); `kre client` skips such routes for now (subscription — `EventSource`)
+- ✅ WebSocket: `Kre.Gateway` (`{event, data}` frames as in Nest, `on`/`notify` with explicit body and response modules, `send`/`broadcast`, errors — an `error` event with Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` sees gateways; tested with a live WebSocket from node 22
+- ✅ Actuator: `Kre.Actuator.make` (`/health`, `/info`, `/env`, `/routes`, `/openapi.json`, `/metrics`), `[@@health]` in providers, `Config.pairs` from the deriver (`docs/actuator.md`)
+- ✅ cache: `[@@cache ttl]` (GET response by URL, `X-Cache`), `Kre.Cache.memoize` (`find`/`evict`/`clear`) (`docs/caching.md`)
+- ✅ scheduling: `[@@cron]` (`Kre_shared.Cron` is parsed in ppx at build time, `next` without `Unix` — works in Melange too), `[@@interval]`, `[@@after]`; `Kre.Schedule`, start/stop via `Kre.Wiring` (`docs/task-scheduling.md`)
+- ✅ events: `Kre.Events` (`'a topic` with `Type.Id`, the bus `Make ()` as a provider), `[@@on_event]` in a provider, the subscription is generated by `[%wire]` (`docs/events.md`, `examples/events`)
+- ✅ serialization: `[@exclude]` (writeOnly), `[@transform f]`, mapped types `~partial_of`/`~pick_of`/`~omit_of` with functions `<x>_of_<t>` and `<x>_apply` (types from the same file)
+- ✅ Controllers page: `[@@head]`, `[@@options]`, `[@@all]`, the `*` mask + `[@wildcard]`, HEAD via GET, `[@@@host]` + `[@host_param]`
+- ✅ `Kre_shared.Id.Make ()`: typed entity identifiers (`Cat.Id.t`)
+- ✅ interceptors: `Kre.Interceptor.t` (a polymorphic `around` over a typed result), `[@@intercept]`/`[@@@intercept]`, ready-made `logging`, `timeout`, `map_error`, `tap`, `chain`
+- ✅ Nest/Spring parameter decorators: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Kre.Extract`), headers and cookies in spec/OpenAPI, headers in the client
+- ✅ build-time DI: `[%wire]`, providers by module shape, `[@@@primary]`, selection by parameter name, hooks, build errors (see "Wiring")
 - ✅ table CRUD: `Kre.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
-- ✅ live loaders: `Kre.Live` (шина в памяти, `publish`/`subscribe`, канал `/__kre/live`), драйвер сообщает SQL (`read`/`wrote`), `Db.transaction` держит изменения до commit, `[@@live]` → `spec.live` + `x-kre-live` + `Cats_client.Live`, `Router.child ~live`, проверка списка при `KRE_ENV=test` (`docs/live.md`). Метаданных `reads`/`writes` sqlgg не даёт — таблицы берутся из текста SQL в traits
-- ✅ PostgreSQL: `kre-db-postgresql` (libpq, не pgx — см. «Kre.Db»), `Kre.Table.schema` с диалектом, `examples/cats/postgresql` + CI-job с postgres:17
-- ✅ `examples/shelter` — критерий приёмки фазы 2: всё вместе на MariaDB + node (см. «Пример приложения целиком»); `[@@deriving dto]` на варианте без аргументов даёт скаляр
-- ✅ auth: `Kre.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Kre.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
+- ✅ live loaders: `Kre.Live` (in-memory bus, `publish`/`subscribe`, channel `/__kre/live`), the driver reports SQL (`read`/`wrote`), `Db.transaction` holds changes until commit, `[@@live]` → `spec.live` + `x-kre-live` + `Cats_client.Live`, `Router.child ~live`, list check with `KRE_ENV=test` (`docs/live.md`). sqlgg does not provide `reads`/`writes` metadata — tables are taken from the SQL text in the traits
+- ✅ PostgreSQL: `kre-db-postgresql` (libpq, not pgx — see "Kre.Db"), `Kre.Table.schema` with a dialect, `examples/cats/postgresql` + a CI job with postgres:17
+- ✅ `examples/shelter` — the phase 2 acceptance criterion: everything together on MariaDB + node (see "A whole application"); `[@@deriving dto]` on a variant without arguments gives a scalar
+- ✅ auth: `Kre.Jwt` (HS256, `sign`/`verify`/`bearer`, errors `` `Jwt of Malformed | Bad_signature | Expired ``), `Kre.Guard.session/map/check/optional`; roles — `Guard.check` into an evidence type (`docs/authentication.md`)
 
-### Фаза 3 — экосистема
+### Phase 3 — ecosystem
 
-Заимствования из Rails/Symfony/Spring/Nest/IHP — таблица «Заимствования из Rails, Symfony…», по волнам. `kre migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice-транспорты. Приоритизируется по первому реальному проекту на Kre.
+Borrowings from Rails/Symfony/Spring/Nest/IHP — the table "Borrowed from Rails, Symfony…", by wave. `kre migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice transports. Prioritized by the first real project on Kre.
 
-### Карта глав docs.nestjs.com
+### Map of docs.nestjs.com chapters
 
-| Раздел Nest | Статус в Kre |
+| Nest section | Status in Kre |
 | --- | --- |
-| Overview (10 глав) | фаза 1; Custom decorators = `[@from]` |
-| Fundamentals | фаза 1; Circular dependency, Module reference, Discovery, Lazy-loading, Platform agnosticism — одна страница «не нужно и почему» |
-| Application | Configuration/Validation/Serialization/Logging — фаза 1; Events/Task scheduling — 2; Queues/i18n/Mail/File storage — 3 |
-| Data | одна глава (sqlgg + table + миграции) — фаза 1; Caching — 2; MongoDB — нет |
-| Security | фаза 2 |
-| HTTP | Cookies/Session/Upload/Compression/MVC — фаза 1 (Dream); Versioning/SSE/Webhooks — 2 |
-| Observability | OpenTelemetry через ocaml-opentelemetry — фаза 2; остальное — нет |
-| Reliability | Health checks — 2; остальное — 3 |
-| GraphQL, Microservices | фаза 3 |
-| WebSockets | фаза 2 |
-| Standalone apps, CLI, OpenAPI | фаза 1 |
+| Overview (10 chapters) | phase 1; Custom decorators = `[@from]` |
+| Fundamentals | phase 1; Circular dependency, Module reference, Discovery, Lazy-loading, Platform agnosticism — one page "not needed and why" |
+| Application | Configuration/Validation/Serialization/Logging — phase 1; Events/Task scheduling — 2; Queues/i18n/Mail/File storage — 3 |
+| Data | one chapter (sqlgg + table + migrations) — phase 1; Caching — 2; MongoDB — no |
+| Security | phase 2 |
+| HTTP | Cookies/Session/Upload/Compression/MVC — phase 1 (Dream); Versioning/SSE/Webhooks — 2 |
+| Observability | OpenTelemetry via ocaml-opentelemetry — phase 2; the rest — no |
+| Reliability | Health checks — 2; the rest — 3 |
+| GraphQL, Microservices | phase 3 |
+| WebSockets | phase 2 |
+| Standalone apps, CLI, OpenAPI | phase 1 |
 | Recipes | REPL = utop, Hot reload = dune -w, Serve static = Dream.static, Commander = cmdliner, CRUD generator = `kre generate`; CQRS — 3 |
 
-## Конвенции для разработки и открытые вопросы
+## Development conventions and open questions
 
-Эти правила — для `CLAUDE.md` репозитория; они перекрывают любые умолчания.
+These rules are for the repository's `CLAUDE.md`; they override any defaults.
 
-### Код
+### Code
 
-- OCaml 5.5, `(lang dune 3.23)`, ocamlformat 0.29 с профилем `default`; CI падает на неотформатированном коде.
-- Минимум кода, никаких функций ради одного вызова. Illegal states unrepresentable: `option`/`result`/варианты вместо флагов и проверок. Никаких `assert false`, `failwith` в библиотечном коде, `Obj.magic`.
-- Каждый публичный модуль имеет `.mli`; `Kre.*` — ровно сигнатуры из раздела Core; изменение сигнатуры — правка этого документа в том же PR.
-- Сгенерированный ppx-код содержит только вызовы `Kre.Route`/`Kre_shared.Json`/`Kre_shared.Scalar`, без логики; логика — в рантайме, где её можно тестировать без ppx.
-- Modular explicits — только в `server/` и `bin/`; `shared/` и `client/` — синтаксис, который собирает Melange.
-- Dream не оборачивается: `Dream.request`, `Dream.middleware`, `Dream.response` в публичных сигнатурах Kre допустимы и желательны.
+- OCaml 5.5, `(lang dune 3.23)`, ocamlformat 0.29 with the `default` profile; CI fails on unformatted code.
+- Minimal code, no functions for a single call. Illegal states unrepresentable: `option`/`result`/variants instead of flags and checks. No `assert false`, `failwith` in library code, `Obj.magic`.
+- Every public module has an `.mli`; `Kre.*` — exactly the signatures from the Core section; a signature change means editing this document in the same PR.
+- Generated ppx code contains only calls to `Kre.Route`/`Kre_shared.Json`/`Kre_shared.Scalar`, no logic; logic lives in the runtime, where it can be tested without ppx.
+- Modular explicits — only in `server/` and `bin/`; `shared/` and `client/` — syntax that Melange builds.
+- Dream is not wrapped: `Dream.request`, `Dream.middleware`, `Dream.response` in Kre's public signatures are allowed and preferred.
 
 ### ppx
 
-- Один драйвер `kre.ppx` (`ppxlib` ≥ 0.38); трансформации регистрируются по одной, каждая — свой файл и свой набор expect-тестов.
-- Все ошибки — `Location.raise_errorf` с локацией на виновный узел и текстом вида «что не так → что сделать»: ` handler find_one: missing return type annotation; add  `: Cat.t Lwt.t\`».
-- Никаких предупреждений вместо ошибок; никакой «догадки» по умолчанию, если аннотация отсутствует.
-- Сгенерированные имена с префиксом `__kre_`; пользовательские имена не затеняются.
+- One driver `kre.ppx` (`ppxlib` ≥ 0.38); transformations are registered one by one, each in its own file with its own set of expect tests.
+- All errors — `Location.raise_errorf` with the location on the offending node and text of the form "what is wrong → what to do": `handler find_one: missing return type annotation; add : Cat.t Lwt.t`.
+- No warnings instead of errors; no default "guessing" when an annotation is missing.
+- Generated names have the `__kre_` prefix; user names are not shadowed.
 
-### Тесты и docs
+### Tests and docs
 
-- Для каждой трансформации: expect-тест эталонного вывода + по тесту на каждую ошибку.
-- `examples/cats` — всегда зелёный; это интеграционный тест ядра.
-- Главы в `docs/` повторяют оглавление Nest; каждая содержит порт Nest-примера. Код в главе — не текст, а ссылка `<!-- $MDX file=… -->` на собираемый файл (`examples/` или `docs/examples/`); `dune test` падает, если текст разошёлся с файлом, `dune promote` обновляет главу. Блоки `sh` помечаются `<!-- $MDX skip -->`. Глава без такого блока не считается написанной.
+- For each transformation: an expect test of the reference output + one test per error.
+- `examples/cats` is always green; it is the integration test of the core.
+- Chapters in `docs/` follow the Nest table of contents; each contains a port of the Nest example. Code in a chapter is not text but a `<!-- $MDX file=… -->` reference to a file that builds (`examples/` or `docs/examples/`); `dune test` fails if the text diverges from the file, `dune promote` updates the chapter. `sh` blocks are marked `<!-- $MDX skip -->`. A chapter without such a block does not count as written.
 
-### Процесс для Claude Code
+### Process for Claude Code
 
-- Одна строка таблицы фазы = один PR с тестами. Начинать с фазы 0 по порядку; фазу 1 — с ppx `controller`.
-- Перед реализацией раздела перечитать его в этом документе; если дизайн не сходится с реальностью (версия библиотеки, невозможность в ppx), сначала правка документа с обоснованием, потом код.
-- Не расширять скоуп фазы: идея, не вошедшая в таблицу, записывается в «Открытые вопросы».
+- One phase table row = one PR with tests. Start with phase 0, in order; phase 1 — with ppx `controller`.
+- Before implementing a section, reread it in this document; if the design does not match reality (library version, impossible in ppx), first edit the document with a justification, then the code.
+- Do not widen a phase's scope: an idea that is not in the table goes into "Open questions".
 
-### Открытые вопросы
+### Open questions
 
-- [x] Melange под OCaml 5.5: есть `melange.7.0.1-55`; один switch, синтаксис 5.5 разрешён везде (фаза 0).
-- [x] typegist: вариант (б), не используется (фаза 0, раздел dto).
-- [x] jsonkit: `of_json`/`to_json`/`t_jsonschema` есть на обоих бэкендах; `Json.S` повторяет их форму (фаза 0, раздел dto).
-- [ ] jsonkit: режим декодирования с накоплением ошибок и путями (`["age"]`) — нужен для аппликативных 422; до него — первая ошибка без пути.
-- [ ] Регулярные выражения в `Kre_shared` (`Validation.regex`, `Refined.Regex`): `Str` есть только в native; варианты — `re` (проверить сборку в melange) или своя реализация на `Js.Re` за общим интерфейсом.
-- [ ] Длина строк в `Validation.min_length`/`max_length`: `String.length` считает байты в native и UTF-16-единицы в JS; для не-ASCII нужен подсчёт code points, одинаковый на обоих концах.
-- [x] sqlgg: traits берутся из `sqlgg.mariadb` (opam `sqlgg.20260721`), `Kre.Db` — пул и транзакции; `schema.sql` печатает бинарь со списком таблиц, реестр не нужен. Форк `jongleb/sqlgg` пока не требуется; если понадобятся его возможности (IR, lattice-nullability), — pin в `dune-project`.
-- [ ] Имя: `Kre` — рабочее; проверить коллизии в opam перед публикацией.
-- [x] `.mlx` против reason-синтаксиса для JSX: `.mlx` (диалект dune, фаза 2).
-- [x] Dream: вышел `1.0.0`, зависимость `dream >= 1.0.0`.
-- [ ] WebSocket: при закрытии со стороны клиента сервер получает `None` и вызывает `Dream.close_websocket`, но клиент (node 22) не получает подтверждения закрытия в течение 3 с. Сообщения ходят. Проверить на примере `k-websocket` Dream 1.0 и, если это там же, — в Dream.
-- [ ] `--emit-spec` запускает composition root (`main.ml`), а он сначала грузит конфиг, поэтому сборка требует переменных окружения (в cats dune-правило ставит `SESSION_SECRET=unused`). `spec` статичен; вариант — `kre` сам собирает маленький бинарь, который печатает `Cats_controller.spec`, без запуска `main`.
-- [ ] `ssl 0.8.0`, собранный против OpenSSL 4, падает при инициализации `conduit-lwt-unix` (минимум SSL3 больше не поддерживается), а с ним и native-клиент на cohttp. Локальный switch пересобран против `openssl@3` (`PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig opam reinstall ssl`); на ubuntu в CI OpenSSL 3. Чинить в ssl или уйти с conduit в native-клиенте.
-- [x] Атрибуты контроллера, отложенные из фазы 1: сделаны в фазе 2, кроме `[@@sse]` (своя строка); `[@@@inject]` и `[@codec e]` не нужны (см. раздел ppx: controller).
+- [x] Melange under OCaml 5.5: `melange.7.0.1-55` exists; one switch, 5.5 syntax allowed everywhere (phase 0).
+- [x] typegist: option (b), not used (phase 0, dto section).
+- [x] jsonkit: `of_json`/`to_json`/`t_jsonschema` exist on both backends; `Json.S` mirrors their shape (phase 0, dto section).
+- [ ] jsonkit: a decoding mode that accumulates errors with paths (`["age"]`) — needed for applicative 422s; until then — the first error, without a path.
+- [ ] Regular expressions in `Kre_shared` (`Validation.regex`, `Refined.Regex`): `Str` exists only in native; options — `re` (check that it builds in melange) or a custom implementation on `Js.Re` behind a shared interface.
+- [ ] String length in `Validation.min_length`/`max_length`: `String.length` counts bytes in native and UTF-16 units in JS; non-ASCII needs code point counting that is the same on both ends.
+- [x] sqlgg: traits come from `sqlgg.mariadb` (opam `sqlgg.20260721`), `Kre.Db` — pool and transactions; `schema.sql` is printed by a binary with the table list, no registry needed. The `jongleb/sqlgg` fork is not required yet; if its features are needed (IR, lattice-nullability) — a pin in `dune-project`.
+- [ ] Name: `Kre` is a working name; check for collisions in opam before publishing.
+- [x] `.mlx` vs reason syntax for JSX: `.mlx` (a dune dialect, phase 2).
+- [x] Dream: `1.0.0` is out, dependency `dream >= 1.0.0`.
+- [ ] WebSocket: on a close from the client side the server receives `None` and calls `Dream.close_websocket`, but the client (node 22) gets no close acknowledgement within 3 s. Messages flow. Check with the Dream 1.0 `k-websocket` example and, if it happens there too, — in Dream.
+- [ ] `--emit-spec` runs the composition root (`main.ml`), and it loads the config first, so the build needs environment variables (in cats the dune rule sets `SESSION_SECRET=unused`). `spec` is static; an option — `kre` itself builds a small binary that prints `Cats_controller.spec`, without running `main`.
+- [ ] `ssl 0.8.0` built against OpenSSL 4 fails during `conduit-lwt-unix` initialization (minimum SSL3 is no longer supported), and the native client on cohttp fails with it. The local switch is rebuilt against `openssl@3` (`PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig opam reinstall ssl`); ubuntu in CI has OpenSSL 3. Fix it in ssl or move the native client off conduit.
+- [x] Controller attributes postponed from phase 1: done in phase 2, except `[@@sse]` (its own row); `[@@@inject]` and `[@codec e]` are not needed (see the ppx: controller section).

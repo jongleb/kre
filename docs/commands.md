@@ -1,6 +1,6 @@
 # Commands
 
-Symfony: `#[AsCommand]`. Rails: rake-задачи и `rails runner`. Spring: `CommandLineRunner`. IHP: Scripts. Везде это код, которому нужен контекст приложения (база, сервисы, конфиг), но не HTTP. В Kre — функция с `[@@command "описание"]`: модульные параметры — провайдеры, которые передаст `[%wire]`, помеченные (`~count`, `?count`) — опции командной строки.
+Symfony: `#[AsCommand]`. Rails: rake tasks and `rails runner`. Spring: `CommandLineRunner`. IHP: Scripts. In every case this is code that needs the application context (database, services, config) but not HTTP. In Kre it is a function with `[@@command "description"]`: module parameters are providers that `[%wire]` passes in, labelled ones (`~count`, `?count`) are command-line options.
 
 <!-- $MDX file=../examples/shelter/server/tasks.ml -->
 ```ocaml
@@ -32,7 +32,7 @@ let signup (module Users : Users_service.S)
 [@@command "Create an account"]
 ```
 
-Команды живут в отдельном файле (не в провайдере и не в контроллере). `[%wire]` собирает их в `app.commands`, `Kre.App.run ~commands:app.commands` запускает:
+Commands live in a separate file (not in a provider and not in a controller). `[%wire]` collects them into `app.commands`, and `Kre.App.run ~commands:app.commands` runs them:
 
 ```
 $ main.exe help
@@ -47,7 +47,7 @@ $ main.exe signup --email nope
 --password is required
 ```
 
-- Опция разбирается тем же модулем, что и query-параметр: `int`, `int64`, `float`, `bool`, `string` или `M.t` с `M : Kre_shared.Scalar.S` (`Cat.Id.t`, `Refined.Email.t`, вариант с `[@@deriving dto]`). Ошибки всех опций выводятся сразу, код выхода 2.
-- `~(x : T)` — обязательная опция, `?(x : T = default)` — со значением по умолчанию; `--x 3` и `--x=3` равны.
-- Перед командой выполняются `on_start` провайдеров (миграции), после — `on_shutdown`. Сервер не стартует.
-- Без команды бинарь работает как сервер; `--emit-spec` и `--emit-openapi` — как раньше.
+- An option is parsed by the same module as a query parameter: `int`, `int64`, `float`, `bool`, `string` or `M.t` with `M : Kre_shared.Scalar.S` (`Cat.Id.t`, `Refined.Email.t`, a variant with `[@@deriving dto]`). Errors for all options are printed at once, exit code 2.
+- `~(x : T)` is a required option, `?(x : T = default)` has a default value; `--x 3` and `--x=3` are equivalent.
+- Before the command, providers' `on_start` runs (migrations); after it, `on_shutdown`. The server does not start.
+- Without a command the binary runs as a server; `--emit-spec` and `--emit-openapi` work as before.

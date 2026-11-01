@@ -1,6 +1,6 @@
 # Lifecycle events
 
-Nest: `onModuleInit`, `onApplicationShutdown`. Kre: `Kre.App.run ~on_start ~on_shutdown`: `on_start` выполняется до приёма запросов, `on_shutdown` — после остановки по SIGINT/SIGTERM.
+Nest: `onModuleInit`, `onApplicationShutdown`. Kre: `Kre.App.run ~on_start ~on_shutdown`: `on_start` runs before requests are accepted, `on_shutdown` runs after stopping on SIGINT/SIGTERM.
 
 <!-- $MDX file=examples/lifecycle.ml -->
 ```ocaml
