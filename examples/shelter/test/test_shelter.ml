@@ -166,6 +166,32 @@ let () =
                    (Yojson.Basic.Util.to_list
                       (snd (call ~token:ann `GET "/adoptions/mine")))));
         ] );
+      ( "commands",
+        [
+          Alcotest.test_case "seed and signup run with wired providers" `Quick
+            (fun () ->
+              let run arguments =
+                match Forge.Command.invoke app.commands arguments with
+                | Run command -> Lwt_main.run (command ())
+                | Serve | Usage _ | Invalid _ -> Alcotest.fail "not a command"
+              in
+              run [ "seed"; "--count"; "2" ];
+              run
+                [
+                  "signup";
+                  "--email";
+                  "dan@shelter.test";
+                  "--password";
+                  "whiskers1";
+                ];
+              Alcotest.(check (pair (list string) int))
+                "kittens and a login"
+                ([ "kitten 1"; "kitten 2" ], 200)
+                ( List.filter (String.starts_with ~prefix:"kitten") (names ()),
+                  fst
+                    (call ~body:(login "dan@shelter.test") `POST "/auth/login")
+                ));
+        ] );
       ( "authorize",
         [
           Alcotest.test_case "owner or admin renames a cat" `Quick (fun () ->

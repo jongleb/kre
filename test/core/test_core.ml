@@ -867,6 +867,61 @@ let retry =
           "two calls" ({|Failure("call 2")|}, 2) (result, !calls));
   ]
 
+let command =
+  let ran = ref [] in
+  let greet =
+    Forge.Command.make ~name:"greet" ~doc:"Say hello"
+      ~options:[ "name"; "times" ] (fun args ->
+        let open Forge_shared.Validation.Syntax in
+        let+ name =
+          Forge.Command.required (module Forge_shared.Scalar.String) "name" args
+        and+ times =
+          Forge.Command.optional
+            (module Forge_shared.Scalar.Int)
+            "times" ~default:1 args
+        in
+        fun () ->
+          ran := Printf.sprintf "%s x%d" name times :: !ran;
+          Lwt.return_unit)
+  in
+  let outcome arguments =
+    match Forge.Command.invoke [ greet ] arguments with
+    | Serve -> "serve"
+    | Usage text -> text
+    | Invalid message -> "invalid: " ^ message
+    | Run run ->
+        Lwt_main.run (run ());
+        "ran " ^ String.concat "," !ran
+  in
+  [
+    Alcotest.test_case "options and errors" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "outcomes"
+          [
+            "serve";
+            "serve";
+            "ran ann x1";
+            "ran bob x3,ann x1";
+            "invalid: --name is required\n--times: must be an integer";
+            "invalid: --size needs a value";
+            "invalid: greet has no option --size\n\
+             commands:\n\
+            \  greet --name --times  Say hello\n";
+            "commands:\n  greet --name --times  Say hello\n";
+          ]
+          (List.map outcome
+             [
+               [];
+               [ "--port"; "1" ];
+               [ "greet"; "--name"; "ann" ];
+               [ "greet"; "--name=bob"; "--times"; "3" ];
+               [ "greet"; "--times"; "x" ];
+               [ "greet"; "--size" ];
+               [ "greet"; "--size"; "1" ];
+               [ "help" ];
+             ]));
+  ]
+
 let () =
   Alcotest.run "forge"
     [
@@ -874,6 +929,7 @@ let () =
       ("Table", table);
       ("Etag", etag);
       ("Retry", retry);
+      ("Command", command);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

@@ -3,6 +3,8 @@ type t = private {
   on_start : unit -> unit Lwt.t;  (** Provider hooks, in dependency order. *)
   on_shutdown : unit -> unit Lwt.t;  (** The same hooks, in reverse. *)
   health : Actuator.check list;  (** [[@@health]] functions of the providers. *)
+  commands : Command.t list;
+      (** [[@@command]] functions, given their providers. *)
   beans : Actuator.bean list;
       (** Providers in start order, then controllers, with what each got. *)
 }
@@ -14,6 +16,7 @@ val make :
   on_shutdown:(unit -> unit Lwt.t) list ->
   ?jobs:Schedule.job list ->
   ?health:Actuator.check list ->
+  ?commands:Command.t list ->
   ?beans:Actuator.bean list ->
   unit ->
   t

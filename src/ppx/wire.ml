@@ -34,8 +34,20 @@ type provider = {
 
 type controller = { module_name : string; needs : string list; site : location }
 
+type tasks = {
+  file : string;
+  commands : (string * string list) list;
+      (** [[@@command]] functions with the interfaces they take. *)
+  at : location;
+}
+(** A file of commands. *)
+
 (** What one source file contributes to the wiring. *)
-type component = Provider of provider | Controller of controller | Plain
+type component =
+  | Provider of provider
+  | Controller of controller
+  | Tasks of tasks
+  | Plain
 
 let scan path =
   let interface (module_type : module_type) =
@@ -176,280 +188,328 @@ let scan path =
     | first :: _ -> first.pstr_loc
     | [] -> Location.in_file path
   in
-  match
-    Option.fold ~none:(floating "gateway") ~some:Option.some
-      (floating "controller")
-  with
-  | Some attribute ->
-      Controller
-        {
-          module_name = name;
-          site = attribute.attr_loc;
-          needs =
-            List.fold_left
-              (fun needs (item : structure_item) ->
-                match item.pstr_desc with
-                | Pstr_value (_, bindings) ->
-                    List.fold_left
-                      (fun needs (binding : value_binding) ->
-                        match binding.pvb_expr.pexp_desc with
-                        | Pexp_function (params, _, _)
-                          when List.exists
-                                 (fun (attribute : attribute) ->
-                                   List.mem attribute.attr_name.txt
-                                     [
-                                       "get";
-                                       "post";
-                                       "put";
-                                       "patch";
-                                       "delete";
-                                       "head";
-                                       "options";
-                                       "all";
-                                       "subscribe";
-                                     ])
-                                 binding.pvb_attributes ->
-                            List.fold_left
-                              (fun needs (param : function_param) ->
-                                match param.pparam_desc with
-                                | Pparam_val
-                                    ( Nolabel,
-                                      _,
-                                      {
-                                        ppat_desc =
-                                          Ppat_constraint
-                                            ( { ppat_desc = Ppat_unpack _; _ },
-                                              type_ );
-                                        _;
-                                      } ) -> (
-                                    match package type_ with
-                                    | Some needed
-                                      when not (List.mem needed needs) ->
-                                        needs @ [ needed ]
-                                    | Some _ | None -> needs)
-                                | _ -> needs)
-                              needs params
-                        | _ -> needs)
-                      needs bindings
-                | _ -> needs)
-              [] structure;
-        }
-  | None -> (
-      let provides =
-        match (explicit, make) with
-        | Some provides, _ -> Some provides
-        | None, Some make ->
-            Option.map
-              (fun found ->
-                match String.index_opt found '.' with
-                | Some _ -> found
-                | None -> name ^ "." ^ found)
-              (List.find_map Fun.id [ constraint_ make; declared; own ])
-        | None, None ->
-            Option.bind own (fun own ->
-                List.find_map
-                  (fun (item : structure_item) ->
-                    match item.pstr_desc with
-                    | Pstr_value _ -> Some own
-                    | _ -> None)
-                  structure)
-      in
-      match provides with
-      | None -> Plain
-      | Some provides ->
-          let construction, body =
-            match make with
-            | None -> (Singleton, pmod_structure ~loc:site structure)
-            | Some make -> (
-                match parameters make with
-                | `Generative, body -> (Generative, body)
-                | `Factory [], body -> (Singleton, body)
-                | `Factory needs, body -> (Factory needs, body))
-          in
-          let rec items (module_ : module_expr) =
-            match module_.pmod_desc with
-            | Pmod_structure items -> items
-            | Pmod_constraint (inner, _) -> items inner
-            | _ -> []
-          in
-          Provider
-            {
-              name;
-              provides;
-              construction;
-              hooks = hooks (items body);
-              checks =
-                List.concat_map
-                  (fun (item : structure_item) ->
-                    match item.pstr_desc with
-                    | Pstr_value (_, bindings) ->
+  let commands =
+    List.concat_map
+      (fun (item : structure_item) ->
+        match item.pstr_desc with
+        | Pstr_value (_, bindings) ->
+            List.filter_map
+              (fun (binding : value_binding) ->
+                match
+                  ( binding.pvb_pat.ppat_desc,
+                    binding.pvb_expr.pexp_desc,
+                    List.find_opt
+                      (fun (attribute : attribute) ->
+                        String.equal attribute.attr_name.txt "command")
+                      binding.pvb_attributes )
+                with
+                | Ppat_var { txt; _ }, Pexp_function (params, _, _), Some _ ->
+                    Some
+                      ( txt,
                         List.filter_map
-                          (fun (binding : value_binding) ->
-                            match
-                              ( binding.pvb_pat.ppat_desc,
-                                List.find_map
-                                  (fun (attribute : attribute) ->
-                                    match
-                                      ( attribute.attr_name.txt,
-                                        attribute.attr_payload )
-                                    with
-                                    | ( "health",
-                                        PStr
-                                          [
-                                            {
-                                              pstr_desc =
-                                                Pstr_eval
-                                                  ( {
-                                                      pexp_desc =
-                                                        Pexp_constant
-                                                          (Pconst_string
-                                                             (check, _, _));
-                                                      _;
-                                                    },
-                                                    _ );
-                                              _;
-                                            };
-                                          ] ) ->
-                                        Some check
-                                    | "health", _ ->
-                                        Location.raise_errorf
-                                          ~loc:attribute.attr_loc
-                                          "[@@health] takes the check's name: \
-                                           [@@health \"db\"]"
-                                    | _ -> None)
-                                  binding.pvb_attributes )
-                            with
-                            | Ppat_var { txt; _ }, Some check ->
-                                Some (txt, check)
+                          (fun (param : function_param) ->
+                            match param.pparam_desc with
+                            | Pparam_val
+                                ( Nolabel,
+                                  _,
+                                  {
+                                    ppat_desc =
+                                      Ppat_constraint
+                                        ({ ppat_desc = Ppat_unpack _; _ }, type_);
+                                    _;
+                                  } ) ->
+                                package type_
                             | _ -> None)
-                          bindings
-                    | _ -> [])
-                  (items body);
-              jobs =
-                List.concat_map
-                  (fun (item : structure_item) ->
-                    match item.pstr_desc with
-                    | Pstr_value (_, bindings) ->
-                        List.filter_map
-                          (fun (binding : value_binding) ->
-                            match binding.pvb_pat.ppat_desc with
-                            | Ppat_var { txt; _ } ->
-                                Option.map
-                                  (fun timing -> (txt, timing))
-                                  (List.find_map
-                                     (fun (attribute : attribute) ->
-                                       let loc = attribute.attr_loc in
-                                       let payload () =
-                                         match attribute.attr_payload with
-                                         | PStr
-                                             [
-                                               {
-                                                 pstr_desc =
-                                                   Pstr_eval (expression, _);
-                                                 _;
-                                               };
-                                             ] ->
-                                             expression
-                                         | _ ->
-                                             Location.raise_errorf ~loc
-                                               "[@@%s] needs a value"
-                                               attribute.attr_name.txt
-                                       in
-                                       let seconds () =
-                                         match (payload ()).pexp_desc with
-                                         | Pexp_constant (Pconst_float _) ->
-                                             payload ()
-                                         | _ ->
-                                             Location.raise_errorf ~loc
-                                               "[@@%s] takes seconds as a \
-                                                float, e.g. [@@%s 30.0]"
-                                               attribute.attr_name.txt
-                                               attribute.attr_name.txt
-                                       in
-                                       match attribute.attr_name.txt with
-                                       | "cron" -> (
-                                           match (payload ()).pexp_desc with
-                                           | Pexp_constant
-                                               (Pconst_string (expression, _, _))
-                                             -> (
-                                               match
-                                                 Forge_shared.Cron.of_string
-                                                   expression
-                                               with
-                                               | Ok _ ->
-                                                   Some
-                                                     [%expr
-                                                       Forge.Schedule.Cron
-                                                         (Forge_shared.Cron
-                                                          .of_string_exn
-                                                            [%e
-                                                              estring ~loc
-                                                                expression])]
-                                               | Error message ->
-                                                   Location.raise_errorf ~loc
-                                                     "[@@cron %S]: %s"
-                                                     expression message)
+                          params )
+                | _ -> None)
+              bindings
+        | _ -> [])
+      structure
+  in
+  let component =
+    match
+      Option.fold ~none:(floating "gateway") ~some:Option.some
+        (floating "controller")
+    with
+    | Some attribute ->
+        Controller
+          {
+            module_name = name;
+            site = attribute.attr_loc;
+            needs =
+              List.fold_left
+                (fun needs (item : structure_item) ->
+                  match item.pstr_desc with
+                  | Pstr_value (_, bindings) ->
+                      List.fold_left
+                        (fun needs (binding : value_binding) ->
+                          match binding.pvb_expr.pexp_desc with
+                          | Pexp_function (params, _, _)
+                            when List.exists
+                                   (fun (attribute : attribute) ->
+                                     List.mem attribute.attr_name.txt
+                                       [
+                                         "get";
+                                         "post";
+                                         "put";
+                                         "patch";
+                                         "delete";
+                                         "head";
+                                         "options";
+                                         "all";
+                                         "subscribe";
+                                       ])
+                                   binding.pvb_attributes ->
+                              List.fold_left
+                                (fun needs (param : function_param) ->
+                                  match param.pparam_desc with
+                                  | Pparam_val
+                                      ( Nolabel,
+                                        _,
+                                        {
+                                          ppat_desc =
+                                            Ppat_constraint
+                                              ( { ppat_desc = Ppat_unpack _; _ },
+                                                type_ );
+                                          _;
+                                        } ) -> (
+                                      match package type_ with
+                                      | Some needed
+                                        when not (List.mem needed needs) ->
+                                          needs @ [ needed ]
+                                      | Some _ | None -> needs)
+                                  | _ -> needs)
+                                needs params
+                          | _ -> needs)
+                        needs bindings
+                  | _ -> needs)
+                [] structure;
+          }
+    | None -> (
+        let provides =
+          match (explicit, make) with
+          | Some provides, _ -> Some provides
+          | None, Some make ->
+              Option.map
+                (fun found ->
+                  match String.index_opt found '.' with
+                  | Some _ -> found
+                  | None -> name ^ "." ^ found)
+                (List.find_map Fun.id [ constraint_ make; declared; own ])
+          | None, None ->
+              Option.bind own (fun own ->
+                  List.find_map
+                    (fun (item : structure_item) ->
+                      match item.pstr_desc with
+                      | Pstr_value _ -> Some own
+                      | _ -> None)
+                    structure)
+        in
+        match provides with
+        | None -> Plain
+        | Some provides ->
+            let construction, body =
+              match make with
+              | None -> (Singleton, pmod_structure ~loc:site structure)
+              | Some make -> (
+                  match parameters make with
+                  | `Generative, body -> (Generative, body)
+                  | `Factory [], body -> (Singleton, body)
+                  | `Factory needs, body -> (Factory needs, body))
+            in
+            let rec items (module_ : module_expr) =
+              match module_.pmod_desc with
+              | Pmod_structure items -> items
+              | Pmod_constraint (inner, _) -> items inner
+              | _ -> []
+            in
+            Provider
+              {
+                name;
+                provides;
+                construction;
+                hooks = hooks (items body);
+                checks =
+                  List.concat_map
+                    (fun (item : structure_item) ->
+                      match item.pstr_desc with
+                      | Pstr_value (_, bindings) ->
+                          List.filter_map
+                            (fun (binding : value_binding) ->
+                              match
+                                ( binding.pvb_pat.ppat_desc,
+                                  List.find_map
+                                    (fun (attribute : attribute) ->
+                                      match
+                                        ( attribute.attr_name.txt,
+                                          attribute.attr_payload )
+                                      with
+                                      | ( "health",
+                                          PStr
+                                            [
+                                              {
+                                                pstr_desc =
+                                                  Pstr_eval
+                                                    ( {
+                                                        pexp_desc =
+                                                          Pexp_constant
+                                                            (Pconst_string
+                                                               (check, _, _));
+                                                        _;
+                                                      },
+                                                      _ );
+                                                _;
+                                              };
+                                            ] ) ->
+                                          Some check
+                                      | "health", _ ->
+                                          Location.raise_errorf
+                                            ~loc:attribute.attr_loc
+                                            "[@@health] takes the check's \
+                                             name: [@@health \"db\"]"
+                                      | _ -> None)
+                                    binding.pvb_attributes )
+                              with
+                              | Ppat_var { txt; _ }, Some check ->
+                                  Some (txt, check)
+                              | _ -> None)
+                            bindings
+                      | _ -> [])
+                    (items body);
+                jobs =
+                  List.concat_map
+                    (fun (item : structure_item) ->
+                      match item.pstr_desc with
+                      | Pstr_value (_, bindings) ->
+                          List.filter_map
+                            (fun (binding : value_binding) ->
+                              match binding.pvb_pat.ppat_desc with
+                              | Ppat_var { txt; _ } ->
+                                  Option.map
+                                    (fun timing -> (txt, timing))
+                                    (List.find_map
+                                       (fun (attribute : attribute) ->
+                                         let loc = attribute.attr_loc in
+                                         let payload () =
+                                           match attribute.attr_payload with
+                                           | PStr
+                                               [
+                                                 {
+                                                   pstr_desc =
+                                                     Pstr_eval (expression, _);
+                                                   _;
+                                                 };
+                                               ] ->
+                                               expression
                                            | _ ->
                                                Location.raise_errorf ~loc
-                                                 "[@@cron] takes a cron \
-                                                  string, e.g. [@@cron \"0 3 * \
-                                                  * *\"]")
-                                       | "interval" ->
-                                           Some
-                                             [%expr
-                                               Forge.Schedule.Every
-                                                 [%e seconds ()]]
-                                       | "after" ->
-                                           Some
-                                             [%expr
-                                               Forge.Schedule.After
-                                                 [%e seconds ()]]
-                                       | _ -> None)
-                                     binding.pvb_attributes)
-                            | _ -> None)
-                          bindings
-                    | _ -> [])
-                  (items body);
-              listeners =
-                List.concat_map
-                  (fun (item : structure_item) ->
-                    match item.pstr_desc with
-                    | Pstr_value (_, bindings) ->
-                        List.filter_map
-                          (fun (binding : value_binding) ->
-                            match
-                              ( binding.pvb_pat.ppat_desc,
-                                List.find_map
-                                  (fun (attribute : attribute) ->
-                                    match
-                                      ( attribute.attr_name.txt,
-                                        attribute.attr_payload )
-                                    with
-                                    | ( "on_event",
-                                        PStr
-                                          [
-                                            {
-                                              pstr_desc = Pstr_eval (topic, _);
-                                              _;
-                                            };
-                                          ] ) ->
-                                        Some topic
-                                    | _ -> None)
-                                  binding.pvb_attributes )
-                            with
-                            | Ppat_var { txt; _ }, Some topic ->
-                                Some (txt, topic)
-                            | _ -> None)
-                          bindings
-                    | _ -> [])
-                  (items body);
-              rank =
-                (match (floating "primary", floating "fallback") with
-                | Some _, _ -> Primary
-                | None, Some _ -> Fallback
-                | None, None -> Secondary);
-              loc = site;
-            })
+                                                 "[@@%s] needs a value"
+                                                 attribute.attr_name.txt
+                                         in
+                                         let seconds () =
+                                           match (payload ()).pexp_desc with
+                                           | Pexp_constant (Pconst_float _) ->
+                                               payload ()
+                                           | _ ->
+                                               Location.raise_errorf ~loc
+                                                 "[@@%s] takes seconds as a \
+                                                  float, e.g. [@@%s 30.0]"
+                                                 attribute.attr_name.txt
+                                                 attribute.attr_name.txt
+                                         in
+                                         match attribute.attr_name.txt with
+                                         | "cron" -> (
+                                             match (payload ()).pexp_desc with
+                                             | Pexp_constant
+                                                 (Pconst_string
+                                                    (expression, _, _)) -> (
+                                                 match
+                                                   Forge_shared.Cron.of_string
+                                                     expression
+                                                 with
+                                                 | Ok _ ->
+                                                     Some
+                                                       [%expr
+                                                         Forge.Schedule.Cron
+                                                           (Forge_shared.Cron
+                                                            .of_string_exn
+                                                              [%e
+                                                                estring ~loc
+                                                                  expression])]
+                                                 | Error message ->
+                                                     Location.raise_errorf ~loc
+                                                       "[@@cron %S]: %s"
+                                                       expression message)
+                                             | _ ->
+                                                 Location.raise_errorf ~loc
+                                                   "[@@cron] takes a cron \
+                                                    string, e.g. [@@cron \"0 3 \
+                                                    * * *\"]")
+                                         | "interval" ->
+                                             Some
+                                               [%expr
+                                                 Forge.Schedule.Every
+                                                   [%e seconds ()]]
+                                         | "after" ->
+                                             Some
+                                               [%expr
+                                                 Forge.Schedule.After
+                                                   [%e seconds ()]]
+                                         | _ -> None)
+                                       binding.pvb_attributes)
+                              | _ -> None)
+                            bindings
+                      | _ -> [])
+                    (items body);
+                listeners =
+                  List.concat_map
+                    (fun (item : structure_item) ->
+                      match item.pstr_desc with
+                      | Pstr_value (_, bindings) ->
+                          List.filter_map
+                            (fun (binding : value_binding) ->
+                              match
+                                ( binding.pvb_pat.ppat_desc,
+                                  List.find_map
+                                    (fun (attribute : attribute) ->
+                                      match
+                                        ( attribute.attr_name.txt,
+                                          attribute.attr_payload )
+                                      with
+                                      | ( "on_event",
+                                          PStr
+                                            [
+                                              {
+                                                pstr_desc = Pstr_eval (topic, _);
+                                                _;
+                                              };
+                                            ] ) ->
+                                          Some topic
+                                      | _ -> None)
+                                    binding.pvb_attributes )
+                              with
+                              | Ppat_var { txt; _ }, Some topic ->
+                                  Some (txt, topic)
+                              | _ -> None)
+                            bindings
+                      | _ -> [])
+                    (items body);
+                rank =
+                  (match (floating "primary", floating "fallback") with
+                  | Some _, _ -> Primary
+                  | None, Some _ -> Fallback
+                  | None, None -> Secondary);
+                loc = site;
+              })
+  in
+  match (component, commands) with
+  | _, [] -> component
+  | Plain, commands -> Tasks { file = name; commands; at = site }
+  | (Provider _ | Controller _ | Tasks _), (command, _) :: _ ->
+      Location.raise_errorf ~loc:site
+        "%s is a provider or controller, so [%%wire] does not run its command \
+         %s; move [@@@@command] functions to a file of their own"
+        name command
 
 let expand ~loc ~input directories =
   let application = Filename.dirname (Filename.dirname input) in
@@ -487,7 +547,8 @@ let expand ~loc ~input directories =
     let all =
       List.filter_map
         (function
-          | Provider provider -> Some provider | Controller _ | Plain -> None)
+          | Provider provider -> Some provider
+          | Controller _ | Tasks _ | Plain -> None)
         components
     in
     List.filter
@@ -509,7 +570,14 @@ let expand ~loc ~input directories =
   let controllers =
     List.filter_map
       (function
-        | Controller controller -> Some controller | Provider _ | Plain -> None)
+        | Controller controller -> Some controller
+        | Provider _ | Tasks _ | Plain -> None)
+      components
+  in
+  let tasks =
+    List.filter_map
+      (function
+        | Tasks tasks -> Some tasks | Provider _ | Controller _ | Plain -> None)
       components
   in
   let resolve ?parameter ~needed ~site ~by () =
@@ -665,6 +733,36 @@ let expand ~loc ~input directories =
                          }])
                      provider.checks)
                  order)]
+        ~commands:
+          [%e
+            elist ~loc
+              (List.concat_map
+                 (fun tasks ->
+                   List.map
+                     (fun (command, needs) ->
+                       pexp_apply ~loc
+                         (pexp_ident ~loc
+                            {
+                              txt =
+                                Ldot
+                                  ( Lident tasks.file,
+                                    "__forge_command_" ^ command );
+                              loc;
+                            })
+                         (match needs with
+                         | [] -> [ (Nolabel, [%expr ()]) ]
+                         | needs ->
+                             List.map
+                               (fun needed ->
+                                 ( Nolabel,
+                                   pexp_pack ~loc
+                                     (instance
+                                        (resolve ~needed ~site:tasks.at
+                                           ~by:(tasks.file ^ "." ^ command)
+                                           ())) ))
+                               needs))
+                     tasks.commands)
+                 tasks)]
         ~beans:
           [%e
             elist ~loc

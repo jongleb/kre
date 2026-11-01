@@ -16,5 +16,6 @@ val run :
   ?error_handler:Error.handler ->
   ?on_start:(unit -> unit Lwt.t) ->
   ?on_shutdown:(unit -> unit Lwt.t) ->
+  ?commands:Command.t list ->
   Controller.t list ->
   unit

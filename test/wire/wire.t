@@ -36,6 +36,7 @@ alone.
         Forge.Wiring.make
           ~controllers:[Reports_controller.register (module Report)]
           ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ~health:[]
+          ~commands:[]
           ~beans:[{ Forge.Actuator.name = "Clock"; needs = [] };
                  { Forge.Actuator.name = "Repo"; needs = [] };
                  { Forge.Actuator.name = "Report"; needs = ["Repo"; "Clock"] };

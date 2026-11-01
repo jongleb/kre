@@ -12,6 +12,6 @@
 
 **Security:** [Authentication и Authorization](authentication.md) · [Helmet, CORS, rate limiting](security.md)
 
-**Techniques:** [Configuration](configuration.md) · [Events](events.md) · [Task scheduling](task-scheduling.md) · [Caching](caching.md) · [Actuator и health](actuator.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md) · [Live loaders](live.md)
+**Techniques:** [Configuration](configuration.md) · [Commands](commands.md) · [Events](events.md) · [Task scheduling](task-scheduling.md) · [Caching](caching.md) · [Actuator и health](actuator.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md) · [Live loaders](live.md)
 
 **OpenAPI, CLI, клиент:** [OpenAPI и CLI](openapi-cli.md) · [Клиент и роутер](client.md)

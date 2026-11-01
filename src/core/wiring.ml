@@ -3,16 +3,18 @@ type t = {
   on_start : unit -> unit Lwt.t;
   on_shutdown : unit -> unit Lwt.t;
   health : Actuator.check list;
+  commands : Command.t list;
   beans : Actuator.bean list;
 }
 
 let make ~controllers ~on_start ~on_shutdown ?(jobs = []) ?(health = [])
-    ?(beans = []) () =
+    ?(commands = []) ?(beans = []) () =
   let sequence hooks () = Lwt_list.iter_s (fun hook -> hook ()) hooks in
   let stop = ref (fun () -> Lwt.return_unit) in
   {
     controllers;
     health;
+    commands;
     beans;
     on_start =
       (fun () ->

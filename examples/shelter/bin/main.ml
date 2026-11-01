@@ -7,5 +7,5 @@ let () =
   in
   Forge.App.run ~interface:Settings.config.interface ~port:Settings.config.port
     ~middleware:[ Dream.logger; actuator.metrics ]
-    ~on_start:app.on_start ~on_shutdown:app.on_shutdown
+    ~on_start:app.on_start ~on_shutdown:app.on_shutdown ~commands:app.commands
     (actuator.controller :: Forge.Live.controller :: app.controllers)

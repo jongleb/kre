@@ -644,7 +644,7 @@ module App : sig
   val handler : ?middleware:Dream.middleware list -> ?error_handler:Error.handler -> Controller.t list -> Dream.handler
   val run : ?interface:string -> ?port:int -> ?tls:tls -> ?middleware:Dream.middleware list ->
     ?error_handler:Error.handler -> ?on_start:(unit -> unit Lwt.t) -> ?on_shutdown:(unit -> unit Lwt.t) ->
-    Controller.t list -> unit
+    ?commands:Command.t list -> Controller.t list -> unit   (* argv: команда → выполнить её; иначе сервер *)
 end
 
 (* Forge.Etag — фаза 3: ETag из тела ответа 200 на GET/HEAD, If-None-Match → 304; [@@etag] *)
@@ -655,6 +655,18 @@ end
 (* Forge.Retry — фаза 3: повтор при исключении, пауза удваивается; [@@retry n] [@@backoff s] *)
 module Retry : sig
   val run : ?backoff:float -> attempts:int -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+end
+
+(* Forge.Command — фаза 3: команды бинаря; [@@command "…"] генерирует, [%wire] собирает, App.run ~commands запускает *)
+module Command : sig
+  type t
+  type args = (string * string) list
+  type invocation = Serve | Usage of string | Run of (unit -> unit Lwt.t) | Invalid of string
+  val make : name:string -> doc:string -> options:string list ->
+    (args -> (unit -> unit Lwt.t, Forge_shared.Validation.t) result) -> t
+  val required : (module S : Forge_shared.Scalar.S) -> string -> args -> (S.t, Forge_shared.Validation.t) result
+  val optional : (module S : Forge_shared.Scalar.S) -> string -> default:S.t -> args -> (S.t, Forge_shared.Validation.t) result
+  val invoke : t list -> string list -> invocation
 end
 
 (* Forge.Live — live loaders, фаза 2 *)
@@ -876,7 +888,7 @@ let () =
 
 Интерфейс провайдера — аннотация результата `Make` в `.ml` или `.mli` (`: Cats_service.S`, `: sig include Forge.Db.S … end`), иначе собственный `module type S`; явно — `[@@@injectable Iface.S]`. Модуль только с `module type S` (без значений и без `Make`) — интерфейс, а не провайдер. `[@@@fallback]` — запасной провайдер (`@ConditionalOnMissingBean`, аналог `@Optional`): используется и создаётся, только если других реализаций интерфейса нет. Если интерфейс дают несколько провайдеров: `[@@@primary]` (`@Primary`), иначе имя параметра функтора, совпадающее с именем провайдера (`(Fake_clock : Clock.S)` — как Spring берёт бин по имени параметра), иначе ошибка сборки. Ошибки сборки с местом: нет провайдера, неоднозначность, цикл (`Clock -> Report -> Clock`). Типы зависимостей проверяет компилятор на сгенерированных применениях функторов.
 
-Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Forge.Wiring.t = { controllers; on_start; on_shutdown; health; beans }`; `beans` — граф для `/actuator/beans`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
+Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Forge.Wiring.t = { controllers; on_start; on_shutdown; health; commands; beans }`; `beans` — граф для `/actuator/beans`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
 
 ### Guards — пример
 
@@ -1494,7 +1506,7 @@ IHP (Rails для Haskell) силён там, где Nest и Spring пусты: 
 | IHP | Forge | Фаза |
 | --- | --- | --- |
 | Auto Refresh (страница обновляется при изменении таблиц, которые она читала) | Live loaders: зависимости маршрута от таблиц известны **статически** из sqlgg | 2 |
-| Scripts (одноразовые скрипты с контекстом приложения) | `forge generate script` + `forge run NAME` | 1 |
+| Scripts (одноразовые скрипты с контекстом приложения) | `[@@command]` (фаза 3, `docs/commands.md`) вместо `forge generate script` + `forge run NAME` | 3 |
 | Jobs как таблицы (`CREATE TABLE … job`) | `[@@deriving table ~job]` + воркер | 3 |
 | IDE: Schema Designer, Data browser, Logs | `forge dev` — веб-UI поверх Actuator | 3 |
 | Schema.sql как источник правды, типы из него | **не берём** направление, берём импорт: `forge import-schema` для brownfield | 1 |
@@ -1544,7 +1556,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `forge-client.testing`: сгенерированный типизированный клиент идёт в обработчик приложения без сокета (`Forge_testing.use`) | ✅ |
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
-| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами: `[%wire]` собирает команды, `main.exe seed --count 3` запускает с теми же провайдерами; аргументы — из меток (cmdliner) | 2 |
+| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Forge_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
 | 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `[@@deriving table ~job]` + `[@@job]` в провайдере; очередь — таблица с `FOR UPDATE SKIP LOCKED`, воркер запускает `[%wire]` | 2 |
 | 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (ISO 8601, native и Melange), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …` → 409 | 2 |
 | 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` — сегмент пути разбирается типом аргумента загрузчика, `None` → 404 | 2 |
