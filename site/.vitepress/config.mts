@@ -97,7 +97,7 @@ export default withMermaid(
           ]
         }
       ],
-      socialLinks: [{ icon: 'github', link: 'https://github.com/jongleber/forge' }],
+      socialLinks: [{ icon: 'github', link: 'https://github.com/jongleber/kre' }],
       search: { provider: 'local' },
       outline: { level: [2, 3], label: 'On this page' },
       footer: {

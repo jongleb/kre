@@ -21,7 +21,7 @@
 (generate_opam_files true)
 
 (source
- (github jongleber/forge))
+ (github jongleber/kre))
 
 (authors "Gleb")
 

@@ -4,8 +4,8 @@ synopsis: "PostgreSQL driver (libpq) and sqlgg traits for Kre.Db"
 maintainer: ["Gleb"]
 authors: ["Gleb"]
 license: "ISC"
-homepage: "https://github.com/jongleber/forge"
-bug-reports: "https://github.com/jongleber/forge/issues"
+homepage: "https://github.com/jongleber/kre"
+bug-reports: "https://github.com/jongleber/kre/issues"
 depends: [
   "dune" {>= "3.21"}
   "ocaml" {>= "5.5" & < "5.6"}
@@ -31,5 +31,5 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/jongleber/forge.git"
+dev-repo: "git+https://github.com/jongleber/kre.git"
 x-maintenance-intent: ["(latest)"]
