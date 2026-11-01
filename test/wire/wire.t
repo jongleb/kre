@@ -35,7 +35,14 @@ alone.
       let module Report = ((Report.Make)(Repo))(Clock) in
         Forge.Wiring.make
           ~controllers:[Reports_controller.register (module Report)]
-          ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ~health:[] ()
+          ~on_start:[Report.on_start] ~on_shutdown:[] ~jobs:[] ~health:[]
+          ~beans:[{ Forge.Actuator.name = "Clock"; needs = [] };
+                 { Forge.Actuator.name = "Repo"; needs = [] };
+                 { Forge.Actuator.name = "Report"; needs = ["Repo"; "Clock"] };
+                 {
+                   Forge.Actuator.name = "Reports_controller";
+                   needs = ["Report"]
+                 }] ()
 
 A dependency nobody provides is a build error.
 
@@ -114,9 +121,13 @@ interface (Spring @ConditionalOnMissingBean, Nest @Optional).
   $ ../ppx/pp.exe -impl main.ml | grep -i clock
     let module Frozen_clock = (Frozen_clock.Make)() in
         let module Report = ((Report.Make)(Repo))(Frozen_clock) in
+            ~beans:[{ Forge.Actuator.name = "Frozen_clock"; needs = [] };
+                     needs = ["Repo"; "Frozen_clock"]
   $ cat > app/system_clock.ml <<'ML'
   > module Make () : Clock.S = struct let now () = Unix.gettimeofday () end
   > ML
   $ ../ppx/pp.exe -impl main.ml | grep -i clock
       let module System_clock = (System_clock.Make)() in
         let module Report = ((Report.Make)(Repo))(System_clock) in
+                   { Forge.Actuator.name = "System_clock"; needs = [] };
+                     needs = ["Repo"; "System_clock"]

@@ -665,6 +665,48 @@ let expand ~loc ~input directories =
                          }])
                      provider.checks)
                  order)]
+        ~beans:
+          [%e
+            elist ~loc
+              (List.map
+                 (fun provider ->
+                   [%expr
+                     {
+                       Forge.Actuator.name = [%e estring ~loc provider.name];
+                       needs =
+                         [%e
+                           elist ~loc
+                             (match provider.construction with
+                             | Factory needs ->
+                                 List.map
+                                   (fun (parameter, needed) ->
+                                     estring ~loc
+                                       (resolve ~parameter ~needed
+                                          ~site:provider.loc ~by:provider.name
+                                          ())
+                                         .name)
+                                   needs
+                             | Singleton | Generative -> [])];
+                     }])
+                 order
+              @ List.map
+                  (fun controller ->
+                    [%expr
+                      {
+                        Forge.Actuator.name =
+                          [%e estring ~loc controller.module_name];
+                        needs =
+                          [%e
+                            elist ~loc
+                              (List.map
+                                 (fun needed ->
+                                   estring ~loc
+                                     (resolve ~needed ~site:controller.site
+                                        ~by:controller.module_name ())
+                                       .name)
+                                 controller.needs)];
+                      }])
+                  controllers)]
         ()]
   in
   let wiring =

@@ -1,6 +1,8 @@
 let () =
   let app = [%wire] in
-  let actuator = Forge.Actuator.make ~checks:app.health app.controllers in
+  let actuator =
+    Forge.Actuator.make ~checks:app.health ~beans:app.beans app.controllers
+  in
   let handler =
     Dream.test
       (Forge.App.handler ~middleware:[ actuator.metrics ]
@@ -54,5 +56,15 @@ let () =
                        List.length (to_list (Yojson.Basic.from_string routes)))
                     = 1);
                 ]);
+          Alcotest.test_case "beans: the wired graph" `Quick (fun () ->
+              Alcotest.(check (pair int string))
+                "mermaid"
+                ( 200,
+                  "graph TD\n\
+                  \  Bus\n\
+                  \  Mailer\n\
+                  \  Signup_controller --> Bus\n\
+                  \  Signup_controller --> Mailer\n" )
+                (call `GET "/actuator/beans.mmd" ""));
         ] );
     ]

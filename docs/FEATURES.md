@@ -22,6 +22,7 @@
 | — | `@Profile` | `Forge.Config.profile ()` (`config/$FORGE_ENV.env`) | ✅ | `docs/configuration.md` |
 | `@Optional` provider | `@ConditionalOnMissingBean`, `required=false` | `[@@@fallback]` — запасной провайдер, если другого нет | ✅ | |
 | — | `@Lazy`, `@Conditional` | | ⏳ | |
+| Devtools graph | `/actuator/beans` | `app.beans` из `[%wire]` → `/actuator/beans`, `/actuator/beans.mmd` | ✅ | `docs/actuator.md` |
 | circular deps, `forwardRef`, `ModuleRef`, discovery | `ApplicationContext` | ошибка компиляции / не нужно | — | `docs/not-needed.md` |
 
 ## Контроллеры

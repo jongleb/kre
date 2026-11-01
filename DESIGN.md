@@ -876,7 +876,7 @@ let () =
 
 Интерфейс провайдера — аннотация результата `Make` в `.ml` или `.mli` (`: Cats_service.S`, `: sig include Forge.Db.S … end`), иначе собственный `module type S`; явно — `[@@@injectable Iface.S]`. Модуль только с `module type S` (без значений и без `Make`) — интерфейс, а не провайдер. `[@@@fallback]` — запасной провайдер (`@ConditionalOnMissingBean`, аналог `@Optional`): используется и создаётся, только если других реализаций интерфейса нет. Если интерфейс дают несколько провайдеров: `[@@@primary]` (`@Primary`), иначе имя параметра функтора, совпадающее с именем провайдера (`(Fake_clock : Clock.S)` — как Spring берёт бин по имени параметра), иначе ошибка сборки. Ошибки сборки с местом: нет провайдера, неоднозначность, цикл (`Clock -> Report -> Clock`). Типы зависимостей проверяет компилятор на сгенерированных применениях функторов.
 
-Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Forge.Wiring.t = { controllers; on_start; on_shutdown }`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
+Хуки: `let on_start` / `let on_shutdown` в провайдере (и в его сигнатуре) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; запуск — в порядке зависимостей, остановка — в обратном. `[%wire]` возвращает `Forge.Wiring.t = { controllers; on_start; on_shutdown; health; beans }`; `beans` — граф для `/actuator/beans`. Модули каталогов должны быть видны из `main` (библиотеки `(wrapped false)`). Эталоны — `test/wire/wire.t`; пример — `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
 
 ### Guards — пример
 
@@ -1466,6 +1466,7 @@ let adopt (module Adoptions : Adoptions_service.S)
 | `/info` | версия, git sha, время сборки (из dune `%{version}` и `git describe` в сборке) |
 | `/env` | конфиг через `Config.pp` — `[@secret]` замазаны |
 | `/routes` | все `spec` в JSON — то же, что `forge routes` |
+| `/beans`, `/beans.mmd` | граф `[%wire]`: провайдеры и контроллеры с их зависимостями (JSON, mermaid); `Actuator.make ~beans:app.beans` |
 | `/metrics` | Prometheus text format: latency по маршруту, коды, `Gc.quick_stat` |
 | `/openapi.json` | то же, что `--emit-openapi` |
 
@@ -1528,7 +1529,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Forge.Table.crud` печатает `by_<col>` для `[@unique]` (одна строка), `[@index]` и `[@references]` (список) и `count`; sqlgg их типизирует | ✅ |
 | 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | ✅ |
 | 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` на любой функции → `Forge.Retry.run`; повтор при исключении. Не interceptor: в Spring это аннотация метода сервиса, и у нас тоже | ✅ |
-| 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф провайдеров; `/actuator/beans` и `--emit-graph` (mermaid) | 1 |
+| 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф (`Wiring.beans`); `/actuator/beans` (JSON) и `/actuator/beans.mmd` (mermaid) | ✅ |
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `Forge.Testing`: запросы в обработчик без сокета, ответ как `status`/`json`/`problem` | 1 |
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |

@@ -1,7 +1,7 @@
 let () =
   let app = [%wire] in
   let actuator =
-    Forge.Actuator.make ~checks:app.health
+    Forge.Actuator.make ~checks:app.health ~beans:app.beans
       ~env:(Config.pairs Settings.config)
       app.controllers
   in
