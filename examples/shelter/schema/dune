@@ -1,0 +1,14 @@
+; Tables only the server knows, and the binary that prints DDL and CRUD SQL.
+
+(library
+ (name shelter_tables)
+ (wrapped false)
+ (modules credential)
+ (libraries shelter_shared forge dream kdf.pbkdf eqaf)
+ (preprocess
+  (pps forge-ppx)))
+
+(executable
+ (name schema)
+ (modules schema)
+ (libraries shelter_shared shelter_tables forge))

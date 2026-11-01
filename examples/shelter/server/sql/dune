@@ -1,0 +1,123 @@
+; SQL checked by sqlgg against the schema the tables print.
+
+(rule
+ (targets schema.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:../../schema/schema.exe}))))
+
+; The first migration is the schema: change a table without a migration and
+; this diff fails; `dune promote` writes the new one.
+
+(rule
+ (targets init.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{exe:../../schema/schema.exe} migration))))
+
+(rule
+ (alias runtest)
+ (action
+  (diff ../migrations/0001_init.sql init.sql)))
+
+(rule
+ (targets users.sql cats.sql adoptions.sql credentials.sql)
+ (action
+  (progn
+   (with-stdout-to
+    users.sql
+    (run %{exe:../../schema/schema.exe} crud users))
+   (with-stdout-to
+    cats.sql
+    (run %{exe:../../schema/schema.exe} crud cats))
+   (with-stdout-to
+    adoptions.sql
+    (run %{exe:../../schema/schema.exe} crud adoptions))
+   (with-stdout-to
+    credentials.sql
+    (run %{exe:../../schema/schema.exe} crud credentials)))))
+
+(rule
+ (targets users_crud.ml cats_crud.ml adoptions_crud.ml credentials_crud.ml)
+ (deps schema.sql users.sql cats.sql adoptions.sql credentials.sql)
+ (action
+  (progn
+   (with-stdout-to
+    users_crud.ml
+    (run
+     sqlgg
+     -dialect
+     mysql
+     -gen
+     caml_io
+     -name
+     Make
+     -static-header
+     schema.sql
+     users.sql))
+   (with-stdout-to
+    cats_crud.ml
+    (run
+     sqlgg
+     -dialect
+     mysql
+     -gen
+     caml_io
+     -name
+     Make
+     -static-header
+     schema.sql
+     cats.sql))
+   (with-stdout-to
+    adoptions_crud.ml
+    (run
+     sqlgg
+     -dialect
+     mysql
+     -gen
+     caml_io
+     -name
+     Make
+     -static-header
+     schema.sql
+     adoptions.sql))
+   (with-stdout-to
+    credentials_crud.ml
+    (run
+     sqlgg
+     -dialect
+     mysql
+     -gen
+     caml_io
+     -name
+     Make
+     -static-header
+     schema.sql
+     credentials.sql)))))
+
+(rule
+ (targets shelter_sql.ml)
+ (deps schema.sql queries.sql)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run
+    sqlgg
+    -dialect
+    mysql
+    -gen
+    caml_io
+    -name
+    Make
+    -static-header
+    schema.sql
+    queries.sql))))
+
+(library
+ (name shelter_sql)
+ (wrapped false)
+ (flags
+  (:standard -w -32-27))
+ (libraries sqlgg.traits))

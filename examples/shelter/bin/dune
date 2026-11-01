@@ -1,0 +1,18 @@
+(executable
+ (name main)
+ (libraries shelter_server shelter_shared forge forge-db-mariadb dream lwt)
+ (preprocess
+  (pps forge-ppx))
+ (preprocessor_deps
+  (source_tree ..)))
+
+(rule
+ (targets spec.json)
+ (action
+  (setenv
+   JWT_SECRET
+   unused
+   (setenv
+    DATABASE_URL
+    unused
+    (run %{exe:main.exe} --emit-spec %{targets})))))

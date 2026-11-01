@@ -2,6 +2,8 @@
 
 ✅ сделано и проверено тестами · 🔜 следующее (фаза 2) · ⏳ позже (фаза 3) · — не нужно в OCaml
 
+Приложение целиком (пользователи, коты, усыновления; всё из таблиц ниже вместе) — `examples/shelter`.
+
 Всё ниже — модули, функторы, функции и атрибуты ppx; классов, рефлексии и рантайм-контейнера нет. Ошибки DI и маршрутов — ошибки компиляции.
 
 ## Приложение и DI
@@ -77,6 +79,7 @@
 | --- | --- | --- | --- |
 | class-validator | Bean Validation | `Refined`, `[@validate]`, `~strict` | ✅ |
 | entity id | `@Id` | `Forge_shared.Id.Make ()` — свой тип id на сущность | ✅ |
+| TS `enum`, `@IsEnum` | `@Enumerated(STRING)` | вариант без аргументов + `[@@deriving dto]` — строка в JSON, пути, query и столбце | ✅ |
 | TypeORM entity | `@Entity` | `[@@deriving table]` → DDL, `of_row` | ✅ |
 | repositories | Spring Data | sqlgg: SQL проверяется против схемы при сборке | ✅ |
 | migrations | Flyway | `forge migrate up/down/status/new` | ✅ |

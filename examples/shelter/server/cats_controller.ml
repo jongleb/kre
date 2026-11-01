@@ -1,0 +1,24 @@
+[@@@controller "cats"]
+
+let available (module Cats : Cats_service.S) () : Cat.t list Lwt.t =
+  Cats.available ()
+[@@get] [@@live [ "cats" ]] [@@summary "Cats waiting for a home"]
+
+let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
+    (Cat.t, Forge.Error.t) result Lwt.t =
+  Lwt.map (Option.to_result ~none:(Forge.Error.not_found "cat")) (Cats.find id)
+[@@get ":id"] [@@live [ "cats" ]]
+
+let create (module Cats : Cats_service.S)
+    ~admin:(_ : (Auth.Admin.t[@guard Auth.admin])) ~(body : Create_cat_dto.t) :
+    Cat.t Lwt.t =
+  Cats.create body
+[@@post] [@@status 201] [@@summary "Admit a cat"]
+
+let rename (module Cats : Cats_service.S)
+    ~user:(_ : (User.t[@guard Auth.current])) ~(id : Cat.Id.t)
+    ~(body : Rename_dto.t) : (Cat.t, Forge.Error.t) result Lwt.t =
+  Cats.rename id body.name
+[@@put ":id"]
+[@@authorize
+  fun ~user ~id -> Lwt.map (Auth.owner_or_admin ~user) (Cats.find id)]

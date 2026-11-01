@@ -33,3 +33,14 @@ type t = {
 ```
 
 `Cat.Breed.t` можно принять прямо параметром пути — `~(breed : Cat.Breed.t)`: ppx подставит `(module Cat.Breed)`, а `"/cats/sphynx"` получит 404 ещё до хендлера. Проверки тела — в [Validation](validation.md).
+
+Если по значению нужно сопоставлять с образцом, вместо `Refined.Enum` подходит вариант без аргументов с `[@@deriving dto]`. Деривер делает из него скаляр (`name`, `of_string`, `to_string`, JSON-строка, JSON Schema `enum`), поэтому он годится для пути, query, тела и `[@column string]` в таблице. Строка — имя конструктора в нижнем регистре; `[@key "on hold"]` задаёт свою:
+
+<!-- $MDX skip -->
+```ocaml
+module Status = struct
+  type t = Available | Adopted [@@deriving dto]
+end
+```
+
+`Cat.Status.of_string "sold"` даёт ошибку правила `one_of`; полный пример — `examples/shelter/shared/cat.ml`.

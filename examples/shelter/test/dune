@@ -1,0 +1,48 @@
+(executables
+ (names test_shelter run_scenario)
+ (libraries
+  shelter_server
+  shelter_shared
+  forge
+  forge-db-mariadb
+  dream
+  lwt
+  lwt.unix
+  unix
+  yojson
+  alcotest)
+ (preprocess
+  (per_module
+   ((pps lwt_ppx forge-ppx)
+    test_shelter)
+   ((pps lwt_ppx)
+    run_scenario)))
+ (preprocessor_deps
+  (source_tree ..)))
+
+; Needs FORGE_TEST_SHELTER_URL: a database of its own, e.g.
+; mariadb://forge:forge@127.0.0.1:3306/shelter_test. One rule, so the two
+; runs take turns on it.
+
+(rule
+ (alias shelter)
+ (deps
+  ../bin/main.exe
+  (alias ../client/melange)
+  (glob_files ../server/migrations/*.sql))
+ (action
+  (setenv
+   DATABASE_URL
+   %{env:FORGE_TEST_SHELTER_URL=}
+   (setenv
+    JWT_SECRET
+    test-secret
+    (setenv
+     ADMIN_EMAIL
+     boss@shelter.test
+     (setenv
+      FORGE_ENV
+      test
+      (progn
+       (run %{exe:test_shelter.exe})
+       (run %{exe:run_scenario.exe}))))))))

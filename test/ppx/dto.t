@@ -72,3 +72,45 @@ A rule needs an expression.
                             ^^^^^^^^^^^
   Error: [@validate] expects an expression, e.g. [@validate max_length 16]
   [1]
+
+A variant of constant constructors is a scalar: a JSON string, a path or query
+segment and a [@column string] in a table. [@key] renames a case.
+
+  $ cat > input.ml <<'ML'
+  > type t = Available | Adopted | On_hold [@key "on hold"] [@@deriving dto]
+  > ML
+  $ ./pp.exe -impl input.ml
+  type t =
+    | Available 
+    | Adopted 
+    | On_hold [@key "on hold"]
+  let name = "t"
+  let to_string =
+    function
+    | Available -> "available"
+    | Adopted -> "adopted"
+    | On_hold -> "on hold"
+  let of_string =
+    function
+    | "available" -> Ok Available
+    | "adopted" -> Ok Adopted
+    | "on hold" -> Ok On_hold
+    | _ ->
+        Error
+          (Forge_shared.Validation.fail ~rule:"one_of"
+             "must be one of available, adopted, on hold")
+  let to_json __forge_value =
+    Jsonkit.declassify (`String (to_string __forge_value))
+  let of_json __forge_json =
+    match Jsonkit.classify __forge_json with
+    | `String __forge_string ->
+        Forge_shared.Validation.ok_exn (of_string __forge_string)
+    | _ ->
+        raise
+          (Forge_shared.Validation.Invalid
+             (Forge_shared.Validation.fail ~rule:"type" "must be a string"))
+  let t_jsonschema =
+    `Assoc
+      [("type", (`String "string"));
+      ("enum",
+        (`List [`String "available"; `String "adopted"; `String "on hold"]))]

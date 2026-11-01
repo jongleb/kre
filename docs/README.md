@@ -1,6 +1,6 @@
 # Forge — документация
 
-**Что есть и что делается — [FEATURES.md](FEATURES.md).** Все контроллеры-примеры в одном сервере — `examples/showcase`.
+**Что есть и что делается — [FEATURES.md](FEATURES.md).** Все контроллеры-примеры в одном сервере — `examples/showcase`. Приложение целиком — `examples/shelter`: JWT-вход, роли, `[@@authorize]`, `[@@transactional]`, live loaders, MariaDB через sqlgg, клиент на Melange.
 
 Оглавление повторяет [docs.nestjs.com](https://docs.nestjs.com/). Каждая глава показывает порт примера Nest; код в главах — это файлы `examples/cats` и `docs/examples`, которые собираются и проверяются тестами (mdx следит, чтобы текст в главе совпадал с файлом).
 

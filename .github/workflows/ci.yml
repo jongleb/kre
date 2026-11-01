@@ -44,10 +44,20 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: "5.5.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
       - run: opam install . --deps-only --with-test --yes
       - run: opam exec -- dune build @examples/cats/db/test/db
         env:
           FORGE_TEST_DB_URL: mariadb://forge:forge@127.0.0.1:3306/forge_test
+      - run: >-
+          mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE shelter_test;
+          GRANT ALL ON shelter_test.* TO 'forge'@'%';"
+      - run: opam exec -- dune build @examples/shelter/test/shelter
+        env:
+          FORGE_TEST_SHELTER_URL: mariadb://forge:forge@127.0.0.1:3306/shelter_test
 
   postgresql:
     runs-on: ubuntu-latest

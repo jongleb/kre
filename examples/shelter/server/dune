@@ -1,0 +1,17 @@
+(library
+ (name shelter_server)
+ (wrapped false)
+ (libraries
+  shelter_shared
+  shelter_tables
+  shelter_sql
+  forge
+  forge.shared
+  forge-db-mariadb
+  dream
+  lwt
+  sqlgg.traits)
+ (preprocess
+  (pps lwt_ppx forge-ppx))
+ (preprocessor_deps
+  (glob_files migrations/*.sql)))

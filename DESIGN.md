@@ -230,13 +230,30 @@ let show ~data ~params:_ ~search:_ =
 
 ```
 shelter/
-  shared/   user.ml  cat.ml  adoption.ml  login_dto.ml  create_cat_dto.ml  adopt_dto.ml
-  server/   config.ml  auth.ml  users_service.ml  cats_service.ml  adoptions_service.ml
+  shared/   user.ml  cat.ml  adoption.ml  login_dto.ml  session.ml
+            create_cat_dto.ml  rename_dto.ml  adopt_dto.ml      (+ melange/ — те же файлы)
+  schema/   credential.ml  schema.ml                            (таблица только сервера; печать DDL/CRUD)
+  server/   config.ml  settings.ml  database.ml  inserted.ml  auth.ml
+            users_service.ml  cats_service.ml  adoptions_service.ml
             auth_controller.ml  cats_controller.ml  adoptions_controller.ml
-            queries/cats.sql  queries/users.sql  migrations/0001_init.sql
-  client/   routes.ml  pages/cats_index.mlx  pages/cat_show.mlx  pages/login.mlx  gen/*_client.ml
-  bin/      main.ml
+            sql/queries.sql  migrations/0001_init.sql
+  client/   pages.ml  routes.ml  scenario.ml                    (*_client.ml генерирует forge client)
+  bin/      main.ml                                             (let app = [%wire])
+  test/     test_shelter.ml  run_scenario.ml
 ```
+
+**Как сделано (фаза 2)** — отличия от наброска ниже, каждое с причиной:
+
+- Вход — JWT (`Forge.Jwt`), не cookie-сессия: `fetch` в node не хранит cookies, а e2e идёт из node. Токен несёт `User.t` в claims, поэтому `Auth.current` — `Guard.check` без запроса в БД и без middleware; `Auth.admin` даёт доказательство `Auth.Admin.t`.
+- Пароли — отдельная таблица `credentials` (`schema/credential.ml`, PBKDF2-SHA256 из `kdf`, сравнение `Eqaf`), а не `password_hash` в `User.t`: тип, который уходит клиенту, не содержит хеша вовсе. `Credential.verify` возвращает `User.Id.t` как доказательство.
+- `role`, `status` — варианты с `[@@deriving dto]`, которые стали скалярами (см. «Варианты» в dto); `Ptime`-полей нет — у `table` нет типа времени.
+- Миграция `0001_init.sql` — это вывод `schema.exe migration`; правило `diff` в `server/sql/dune` роняет `dune test`, если таблицу поменяли без миграции.
+- `Forge.Db.conn` общего нет: сервисы берут `Forge.Db.S with type conn = Forge_db_mariadb.Client.t`.
+- `[@@transactional]` проверен откатом: третье усыновление уже обновило кота, лимит «2 на участника» возвращает `Error` — кот снова доступен, live-событий нет.
+- `Config.interface` (по умолчанию `127.0.0.1`): Dream слушает `localhost`, который на macOS — `::1`.
+- Тесты: `test_shelter` (alcotest через `Dream.test` и `[%wire]`, MariaDB) и `run_scenario` (запускает `bin/main.exe` и сценарий Melange-клиента в node: регистрация, 403, усыновление, 409, live `cats`, разметка страницы входа). Alias `@examples/shelter/test/shelter`, база — `FORGE_TEST_SHELTER_URL`; в CI — job `db`.
+
+Ниже — исходный набросок; код примера — в `examples/shelter`.
 
 ### shared — типы, одни на оба конца
 
@@ -991,7 +1008,7 @@ let of_json __forge_json =
 
 | Форма | JSON |
 | --- | --- |
-| \`A | B\` (без аргументов) |
+| `A \| B` (без аргументов) | `"a"`: модуль становится `Scalar.S` (`of_string`/`to_string`, JSON Schema `enum`) — годится для пути, query и `[@column string]`; `[@key "x"]` на конструкторе меняет строку |
 | `A of int` | `{"tag":"A","value":1}`; `[@@dto ~tag:"type" ~content:"data"]` меняет ключи |
 | `A of { x : int }` | `{"tag":"A","x":1}` |
 | `t option` | `null` / значение |
@@ -1546,6 +1563,7 @@ open http://localhost:8080/cats/1
 - ✅ table CRUD: `Forge.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
 - ✅ live loaders: `Forge.Live` (шина в памяти, `publish`/`subscribe`, канал `/__forge/live`), драйвер сообщает SQL (`read`/`wrote`), `Db.transaction` держит изменения до commit, `[@@live]` → `spec.live` + `x-forge-live` + `Cats_client.Live`, `Router.child ~live`, проверка списка при `FORGE_ENV=test` (`docs/live.md`). Метаданных `reads`/`writes` sqlgg не даёт — таблицы берутся из текста SQL в traits
 - ✅ PostgreSQL: `forge-db-postgresql` (libpq, не pgx — см. «Forge.Db»), `Forge.Table.schema` с диалектом, `examples/cats/postgresql` + CI-job с postgres:17
+- ✅ `examples/shelter` — критерий приёмки фазы 2: всё вместе на MariaDB + node (см. «Пример приложения целиком»); `[@@deriving dto]` на варианте без аргументов даёт скаляр
 - ✅ auth: `Forge.Jwt` (HS256, `sign`/`verify`/`bearer`, ошибки `` `Jwt of Malformed | Bad_signature | Expired ``), `Forge.Guard.session/map/check/optional`; роли — `Guard.check` в тип-доказательство (`docs/authentication.md`)
 
 ### Фаза 3 — экосистема

@@ -1,0 +1,50 @@
+(rule
+ (targets auth_client.ml cats_client.ml adoptions_client.ml)
+ (deps ../bin/spec.json)
+ (action
+  (progn
+   (run
+    %{bin:forge}
+    client
+    --spec
+    ../bin/spec.json
+    --controller
+    auth
+    --out
+    auth_client.ml)
+   (run
+    %{bin:forge}
+    client
+    --spec
+    ../bin/spec.json
+    --controller
+    cats
+    --out
+    cats_client.ml)
+   (run
+    %{bin:forge}
+    client
+    --spec
+    ../bin/spec.json
+    --controller
+    adoptions
+    --out
+    adoptions_client.ml))))
+
+(library
+ (name shelter_client)
+ (modes melange)
+ (libraries
+  shelter_shared_js
+  forge-client
+  forge-client.shared
+  jsonkit-melange
+  reason-react)
+ (preprocess
+  (pps melange.ppx reason-react-ppx forge-ppx)))
+
+(melange.emit
+ (target js)
+ (modules)
+ (libraries shelter_client)
+ (module_systems commonjs))
