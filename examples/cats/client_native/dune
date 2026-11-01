@@ -38,4 +38,4 @@
   alcotest
   alcotest-lwt)
  (preprocess
-  (pps lwt_ppx)))
+  (pps lwt_ppx forge-ppx)))

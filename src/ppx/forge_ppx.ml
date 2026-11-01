@@ -12,6 +12,7 @@ let () =
         Ppxlib.Context_free.Rule.extension Page.path;
         Ppxlib.Context_free.Rule.extension Wire.extension;
         Ppxlib.Context_free.Rule.extension Embed.extension;
+        Ppxlib.Context_free.Rule.extension Http_client.extension;
       ];
   ignore
     (Ppxlib.Deriving.add "config"

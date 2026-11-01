@@ -79,6 +79,7 @@
 | Passport, JWT | Spring Security | `Forge.Jwt.bearer`, `Guard.session` | ✅ |
 | — | `ShallowEtagHeaderFilter`, Rails `fresh_when` | `[@@etag]`, `Forge.Etag.middleware` → 304 | ✅ |
 | — | Spring Retry `@Retryable` | `[@@retry 3] [@@backoff 0.1]` на любой функции | ✅ |
+| `HttpModule` | `@HttpExchange`; Symfony HttpClient | `[%http_client: val user : login:string -> User.t [@@get "/users/:login"]]` → функтор над адресом | ✅ |
 | `Test.createTestingModule` + supertest | MockMvc | `Forge_testing.use` + сгенерированный клиент, без сокета | ✅ |
 
 ## Данные и сериализация

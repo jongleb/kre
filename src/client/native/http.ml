@@ -11,7 +11,7 @@ let base_url = ref ""
 let headers = ref []
 let transport = ref Network
 
-let request verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
+let request ?base verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
   let sent =
     (("Accept", "application/json") :: (!headers @ List.concat extra))
     @ Option.fold ~none:[]
@@ -37,7 +37,10 @@ let request verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
                 ~headers:(Cohttp.Header.of_list sent)
                 ?body:(Option.map Cohttp_lwt.Body.of_string body)
                 (verb :> Cohttp.Code.meth)
-                (Uri.of_string (Wire.url ~base:!base_url ~path ~query))
+                (Uri.of_string
+                   (Wire.url
+                      ~base:(Option.value base ~default:!base_url)
+                      ~path ~query))
             in
             let+ text = Cohttp_lwt.Body.to_string response_body in
             {

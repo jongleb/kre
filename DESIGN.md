@@ -1345,7 +1345,7 @@ module Error : sig
 end
 (* свой у каждого бэкенда; promise = Js.Promise.t или Lwt.t *)
 module Http : sig
-  val base_url : string ref                       (* "" = same origin *)
+  val base_url : string ref                       (* "" = same origin; ?base у request — фаза 3, [%http_client] *)
   val headers : (string * string) list ref        (* auth, csrf — упрощённые interceptors *)
   val request : Wire.verb -> path:string list -> ?query:(string * string) list list -> ?body:string ->
     'a Wire.returns -> ('a, Error.t) result promise
@@ -1629,7 +1629,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: переходы — `function` по конструкторам (опечатка — ошибка компиляции), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native и Melange (`docs/workflow.md`) | ✅ |
 | 14 | Symfony Profiler, Rails dev log, Spring `httpexchanges` | `/__forge/profiler` при `FORGE_ENV=dev`: запросы, их SQL (драйвер уже видит текст), время, guards | 3 |
 | 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Forge.Mail`: письмо — функция в `.mlx`, превью в dev | 3 |
-| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[@@@http_client "https://…"]`: декларативный клиент чужого API из `[@@get]` на функциях | 3 |
+| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — сигнатура вызовов → функтор `(Config : sig val url : string val headers : … end)` поверх `Forge_client.Http`/`Wire` (`Http.request ?base`); native и Melange (`docs/http-client.md`) | ✅ |
 
 Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.
 

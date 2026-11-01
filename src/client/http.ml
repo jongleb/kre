@@ -16,9 +16,9 @@ external text : response -> string Js.Promise.t = "text" [@@mel.send]
 let base_url = ref ""
 let headers = ref []
 
-let request verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
+let request ?base verb ~path ?(query = []) ?headers:(extra = []) ?body returns =
   fetch
-    (Wire.url ~base:!base_url ~path ~query)
+    (Wire.url ~base:(Option.value base ~default:!base_url) ~path ~query)
     (init ~method_:(Wire.method_name verb)
        ~headers:
          (Js.Dict.fromList
