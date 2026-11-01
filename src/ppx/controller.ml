@@ -25,6 +25,9 @@ type source =
   | Body of value
   | Searched of value
       (** [[@search]]: the query string as a record with a search codec. *)
+  | Loaded of { segment : string; value : value; loader : expression }
+      (** [[@load f]]: the path segment parsed as [M.Id], then [f] finds [M.t].
+      *)
   | Extracted of expression  (** [[@guard e]] or [[@from e]]. *)
   | Wildcard  (** [[@wildcard]]: what a trailing [*] matched. *)
   | Request
@@ -311,6 +314,42 @@ let transform structure =
                   in
                   Some (Query { name; presence; value = scalar ~loc element })
               | None -> Some (extractor "queries"))
+          | "load" -> (
+              let loader =
+                match attribute.attr_payload with
+                | PStr [ { pstr_desc = Pstr_eval (loader, _); _ } ] -> loader
+                | _ ->
+                    Location.raise_errorf ~loc:attribute.attr_loc
+                      "[@@load] takes the function that finds the entity: \
+                       [@@load Cats.find]"
+              in
+              match
+                (type_.ptyp_desc, List.find_opt (String.equal label) names)
+              with
+              | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []), Some _ ->
+                  Some
+                    (Loaded
+                       {
+                         segment = label;
+                         loader;
+                         value =
+                           {
+                             type_ =
+                               ptyp_constr ~loc
+                                 { txt = Ldot (Ldot (path, "Id"), "t"); loc }
+                                 [];
+                             module_ =
+                               pmod_ident ~loc { txt = Ldot (path, "Id"); loc };
+                           };
+                       })
+              | Ptyp_constr ({ txt = Ldot (_, "t"); _ }, []), None ->
+                  Location.raise_errorf ~loc:attribute.attr_loc
+                    "[@@load] reads the path segment :%s; add it to the route, \
+                     e.g. [@@@@get \":%s\"]"
+                    label label
+              | _ ->
+                  Location.raise_errorf ~loc:attribute.attr_loc
+                    "[@@load] loads an entity M.t whose id is M.Id.t")
           | "search" -> (
               match type_.ptyp_desc with
               | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
@@ -669,6 +708,7 @@ let transform structure =
                                        (fun argument ->
                                          match argument.source with
                                          | Path { segment; value }
+                                         | Loaded { segment; value; _ }
                                            when String.equal segment name ->
                                              Some value
                                          | _ -> None)
@@ -831,7 +871,7 @@ let transform structure =
                                  match (argument.label, argument.source) with
                                  | ( (Labelled known | Optional known),
                                      ( Path _ | Query _ | Body _ | Searched _
-                                     | Extracted _ | Located _ ) )
+                                     | Loaded _ | Extracted _ | Located _ ) )
                                    when String.equal known label ->
                                      Some argument
                                  | _ -> None)
@@ -1120,6 +1160,14 @@ let transform structure =
                                  [%e pexp_pack ~loc value.module_]
                                  __forge_request] );
                          ]
+                     | Loaded { segment; loader; _ } ->
+                         [
+                           ( bound index argument,
+                             [%expr
+                               Forge.Route.load ~what:[%e estring ~loc segment]
+                                 [%e loader]
+                                 [%e evar ~loc (variable segment)]] );
+                         ]
                      | Searched value ->
                          [
                            ( bound index argument,
@@ -1173,8 +1221,8 @@ let transform structure =
                        | Unit -> [%expr ()]
                        | Path { segment; _ } -> evar ~loc (variable segment)
                        | Wildcard -> [%expr Forge.Route.rest __forge_rest]
-                       | Query _ | Body _ | Searched _ | Extracted _ | Located _
-                         ->
+                       | Query _ | Body _ | Searched _ | Loaded _ | Extracted _
+                       | Located _ ->
                            evar ~loc (bound index argument) ))
                    handler.arguments)
             in
@@ -1355,7 +1403,8 @@ let transform structure =
                                    value = [%e spec_value value];
                                  }])
                              (match argument.source with
-                             | Path { segment; value } ->
+                             | Path { segment; value }
+                             | Loaded { segment; value; _ } ->
                                  Some (segment, [%expr Forge.Spec.Path], value)
                              | Query { name; presence; value } ->
                                  Some

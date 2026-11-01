@@ -6,4 +6,4 @@ end
 val session : User.t -> Session.t
 val current : User.t Forge.Guard.t
 val admin : Admin.t Forge.Guard.t
-val owner_or_admin : user:User.t -> Cat.t option -> (unit, Forge.Error.t) result
+val owner_or_admin : user:User.t -> Cat.t -> (unit, Forge.Error.t) result Lwt.t

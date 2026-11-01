@@ -54,6 +54,9 @@ val segment :
   (module S : Forge_shared.Scalar.S) ->
   string -> ('a, 'b) Routes.path -> (S.t -> 'a, 'b) Routes.path
 
+val load :
+  what:string -> ('id -> 'a option Lwt.t) -> 'id -> ('a, Error.t) result Lwt.t
+
 val query :
   (module S : Forge_shared.Scalar.S) ->
   (S.t, 'b) Forge_shared.Presence.t ->

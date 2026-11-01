@@ -450,3 +450,28 @@ A stream needs [@@sse], and [@@sse] needs a stream.
                               ^^^^^^^^^
   Error: [@search] reads the query string into a record M.t with [@@deriving search, dto]
   [1]
+
+[@load f] loads an entity M.t from its path segment, parsed as M.Id.t.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f ~(cat : (Cat.t[@load find])) : Cat.t Lwt.t = Lwt.return cat
+  > [@@get]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 20-32:
+  2 | let f ~(cat : (Cat.t[@load find])) : Cat.t Lwt.t = Lwt.return cat
+                          ^^^^^^^^^^^^
+  Error: [@load] reads the path segment :cat; add it to the route, e.g. [@@get ":cat"]
+  [1]
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f ~(cat : (string[@load find])) : string Lwt.t = Lwt.return cat
+  > [@@get ":cat"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 21-33:
+  2 | let f ~(cat : (string[@load find])) : string Lwt.t = Lwt.return cat
+                           ^^^^^^^^^^^^
+  Error: [@load] loads an entity M.t whose id is M.Id.t
+  [1]

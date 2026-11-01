@@ -41,6 +41,7 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 
 - `~(id : int)` совпадает с `:id` в пути — **path**-параметр; не разобрался как `int` → 404.
 - `?(limit : int = 20)` — **query** с дефолтом; `~(x : t)` — обязательный query, `~(x : t list)` — повторяемый.
+- `~(cat : (Cat.t[@load Cats.find]))` с `[@@get ":cat"]` — **сущность из пути**, как `#[MapEntity]` в Symfony, `DomainClassConverter` в Spring и `before_action :set_cat` в Rails. Сегмент разбирается как `Cat.Id.t` (тип `M.t` → идентификатор `M.Id.t`), функция получает id и возвращает `M.t option Lwt.t`; `None` → 404. Хендлер и `[@@authorize fun ~user ~cat -> …]` получают уже загруженную запись; в клиенте и OpenAPI это обычный path-параметр `~cat : Cat.Id.t` (`examples/shelter/server/cats_controller.ml`).
 - `~(search : (Cat_search.t[@search]))` — **вся query-строка** в одну запись, как `#[MapQueryString]` в Symfony, `@Query() dto` в Nest и `@ModelAttribute` в Spring. Запись с `[@@deriving search, dto]` лежит в shared: тот же `Cat_search.codec` разбирает URL страницы в роутере (`~search:Cat_search.codec`), а сгенерированный клиент принимает `~search` того же типа. Ошибка разбора → 400 с ошибками полей; в OpenAPI это `style: form, explode: true` со схемой записи.
 - `~(body : Create_cat_dto.t)` — **тело**: JSON → `Create_cat_dto.of_json`; не JSON → 400, не прошёл разбор → 422.
 - `~(user : string [@guard Auth.user])` — значение из запроса (guard), в `spec` и клиент не попадает.

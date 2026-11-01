@@ -6,7 +6,7 @@ module Cats = struct
   let show =
     Forge_client.Router.child ~live:Cats_client.Live.find_one root
       ~path:params_path ~search:Forge_shared.Search.none
-      ~loader:(fun { id } () -> Cats_client.find_one ~id)
+      ~loader:(fun { id } () -> Cats_client.find_one ~cat:id)
       ~component:Pages.cat
 
   let index =

@@ -4,10 +4,10 @@ let available (module Cats : Cats_service.S) () : Cat.t list Lwt.t =
   Cats.available ()
 [@@get] [@@live [ "cats" ]] [@@summary "Cats waiting for a home"]
 
-let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
-    (Cat.t, Forge.Error.t) result Lwt.t =
-  Lwt.map (Option.to_result ~none:(Forge.Error.not_found "cat")) (Cats.find id)
-[@@get ":id"] [@@live [ "cats" ]]
+let find_one (module Cats : Cats_service.S) ~(cat : (Cat.t[@load Cats.find])) :
+    Cat.t Lwt.t =
+  Lwt.return cat
+[@@get ":cat"] [@@live [ "cats" ]]
 
 let catalog (module Cats : Cats_service.S)
     ~(page : (Forge_shared.Page.Request.t[@search])) () :
@@ -22,9 +22,7 @@ let create (module Cats : Cats_service.S)
 [@@post] [@@status 201] [@@summary "Admit a cat"]
 
 let rename (module Cats : Cats_service.S)
-    ~user:(_ : (User.t[@guard Auth.current])) ~(id : Cat.Id.t)
+    ~user:(_ : (User.t[@guard Auth.current])) ~(cat : (Cat.t[@load Cats.find]))
     ~(body : Rename_dto.t) : (Cat.t, Forge.Error.t) result Lwt.t =
-  Cats.rename id body
-[@@put ":id"]
-[@@authorize
-  fun ~user ~id -> Lwt.map (Auth.owner_or_admin ~user) (Cats.find id)]
+  Cats.rename cat.id body
+[@@put ":cat"] [@@authorize fun ~user ~cat -> Auth.owner_or_admin ~user cat]

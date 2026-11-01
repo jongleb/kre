@@ -31,12 +31,10 @@ let admin =
       | Member -> Error (Forge.Error.forbidden "admins only"))
     current
 
-let owner_or_admin ~(user : User.t) (cat : Cat.t option) =
-  match (cat, user.role) with
-  | None, _ -> Error (Forge.Error.not_found "cat")
-  | Some _, Admin -> Ok ()
-  | Some { owner_id = Some owner; _ }, Member when User.Id.equal owner user.id
-    ->
-      Ok ()
-  | Some _, Member ->
-      Error (Forge.Error.forbidden "only its owner or an admin renames a cat")
+let owner_or_admin ~(user : User.t) (cat : Cat.t) =
+  Lwt.return
+    (match (cat.owner_id, user.role) with
+    | _, Admin -> Ok ()
+    | Some owner, Member when User.Id.equal owner user.id -> Ok ()
+    | (Some _ | None), Member ->
+        Error (Forge.Error.forbidden "only its owner or an admin renames a cat"))

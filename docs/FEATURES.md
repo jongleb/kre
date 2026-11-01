@@ -50,6 +50,7 @@
 | --- | --- | --- | --- |
 | `@Param('id')` | `@PathVariable` | `~(id : Cat.Id.t)` при `:id`; `[@param "id"]` | ✅ |
 | `@Query('page')`, `@Query()` | `@RequestParam` | `~(page : int)`, `?(limit : int = 20)`, `[@query "page-size"]`, `[@query]` | ✅ |
+| — | `DomainClassConverter`; Symfony `#[MapEntity]`, Rails `set_cat` | `~(cat : (Cat.t[@load Cats.find]))`: id из пути → запись или 404 | ✅ |
 | `@Query() dto` | `@ModelAttribute`; Symfony `#[MapQueryString]` | `~(search : (Cat_search.t[@search]))` — одна запись на сервере, в клиенте и в URL страницы | ✅ |
 | `@Body()`, `@Body('name')` | `@RequestBody` | `~(body : T.t)`, `[@body]`, `[@body "name"]` | ✅ |
 | `@Headers('x')`, `@Headers()` | `@RequestHeader` | `[@header "X-Client-Name"]`, `[@headers]` | ✅ |

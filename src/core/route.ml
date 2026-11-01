@@ -123,6 +123,9 @@ let segment (module S : Forge_shared.Scalar.S) label path =
     (fun s -> Result.to_option (S.of_string s))
     label path
 
+let load ~what find id =
+  Lwt.map (Option.to_result ~none:(Error.not_found what)) (find id)
+
 let query (type b) (module S : Forge_shared.Scalar.S)
     (presence : (S.t, b) Forge_shared.Presence.t) name request :
     (b, Error.t) result Lwt.t =
