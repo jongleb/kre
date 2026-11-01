@@ -171,3 +171,22 @@ for_update; the update needs the version it read.
                                                     ^^^^^^^^^^^^^^^^^^^^^
   Error: [@slug_from headline]: the record has no field headline
   [1]
+
+[@ulid] on a key: CHAR(26), no autoincrement, the id is inserted.
+
+  $ cat > input.ml <<'ML'
+  > type t = { id : Id.t; [@primary] [@ulid] name : string }
+  > [@@deriving table ~name:"orders"]
+  > ML
+  $ ./pp.exe -impl input.ml | sed -n '/let table/,/let _ = for_insert/p'
+      let table : Kre.Table.t =
+        Kre.Table.make ~name:"orders"
+          [Kre.Table.column ~role:Kre.Table.Primary "id"
+             (Kre.Table.Text (Some 26)) Kre.Table.Not_null;
+          Kre.Table.column "name" (Kre.Table.Text None) Kre.Table.Not_null]
+      let _ = table
+      let for_insert (__kre_record : t) __kre_query =
+        let __kre_now = Kre.Table.now () in
+        __kre_query ~id:(Id.to_string __kre_record.id)
+          ~name:(__kre_record.name)
+      let _ = for_insert

@@ -230,6 +230,21 @@ type t = {
 
 With `[@unique]` the CRUD module also gets `by_slug`, ready for `[@load Posts.by_slug]`. Naming a field the record does not have is a compile error.
 
+## ULID keys
+
+An auto-increment key is guessable and only exists after the insert. A ULID is 26 characters, unguessable, sorted by creation time, and you have it before you write the row:
+
+```ocaml
+module Id = Kre_shared.Ulid.Make ()
+
+type t = { id : Id.t; [@primary] [@ulid] total : int }
+[@@deriving table ~name:"orders", dto]
+
+let id = Result.get_ok (Order.Id.of_repr (Kre.Ulid.next ()))
+```
+
+`[@ulid]` makes the column `VARCHAR(26)` and keeps the id in `for_insert`. `Kre_shared.Ulid.Make ()` is a new type per entity, like `Kre_shared.Id.Make ()`, and rejects anything that is not 26 characters of Crockford base32 — in JSON, in path segments and when reading from the database.
+
 ## Pages
 
 Paging uses `Kre_shared.Page`, shared by server and browser:

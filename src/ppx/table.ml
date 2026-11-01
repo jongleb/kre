@@ -115,8 +115,13 @@ let structure ~ctxt (_, declarations) table_name =
               (`Null, element)
           | _ -> (`Not_null, label.pld_type)
         in
+        let ulid = attribute "ulid" in
         let size =
-          Option.fold ~none:[%expr None]
+          Option.fold
+            ~none:
+              (Option.fold ~none:[%expr None]
+                 ~some:(fun _ -> [%expr Some 26])
+                 ulid)
             ~some:(fun size -> [%expr Some [%e size]])
             (payload "size")
         in
@@ -164,7 +169,11 @@ let structure ~ctxt (_, declarations) table_name =
                    [@@column float]"
                   label.pld_name.txt Pprintast.core_type base
               in
-              match payload "column" with
+              match
+                Option.fold
+                  ~none:(Option.map (fun _ -> [%expr string]) ulid)
+                  ~some:Option.some (payload "column")
+              with
               | Some { pexp_desc = Pexp_ident { txt = Lident name; _ }; _ } -> (
                   match primitive name with
                   | Some (sql_type, row_type, to_base) ->

@@ -1690,7 +1690,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 19 | валидация с базой (`#[UniqueEntity]`) | `[@@check f]` — проверка над разобранными аргументами, `Error` → 422 с путями полей; `Kre.Route.validated`; выполняется после `[@@authorize]` | ✅ |
 | 20 | подписанные ссылки | `[@@signed secret]` + `Kre.Signed.url` — `expires` и HMAC-SHA256 последним параметром, иначе 403; `Kre.Signed.guard` | ✅ |
 | 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют поле `Kre_shared.Slug.of_string` из значения столбца-источника; нет поля — ошибка сборки | ✅ |
-| 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` + `Kre.Ulid.next ()`, `[@ulid]` в `table` — `CHAR(26)` без автоинкремента | 4 |
+| 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` (проверка формата, native и Melange) + `Kre.Ulid.next ()` (48 бит времени, 80 случайных), `[@ulid]` в `table` — `VARCHAR(26)`, без автоинкремента, id вставляется | ✅ |
 | 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`) | 4 |
 | 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud` | 4 |
 | 25 | фильтры API (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` с `{ … }?` условиями sqlgg | 4 |

@@ -1142,6 +1142,22 @@ let slug =
              [ "Tom & Jerry!"; "  Maine Coon -- 2 "; "!!!" ]));
   ]
 
+let ulid =
+  let module Order_id = Kre_shared.Ulid.Make () in
+  [
+    Alcotest.test_case "ULIDs: valid, sortable by time" `Quick (fun () ->
+        let early = Kre.Ulid.next ~now:1_700_000_000. () in
+        let late = Kre.Ulid.next ~now:1_700_000_001. () in
+        Alcotest.(check (list bool))
+          "checks" [ true; true; true; true ]
+          [
+            String.length early = 26;
+            Result.is_ok (Order_id.of_repr early);
+            String.compare early late < 0;
+            Result.is_error (Order_id.of_repr "not-a-ulid");
+          ]);
+  ]
+
 let assets =
   let dir = Filename.concat (Filename.get_temp_dir_name ()) "kre-assets-test" in
   (try Sys.mkdir dir 0o755 with Sys_error _ -> ());
@@ -1185,6 +1201,7 @@ let () =
       ("Mail", mail);
       ("Assets", assets);
       ("Slug", slug);
+      ("Ulid", ulid);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);
