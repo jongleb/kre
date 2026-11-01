@@ -1,0 +1,23 @@
+; The same strings, checked natively and in node: lengths are characters
+; on both ends.
+
+(library
+ (name text_check)
+ (modes melange)
+ (modules text_check)
+ (libraries kre-client.shared)
+ (preprocess
+  (pps melange.ppx)))
+
+(melange.emit
+ (target js)
+ (modules)
+ (libraries text_check)
+ (module_systems commonjs))
+
+(test
+ (name test_text)
+ (modules test_text)
+ (deps
+  (alias melange))
+ (libraries kre.shared alcotest unix))

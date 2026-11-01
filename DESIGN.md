@@ -79,7 +79,7 @@ kre/
 
 Dependency rules between packages:
 
-- `kre.shared` depends only on jsonkit (native) / jsonkit-melange (melange); it does not see Dream or Lwt.
+- `kre.shared` depends only on jsonkit (native) / jsonkit-melange (melange) and `kre.text` / `kre-client.text` (string operations that differ per backend); it does not see Dream or Lwt.
 - `kre` depends on `kre.shared`, Dream, Lwt, routes, jsonkit; it does not depend on ppx.
 - `kre-ppx` depends on ppxlib and jsonkit (for `dto`); generated code refers only to `Kre.*`, `Kre_shared.*` and `Jsonkit.*`.
 - `kre-client` depends on melange, reason-react, jsonkit-melange, `kre.shared`; it does not depend on `kre`.
@@ -1868,7 +1868,7 @@ These rules are for the repository's `CLAUDE.md`; they override any defaults.
 - [x] jsonkit: `of_json`/`to_json`/`t_jsonschema` exist on both backends; `Json.S` mirrors their shape (phase 0, dto section).
 - [ ] jsonkit: a decoding mode that accumulates errors with paths (`["age"]`) — needed for applicative 422s; until then — the first error, without a path.
 - [ ] Regular expressions in `Kre_shared` (`Validation.regex`, `Refined.Regex`): `Str` exists only in native; options — `re` (check that it builds in melange) or a custom implementation on `Js.Re` behind a shared interface.
-- [ ] String length in `Validation.min_length`/`max_length`: `String.length` counts bytes in native and UTF-16 units in JS; non-ASCII needs code point counting that is the same on both ends.
+- [x] String length in `Validation.min_length`/`max_length` counts Unicode code points on both ends, like JSON Schema `minLength`: `kre.text` / `kre-client.text` (`Kre_text.length`) is one `.mli` with a native implementation (UTF-8 lead bytes) and a Melange one (`Array.from`); `test/text` checks the same strings natively and in node.
 - [x] sqlgg: traits come from `sqlgg.mariadb` (opam `sqlgg.20260721`), `Kre.Db` — pool and transactions; `schema.sql` is printed by a binary with the table list, no registry needed. The `jongleb/sqlgg` fork is not required yet; if its features are needed (IR, lattice-nullability) — a pin in `dune-project`.
 - [ ] Name: `Kre` is a working name; check for collisions in opam before publishing.
 - [x] `.mlx` vs reason syntax for JSX: `.mlx` (a dune dialect, phase 2).

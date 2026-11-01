@@ -1,4 +1,4 @@
 (library
  (name kre_shared)
  (public_name kre.shared)
- (libraries jsonkit))
+ (libraries jsonkit kre.text))

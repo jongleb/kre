@@ -88,7 +88,7 @@ module Slug =
     end)
 ```
 
-A rule is a value of type `'a Kre_shared.Validation.rule`. The built-in ones are `min_length`, `max_length`, `min`, `max`, `range ~min ~max`, `one_of` and `email`; `Validation.rule ~name f` wraps any function of type `'a -> ('a, string) result`.
+A rule is a value of type `'a Kre_shared.Validation.rule`. The built-in ones are `min_length`, `max_length`, `min`, `max`, `range ~min ~max`, `one_of` and `email`. Lengths count characters (Unicode code points), as JSON Schema's `minLength` does, and give the same answer on the server and in the browser: `"Zoë"` is 3, `"🐈"` is 1; `Validation.rule ~name f` wraps any function of type `'a -> ('a, string) result`.
 
 ::: tip Parse once, at the edge
 Refined types are the recommended path. `[@validate]` on a raw `string` or `int` is an escape hatch for one-off rules. If the same rule appears on two fields, it wants to be a type.

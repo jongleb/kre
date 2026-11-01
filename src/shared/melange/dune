@@ -5,7 +5,7 @@
  (name kre_shared)
  (public_name kre-client.shared)
  (modes melange)
- (libraries jsonkit-melange))
+ (libraries jsonkit-melange kre-client.text))
 
 (copy_files#
  (files ../*.{ml,mli}))

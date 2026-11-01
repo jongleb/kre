@@ -67,12 +67,12 @@ end
 
 let min_length n =
   rule ~name:"min_length" (fun s ->
-      if String.length s >= n then Ok s
+      if Kre_text.length s >= n then Ok s
       else Error (Printf.sprintf "must be at least %d characters" n))
 
 let max_length n =
   rule ~name:"max_length" (fun s ->
-      if String.length s <= n then Ok s
+      if Kre_text.length s <= n then Ok s
       else Error (Printf.sprintf "must be at most %d characters" n))
 
 let min bound =

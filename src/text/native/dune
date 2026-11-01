@@ -1,0 +1,6 @@
+; What strings mean differs between native (UTF-8 bytes) and Melange
+; (UTF-16 units): one interface, an implementation per backend.
+
+(library
+ (name kre_text)
+ (public_name kre.text))

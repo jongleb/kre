@@ -1,0 +1,9 @@
+(library
+ (name kre_text)
+ (public_name kre-client.text)
+ (modes melange)
+ (preprocess
+  (pps melange.ppx)))
+
+(copy_files#
+ (files ../native/kre_text.mli))
