@@ -29,6 +29,13 @@ let v ?(middleware = []) ?error_handler verb target =
        else Exact);
   }
 
+exception Precognition_passed
+
+let precognition request =
+  match Dream.header request "Precognition" with
+  | Some "true" -> Lwt.fail Precognition_passed
+  | Some _ | None -> Lwt.return_ok ()
+
 let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
     ?(interceptors = []) (returns : a returns)
     (body : Dream.request -> (a, Error.t) result Lwt.t) request =
@@ -89,6 +96,11 @@ let handle (type a) ~status ?(guards = []) ?(headers = []) ?timeout
       Lwt_result.map with_headers (respond value))
     (function
       | Error.E error -> Lwt.return_error error
+      | Precognition_passed ->
+          Lwt.return_ok
+            (Dream.response ~status:`No_Content
+               ~headers:[ ("Precognition-Success", "true") ]
+               "")
       | exn ->
           Dream.error (fun log ->
               log ~request "unhandled exception: %s" (Printexc.to_string exn));

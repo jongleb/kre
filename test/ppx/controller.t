@@ -269,6 +269,8 @@ A controller with every kind of parameter.
                    let* __kre_arg_body =
                      Kre.Route.body (module Create_cat_dto) __kre_request
                     in
+                   let* () = Kre.Route.precognition __kre_request
+                    in
                    create (module Cats) (module Log) __kre_request __kre_arg_3
                      ~user:__kre_arg_user ~body:__kre_arg_body)));
       Kre.Route.v `DELETE
@@ -277,4 +279,7 @@ A controller with every kind of parameter.
               Kre.Route.handle ~status:(Dream.int_to_status 204)
                 ~guards:[Auth.signed_in] Kre.Route.Unit
                 (fun __kre_request ->
-                   Kre.Route.ok (remove (module Cats) ~id:__kre_arg_id ()))))]
+                   let open Kre.Route.Syntax in
+                     let* () = Kre.Route.precognition __kre_request
+                      in
+                     Kre.Route.ok (remove (module Cats) ~id:__kre_arg_id ()))))]

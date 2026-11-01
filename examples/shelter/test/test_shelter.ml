@@ -3,14 +3,15 @@ let app = [%wire]
 let handler =
   Dream.test (Kre.App.handler (Kre.Live.controller :: app.controllers))
 
-let call ?token ?(body = "") method_ target =
+let call ?token ?(headers = []) ?(body = "") method_ target =
   let response =
     handler
       (Dream.request ~method_ ~target
          ~headers:
-           (Option.fold ~none:[]
-              ~some:(fun token -> [ ("Authorization", "Bearer " ^ token) ])
-              token)
+           (headers
+           @ Option.fold ~none:[]
+               ~some:(fun token -> [ ("Authorization", "Bearer " ^ token) ])
+               token)
          body)
   in
   ( Dream.status_to_int (Dream.status response),
@@ -102,6 +103,29 @@ let () =
                      (List.hd
                         (Yojson.Basic.Util.to_list
                            (Yojson.Basic.Util.member "errors" json))) )));
+          Alcotest.test_case "precognition: checked, not created" `Quick
+            (fun () ->
+              let precognition body =
+                fst
+                  (call
+                     ~headers:[ ("Precognition", "true") ]
+                     ~body `POST "/auth/signup")
+              in
+              Alcotest.(check (list int))
+                "statuses" [ 204; 422; 422; 401 ]
+                (List.map
+                   (fun run -> run ())
+                   [
+                     (fun () -> precognition (login "eve@shelter.test"));
+                     (fun () -> precognition (login "ann@shelter.test"));
+                     (fun () ->
+                       precognition
+                         {|{"email":"eve@shelter.test","password":"short"}|});
+                     (fun () ->
+                       fst
+                         (call ~body:(login "eve@shelter.test") `POST
+                            "/auth/login"));
+                   ]));
           Alcotest.test_case "login checks the password" `Quick (fun () ->
               Alcotest.(check (list int))
                 "statuses" [ 200; 401; 401 ]

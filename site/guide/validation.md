@@ -266,3 +266,18 @@ Some rules can only be answered by the database: "this email is taken". Put them
   "errors": [ { "path": ["email"], "rule": "unique", "message": "this email is taken" } ] }
 ```
 
+## Checking a form before it is sent
+
+Send any write request with the header `Precognition: true` and Kre runs everything up to the handler — parsing, guards, `[@@authorize]`, `[@@check]` — and stops. The answer is `204` with `Precognition-Success: true`, or the same 422 a real submit would get. A form can validate a field as the user types, with the server's own rules, and nothing is written:
+
+```http
+POST /auth/signup
+Precognition: true
+
+{"email":"ann@shelter.test","password":"whiskers1"}
+```
+
+```json
+{ "status": 422, "errors": [ { "path": ["email"], "rule": "unique", "message": "this email is taken" } ] }
+```
+

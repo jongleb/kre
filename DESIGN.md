@@ -1703,7 +1703,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` — функция не идёт на двух серверах сразу | 4 |
 | 33 | токены API с правами | `Kre.Token` (таблица `kre_tokens`, хеш токена, права) + `[@@ability "cats:write"]` | 4 |
 | 34 | дашборд очередей | `Jobs.dashboard` — `/__kre/jobs`: очереди, упавшие задачи, повтор и удаление | 4 |
-| 35 | precognition | заголовок `Precognition: true` — разбор, guards и `[@@check]` без вызова хендлера: 204 или 422 | 4 |
+| 35 | precognition | заголовок `Precognition: true` на POST/PUT/PATCH/DELETE — разбор, guards, `[@@authorize]` и `[@@check]` без вызова хендлера: 204 `Precognition-Success: true` или та же ошибка (`Kre.Route.precognition`) | ✅ |
 | 36 | `#[ApiResource]` | `[%%resource …]` — CRUD-контроллер над таблицей: страницы, фильтры, показ, создание, удаление | 4 |
 
 ## Фазы и критерии приёмки

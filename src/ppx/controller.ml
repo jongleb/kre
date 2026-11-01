@@ -1264,6 +1264,11 @@ let transform structure =
                   ~some:(fun check ->
                     [ ([%pat? ()], [%expr Kre.Route.validated [%e check]]) ])
                   handler.check
+              @
+              match handler.verb with
+              | Post | Put | Patch | Delete ->
+                  [ ([%pat? ()], [%expr Kre.Route.precognition __kre_request]) ]
+              | Get | Head | Options | All -> []
             in
             let body =
               match steps with
