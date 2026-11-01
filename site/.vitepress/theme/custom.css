@@ -1,0 +1,185 @@
+:root {
+  --kre-ember: #ff7a18;
+  --kre-amber: #ffc24b;
+  --kre-magma: #ff2e63;
+  --kre-mint: #3ddc97;
+  --kre-sky: #4cc9f0;
+  --kre-violet: #9b5de5;
+  --kre-steel: #151922;
+  --kre-steel-2: #1c2230;
+  --kre-line: rgba(255, 255, 255, 0.08);
+  --kre-gradient: linear-gradient(120deg, #ffd166 0%, #ff7a18 45%, #ff2e63 100%);
+
+  --vp-font-family-base: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --vp-c-brand-1: #e8590c;
+  --vp-c-brand-2: #f76707;
+  --vp-c-brand-3: #fd7e14;
+  --vp-c-brand-soft: rgba(255, 122, 24, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: var(--kre-gradient);
+  --vp-home-hero-image-background-image: radial-gradient(circle, rgba(255, 122, 24, 0.55) 0%, rgba(255, 46, 99, 0.25) 45%, transparent 70%);
+  --vp-home-hero-image-filter: blur(56px);
+
+  --vp-button-brand-bg: #e8590c;
+  --vp-button-brand-hover-bg: #f76707;
+}
+
+.dark {
+  --vp-c-bg: #0b0d12;
+  --vp-c-bg-alt: #0f121a;
+  --vp-c-bg-soft: #151922;
+  --vp-c-bg-elv: #141821;
+  --vp-c-brand-1: #ff9a3c;
+  --vp-c-brand-2: #ff7a18;
+  --vp-c-brand-3: #e8590c;
+  --vp-c-divider: rgba(255, 255, 255, 0.07);
+  --vp-code-block-bg: #10131b;
+  --vp-button-brand-text: #0b0d12;
+  --vp-button-brand-bg: #ff7a18;
+  --vp-button-brand-hover-bg: #ff9a3c;
+  --vp-button-brand-hover-text: #0b0d12;
+}
+
+.VPHome {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(255, 122, 24, 0.13), transparent 60%),
+    radial-gradient(900px 500px at 0% 10%, rgba(155, 93, 229, 0.10), transparent 60%);
+}
+
+.VPHero .name {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.VPHero .text {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.VPFeature {
+  border: 1px solid var(--kre-line) !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)) !important;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 122, 24, 0.45) !important;
+  box-shadow: 0 18px 40px -20px rgba(255, 122, 24, 0.55);
+}
+
+.vp-doc h1 {
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  background: var(--kre-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.vp-doc h2 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border-top: none;
+}
+
+.vp-doc h2::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  border-radius: 3px;
+  background: var(--kre-gradient);
+  box-shadow: 0 0 14px rgba(255, 122, 24, 0.7);
+  vertical-align: 2px;
+}
+
+.vp-doc .lead {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--vp-c-text-2);
+}
+
+.vp-doc table {
+  border-radius: 12px;
+  overflow: hidden;
+  display: table;
+  width: 100%;
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.vp-doc th {
+  background: rgba(255, 122, 24, 0.08);
+  color: var(--vp-c-text-1);
+}
+
+.custom-block.tip {
+  border-left: 4px solid var(--kre-mint);
+}
+
+.custom-block.warning {
+  border-left: 4px solid var(--kre-amber);
+}
+
+.custom-block.info {
+  border-left: 4px solid var(--kre-sky);
+}
+
+.mermaid {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+  margin: 18px 0;
+  border-radius: 16px;
+  border: 1px solid var(--kre-line);
+  background:
+    radial-gradient(600px 200px at 50% 0%, rgba(255, 122, 24, 0.07), transparent 70%),
+    var(--vp-c-bg-soft);
+}
+
+.home-section {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 56px 24px 0;
+}
+
+.home-section h2.home-title {
+  font-size: 2.1rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.home-section h2.home-title span {
+  background: var(--kre-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.home-section p.home-sub {
+  color: var(--vp-c-text-2);
+  font-size: 1.08rem;
+  max-width: 760px;
+  margin: 0 0 28px;
+  line-height: 1.7;
+}
+
+.kre-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--kre-line);
+  background: rgba(255, 255, 255, 0.04);
+}

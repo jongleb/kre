@@ -1,0 +1,3 @@
+; site/ is the documentation website (VitePress); dune has nothing to build there.
+
+(dirs :standard \ site node_modules)

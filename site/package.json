@@ -1,0 +1,16 @@
+{
+  "name": "kre-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev . --port 5173",
+    "build": "vitepress build .",
+    "preview": "vitepress preview . --port 4173"
+  },
+  "devDependencies": {
+    "debug": "^4.4.3",
+    "mermaid": "11.12.2",
+    "vitepress": "1.6.4",
+    "vitepress-plugin-mermaid": "2.0.17"
+  }
+}
