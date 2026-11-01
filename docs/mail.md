@@ -1,6 +1,6 @@
 # Mail
 
-Rails: ActionMailer and mail previews. Symfony: Mailer. Nest: `@nestjs-modules/mailer`. Kre: an email is a value `Kre.Mail.t`, delivery is a provider `Kre.Mail.S`.
+In Kre an email is a value `Kre.Mail.t`, delivery is a provider `Kre.Mail.S`.
 
 ```ocaml
 Kre.Mail.make ~from ~to_ ?cc ~subject ~text ?html ()
@@ -13,7 +13,7 @@ Error: Unbound module Kre
 - Addresses are `Kre_shared.Refined.Email.t`, and a recipient is required: an email without a recipient cannot be built.
 - `Kre.Mail.render` prints an RFC 5322 message: with `html` it is `multipart/alternative`; a non-ASCII subject is encoded (`=?UTF-8?B?…?=`).
 - `Kre.Mail.Smtp (Config)` sends over SMTP (`EHLO`, `MAIL FROM`, `RCPT TO`, `DATA` with dot-stuffing). No TLS: for a local relay or Mailpit; STARTTLS comes later.
-- `Kre.Mail.Outbox ()` keeps emails in memory and serves the page `/__kre/mail` with their contents, like ActionMailer previews: for dev and tests.
+- `Kre.Mail.Outbox ()` keeps emails in memory and serves the page `/__kre/mail` with their contents: for dev and tests.
 
 In `examples/shelter` the mail provider is the outbox:
 

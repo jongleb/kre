@@ -3,7 +3,7 @@ val response : ttl:float -> ?clock:(unit -> float) -> unit -> Dream.middleware
 type ('k, 'v) memo = {
   find : 'k -> 'v Lwt.t;
   evict : 'k -> unit;  (** Drops one key. *)
-  clear : unit -> unit;  (** [@CacheEvict(allEntries = true)]. *)
+  clear : unit -> unit;  (** Drops every entry. *)
 }
 (** A memoized function with explicit eviction. *)
 

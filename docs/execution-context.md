@@ -1,6 +1,6 @@
 # Execution context
 
-Nest: `ExecutionContext` in guards and interceptors. Kre: guards and middleware get the `Dream.request`, which holds the method, path, headers and fields (`Dream.field`). A handler gets it as the positional parameter `(req : Dream.request)`.
+In Kre guards and middleware get the `Dream.request`, which holds the method, path, headers and fields (`Dream.field`). A handler gets it as the positional parameter `(req : Dream.request)`.
 
 <!-- $MDX file=examples/decorators.ml -->
 ```ocaml

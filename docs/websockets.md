@@ -1,6 +1,6 @@
 # WebSockets
 
-Nest: `@WebSocketGateway`, `@SubscribeMessage('event')`, `@MessageBody`, `@ConnectedSocket`. Spring: `@MessageMapping`. Kre: a gateway file.
+In Kre WebSocket handlers live in a gateway file.
 
 <!-- $MDX file=examples/chat_gateway.ml -->
 ```ocaml
@@ -17,8 +17,8 @@ let say (socket : Kre.Gateway.socket) ~(body : Chat_line.t) : Chat_line.t Lwt.t
 let ping () : string Lwt.t = Lwt.return "pong" [@@subscribe "ping"]
 ```
 
-- `[@@@gateway "chat"]`: a WebSocket on `/chat`; frames are `{"event": "say", "data": …}`, as with the Nest adapter.
-- `[@@subscribe "say"]`: an event handler; `~(body : T.t)` is the data (`@MessageBody`), `(socket : Kre.Gateway.socket)` is the client (`@ConnectedSocket`), `(module M : S)` are dependencies.
+- `[@@@gateway "chat"]`: a WebSocket on `/chat`; frames are `{"event": "say", "data": …}`.
+- `[@@subscribe "say"]`: an event handler; `~(body : T.t)` is the data, `(socket : Kre.Gateway.socket)` is the client, `(module M : S)` are dependencies.
 - A `T.t Lwt.t` result goes back to the sender under the same event; `unit Lwt.t` means no reply; `Kre.Gateway.broadcast` sends to all clients of the gateway.
 - A parse or handler error is an `error` event with Problem Details; an unknown event is a 404 in the same format.
 

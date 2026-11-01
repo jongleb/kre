@@ -1,6 +1,6 @@
 # Queues and background jobs
 
-Nest: `@nestjs/bullmq` (Redis). Rails: ActiveJob + Solid Queue. Symfony: Messenger. IHP: Jobs. Spring: `@Async`. In Kre the queue lives in the same database as the data (like Solid Queue and IHP): table `kre_jobs`, claiming with `FOR UPDATE SKIP LOCKED`, no Redis needed.
+In Kre the queue lives in the same database as the data: table `kre_jobs`, claiming with `FOR UPDATE SKIP LOCKED`, no separate broker needed.
 
 A queue is a typed value: a name and the payload dto.
 

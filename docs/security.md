@@ -1,6 +1,6 @@
-# Security: helmet, CORS, rate limiting
+# Security: secure headers, CORS, rate limiting
 
-Nest: `helmet`, `app.enableCors`, `@nestjs/throttler`. Kre: three `Dream.middleware`s, mounted globally through `Kre.App.run ~middleware`, per controller through `[@@@use]`, per route through `[@@use]`.
+Secure headers, CORS and rate limiting are three `Dream.middleware`s, mounted globally through `Kre.App.run ~middleware`, per controller through `[@@@use]`, per route through `[@@use]`.
 
 <!-- $MDX file=examples/hardened.ml -->
 ```ocaml

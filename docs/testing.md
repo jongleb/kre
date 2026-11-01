@@ -1,6 +1,6 @@
 # Testing
 
-Nest: `Test.createTestingModule` with `overrideProvider`. Kre: there is no container; to substitute, pass a different module to `register`; the application is checked with `Dream.test` without a network.
+Kre has no container; to substitute, pass a different module to `register`; the application is checked with `Dream.test` without a network.
 
 <!-- $MDX file=../examples/cats/test/test_cats.ml -->
 ```ocaml
@@ -132,7 +132,7 @@ Levels in the repository: cram on ppx output (`test/ppx`), alcotest on the runti
 
 ## Typed client without a network
 
-Nest tests HTTP with supertest, Spring with MockMvc: requests are built from strings. In Kre a test can call the same generated client as the frontend. `Kre_testing.use` (library `kre-client.testing`) routes its requests straight into the application's handler, with no port and no socket. A wrong path, body field or response type breaks the test's compilation.
+A test does not have to build requests from strings: it can call the same generated client as the frontend. `Kre_testing.use` (library `kre-client.testing`) routes its requests straight into the application's handler, with no port and no socket. A wrong path, body field or response type breaks the test's compilation.
 
 <!-- $MDX file=../examples/cats/client_native/test_in_process.ml -->
 ```ocaml

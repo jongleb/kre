@@ -1,6 +1,6 @@
 # Injection scopes
 
-Nest: `Scope.DEFAULT | REQUEST | TRANSIENT`. Kre: `DEFAULT` is a module, `TRANSIENT` is a function, `REQUEST` is a value in `Dream.field` that middleware puts there and a guard reads. A service that needs a request value gets it as a function argument, not a constructor argument, so the scope does not "bubble up".
+Kre has three injection scopes, each expressed with plain OCaml: a singleton is a module, a fresh instance per use is a function, and a per-request value is a `Dream.field` that middleware puts there and a guard reads. A service that needs a request value gets it as a function argument, not a constructor argument, so the scope does not "bubble up".
 
 <!-- $MDX file=examples/request_id.ml -->
 ```ocaml

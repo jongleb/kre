@@ -1,6 +1,6 @@
 # Caching
 
-Nest: `CacheInterceptor`, `@CacheKey`, `@CacheTTL`. Spring: `@Cacheable`, `@CacheEvict`. Kre has two levels.
+Kre caches on the server at two levels.
 
 **Whole response**: `[@@cache seconds]` on a GET handler: a 200 response is stored in memory by URL, and a repeat is served without calling the handler (`X-Cache: hit`). SSE streams are not cached; `[@@cache]` on a non-GET is a compile error.
 
@@ -16,7 +16,7 @@ let summary () : string Lwt.t =
 [@@get] [@@cache 60.0]
 ```
 
-**Service function**: `Kre.Cache.memoize ~ttl f` returns `{ find; evict; clear }`: `find` is `@Cacheable`, `evict key` and `clear ()` are `@CacheEvict`. The key and value are typed, so this is a function, not an annotation:
+**Service function**: `Kre.Cache.memoize ~ttl f` returns `{ find; evict; clear }`: `find` returns a stored value or computes and stores it, `evict key` drops one entry and `clear ()` drops all. The key and value are typed, so this is a function, not an annotation:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -27,7 +27,7 @@ let changed sku = prices.evict sku
 
 The cache lives in process memory; a cache shared across several processes (Redis) is phase 3.
 
-**Client HTTP cache**: `[@@etag]` on a GET handler, like `fresh_when` in Rails and `ShallowEtagHeaderFilter` in Spring. A 200 response gets an `ETag` (a hash of the body); a request with the same `If-None-Match` gets `304 Not Modified` without a body. The handler still runs; what is saved is traffic and parsing on the client. For the whole server: `Kre.Etag.middleware` in `~middleware`; it skips SSE streams.
+**Client HTTP cache**: `[@@etag]` on a GET handler. A 200 response gets an `ETag` (a hash of the body); a request with the same `If-None-Match` gets `304 Not Modified` without a body. The handler still runs; what is saved is traffic and parsing on the client. For the whole server: `Kre.Etag.middleware` in `~middleware`; it skips SSE streams.
 
 <!-- $MDX skip -->
 ```ocaml

@@ -1,6 +1,6 @@
 # Data
 
-Nest: TypeORM, Prisma, Mongoose — five chapters. Kre: one chain, where the schema is an OCaml type and the compiler checks every SQL query.
+In Kre data access is one chain, where the schema is an OCaml type and the compiler checks every SQL query.
 
 1. `[@@deriving table]` on a record describes a table (see `Cat.t` in [Pipes](pipes.md)).
 2. A small binary prints `schema.sql`:
@@ -59,7 +59,7 @@ module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct
 end
 ```
 
-CRUD without an ORM (the counterpart of `JpaRepository`): `schema.exe crud` prints, from `Cat.table`, the queries `all` and `insert`, plus `find`, `update` and `delete` when there is a primary key. sqlgg turns them into the module `Cats_crud`, and every query is still checked against the schema. The deriver provides `Cat.for_insert` and `Cat.for_update`: they spread a record into the named arguments of these queries, in the right order and with the right column types:
+CRUD without an ORM: `schema.exe crud` prints, from `Cat.table`, the queries `all` and `insert`, plus `find`, `update` and `delete` when there is a primary key. sqlgg turns them into the module `Cats_crud`, and every query is still checked against the schema. The deriver provides `Cat.for_insert` and `Cat.for_update`: they spread a record into the named arguments of these queries, in the right order and with the right column types:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -68,13 +68,13 @@ let%lwt _ = Cat.for_update { tom with name } (Crud.update conn) in
 let%lwt _ = Crud.delete conn ~id in
 ```
 
-Lookup by key is generated too, like derived queries in Spring Data (`findByStatus`) and `find_by` in Rails. A `[@unique]` column gets `by_<column>` returning one row (`Users_crud.Single.by_email`); `[@index]` and `[@references]` get a list ordered by the key (`Cats_crud.List.by_status`); every table gets `count`. Names come from the columns, not from parsing a method name, so a typo is a compile error, not a query error.
+Lookup by key is generated too. A `[@unique]` column gets `by_<column>` returning one row (`Users_crud.Single.by_email`); `[@index]` and `[@references]` get a list ordered by the key (`Cats_crud.List.by_status`); every table gets `count`. Names come from the columns, so a typo is a compile error, not a query error.
 
 Custom queries (`JOIN`, filters) are written next to them in a plain `.sql` file, like `Cats_sql`.
 
 ## Time and versions
 
-Rails: `t.timestamps` and `lock_version`. JPA: `@CreatedDate`, `@LastModifiedDate`, `@Version`. In Kre these are attributes on record fields:
+Creation time, update time and an optimistic-lock version are attributes on record fields:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -102,7 +102,7 @@ match changed.affected_rows with
 
 ## Pages
 
-Spring: `Pageable` and `Page<T>`. Rails: kaminari. In Kre a page request is `Kre_shared.Page.Request.t` (`?page=2&size=20`; page from 1, size from 1 to 100, otherwise 400), and the response is `'a Kre_shared.Page.t` with `items`, `page`, `size` and `total`. `Table.crud` prints `page` (`LIMIT @limit OFFSET @offset`) and `count`, and the service combines the two:
+In Kre a page request is `Kre_shared.Page.Request.t` (`?page=2&size=20`; page from 1, size from 1 to 100, otherwise 400), and the response is `'a Kre_shared.Page.t` with `items`, `page`, `size` and `total`. `Table.crud` prints `page` (`LIMIT @limit OFFSET @offset`) and `count`, and the service combines the two:
 
 <!-- $MDX skip -->
 ```ocaml
@@ -126,7 +126,7 @@ let catalog (module Cats : Cats_service.S)
 
 The generated client is `Cats_client.catalog ~page`, with a response of the same type `Cat.t Kre_shared.Page.t`. The ppx serializes a response type `T.t M.t` through `M.Make (T)`, so a custom container (a cursor page, an envelope) is a module with `'a t` and `Make`.
 
-A transaction is `Db.transaction`: `Ok` → commit, `Error` or an exception → rollback. As in Spring, the transaction's connection is bound to the current Lwt context: `Db.with_conn` and a nested `Db.transaction` inside it take the same connection, so services do not pass `~conn` to each other. A nested transaction is part of the outer one.
+A transaction is `Db.transaction`: `Ok` → commit, `Error` or an exception → rollback. The transaction's connection is bound to the current Lwt context: `Db.with_conn` and a nested `Db.transaction` inside it take the same connection, so services do not pass `~conn` to each other. A nested transaction is part of the outer one.
 
 In a controller, `[@@transactional]` and a `Kre.Db.S` dependency are enough (example: `examples/shelter/server/adoptions_controller.ml`): all services the handler calls write into one transaction. When you need the `conn` itself, use a `[@from Db.tx]` parameter:
 

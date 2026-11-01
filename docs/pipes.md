@@ -1,6 +1,6 @@
 # Pipes
 
-Nest: `ParseIntPipe`, `ValidationPipe`, custom pipes. Kre: parsing follows from the parameter type. The `Kre_shared.Scalar` modules parse `int`, `int64`, `float`, `bool`, `string`; custom parsing is a custom module with `of_string`, for example an opaque type from `Kre_shared.Refined`. A value that did not parse never reaches the handler: path → 404, query → 400, body → 422.
+In Kre parsing follows from the parameter type. The `Kre_shared.Scalar` modules parse `int`, `int64`, `float`, `bool`, `string`; custom parsing is a custom module with `of_string`, for example an opaque type from `Kre_shared.Refined`. A value that did not parse never reaches the handler: path → 404, query → 400, body → 422.
 
 <!-- $MDX file=../examples/cats/shared/cat.ml -->
 ```ocaml

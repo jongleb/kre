@@ -1,6 +1,6 @@
 # Custom providers
 
-Nest: `useValue`, `useClass`, `useFactory`. Kre: any other module with the same signature. To substitute one, pass it to `register`.
+In Kre a custom provider is any other module with the same signature. To substitute one, pass it to `register`.
 
 <!-- $MDX file=examples/fake_cats.mli -->
 ```ocaml
@@ -30,4 +30,4 @@ let controllers ~fake =
   | `Real -> [ Cats_controller.register (module Cats_service) ]
 ```
 
-A factory (`useFactory`) is plain code in `main.ml` before `Kre.App.run`: read the config, open the pool, apply the functor.
+A factory is plain code in `main.ml` before `Kre.App.run`: read the config, open the pool, apply the functor.

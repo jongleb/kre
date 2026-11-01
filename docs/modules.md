@@ -1,8 +1,8 @@
 # Modules
 
-Nest: `@Module({ imports, providers, controllers, exports })`. OCaml already has this: a module is a unit of code, `.mli` is exports, a dune library is a package boundary, `bin/main.ml` is where the application is assembled. There is no separate "Kre module" entity.
+Modules come from OCaml itself: a module is a unit of code, `.mli` is its exports, a dune library is a package boundary, `bin/main.ml` is where the application is assembled. There is no separate "Kre module" entity.
 
-A provider with dependencies is a functor: its arguments are the `imports`.
+A provider with dependencies is a functor: its arguments are what it imports.
 
 <!-- $MDX file=../examples/cats/db/cats_db_service.mli -->
 ```ocaml
@@ -15,7 +15,7 @@ end
 
 Application happens in the composition root: `module Cats = Cats_db_service.Make (Db)`, then `Cats_controller.register (module Cats)`. The order of functor application is the initialization order; cycles cannot be expressed.
 
-You do not need to assemble this by hand. `[%wire]` in `main.ml` is `@Module` and `@ComponentScan` at once: at build time the ppx reads the directories, finds providers (modules with `Make` or `module type S`), sorts them by dependencies, applies the functors and registers the controllers. A missing provider, two candidates without `[@@@primary]`, a cycle: each is a compile error pointing to the place in the code.
+You do not need to assemble this by hand. `[%wire]` in `main.ml` assembles the application: at build time the ppx reads the directories, finds providers (modules with `Make` or `module type S`), sorts them by dependencies, applies the functors and registers the controllers. A missing provider, two candidates without `[@@@primary]`, a cycle: each is a compile error pointing to the place in the code.
 
 <!-- $MDX file=../examples/cats/bin/main.ml -->
 ```ocaml

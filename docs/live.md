@@ -1,6 +1,6 @@
 # Live loaders
 
-Nest has nothing like this; it is IHP Auto Refresh. A page re-fetches its data when someone has changed the tables it reads from. The application has no subscription code.
+With a live loader, a page re-fetches its data when someone has changed the tables it reads from. The application has no subscription code.
 
 1. The handler declares the tables it depends on:
 

@@ -1,21 +1,21 @@
-# Kre — design of a NestJS-like framework in OCaml
+# Kre — design of a full-stack web framework in OCaml
 
 Oct 31, 2026 · @Mr
 
 ## Goals and principles
 
-Kre is a full-stack framework in OCaml. It reproduces the structure and chapters of [docs.nestjs.com](https://docs.nestjs.com/) with OCaml 5.5 means: the server on Dream, the frontend on Melange, shared code in `shared/`. The Kre documentation follows the Nest table of contents chapter by chapter; a chapter is closed when its Nest examples are rewritten in Kre and compile.
+Kre is a full-stack framework in OCaml 5.5: the server on Dream, the frontend on Melange, shared code in `shared/`. The Kre documentation is split into chapters (see "Map of docs chapters"); a chapter is closed when its examples are written in Kre and compile.
 
 Principles that settle disputed questions during development:
 
-1. **Do not reproduce what OCaml already has; DI happens at build time, not at runtime.** Dependency wiring is done by the ppx `[%wire]` (the analogue of `@ComponentScan` + `@Autowired`) over modules and functors: DI errors are compile errors. There is no runtime container, no tokens, no reflection; OOP is not used — only modules, functors and functions. Nest's `@Module`, DI container, `forwardRef`, Discovery and Module reference compensate for the lack of a module system in TS. In Kre a module = a singleton provider, `.mli` = exports, `main.ml` = composition root, dependencies = module-dependent functions (modular explicits, OCaml 5.5). Dependencies are resolved at compile time, not at startup.
+1. **Do not reproduce what OCaml already has; DI happens at build time, not at runtime.** Dependencies are wired by the ppx `[%wire]`, which finds providers among modules and functors and injects them into their consumers: DI errors are compile errors. There is no runtime container, no tokens, no reflection; OOP is not used — only modules, functors and functions. A module system makes a separate module registry, a DI container, forward references and runtime discovery unnecessary. In Kre a module = a singleton provider, `.mli` = exports, `main.ml` = composition root, dependencies = module-dependent functions (modular explicits, OCaml 5.5). Dependencies are resolved at compile time, not at startup.
 2. **ppx only where reflection is needed.** Routes from handler signatures, DTO codecs and validation, config from env, typed paths on the frontend. Everything else is plain functions and modules.
 3. **Dream is not wrapped.** `Dream.request`, `Dream.middleware`, `Dream.response`, sessions, CSRF, websockets, static — are used directly. Kre adds a layer above; it does not hide the layer below.
 4. **The controller is the source of truth.** The typed Melange client and OpenAPI are generated from it (via `spec`). The contract is never duplicated by hand.
 5. **One syntax for server and client.** User code reads the same on both ends: attributes on `let`, `[@@deriving …]` on types.
 6. **Illegal states unrepresentable, minimal code.** No `assert false`, no `Obj.magic`; ppx errors go through `Location.raise_errorf` with a message that explains what to fix.
 
-Not done in the first phases: ORM (sqlgg + `table` instead), GraphQL, microservices/transporters, queues, MongoDB, platform-agnosticism (Dream only), Devtools graph, Observability SaaS.
+Not done in the first phases: ORM (sqlgg + `table` instead), GraphQL, microservices/transporters, queues, MongoDB, platform-agnosticism (Dream only), a dependency graph UI, Observability SaaS.
 
 ## Stack and versions
 
@@ -49,7 +49,7 @@ Server and client use OCaml 5.5.1 in one opam switch: Melange `7.0.1-55` is buil
 
 ## Repository layout and packages
 
-One monorepo `kre`, four opam packages. The example `examples/cats` is a port of the example from the Nest docs and also an integration test.
+One monorepo `kre`, four opam packages. The example `examples/cats` is the running example of the docs and also an integration test.
 
 ```
 kre/
@@ -74,7 +74,7 @@ kre/
     ppx/              # cram tests on driver output: a reference for each transformation + each error
     core/             # alcotest: Error.handler, Codec, Validation, Spec→OpenAPI
     e2e/              # starts examples/cats, calls Dream.test and the generated client
-  docs/               # mirror of the docs.nestjs.com table of contents, one file per chapter
+  docs/               # the Kre documentation, one file per chapter
 ```
 
 Dependency rules between packages:
@@ -89,7 +89,7 @@ Module names: `Kre_shared` (shared by both ends: `Kre_shared.Refined`, `Kre_shar
 
 ## Running example: cats
 
-This code is the phase 1 acceptance criterion: it must compile and work end-to-end. It is a port of `CatsController` / `CatsService` / `CreateCatDto` from the Nest docs.
+This code is the phase 1 acceptance criterion: it must compile and work end-to-end. It covers a controller, a service and a DTO: `Cats_controller`, `Cats_service`, `Create_cat_dto`.
 
 **shared/cat.ml** — the response type, visible to both ends:
 
@@ -158,7 +158,7 @@ let create (module Cats : Cats_service.S)
 [@@post] [@@status 201]
 ```
 
-**server/logger\_middleware.ml** — middleware as in Nest, but it is just a `Dream.middleware`:
+**server/logger\_middleware.ml** — middleware is just a `Dream.middleware`:
 
 ```ocaml
 let use : Dream.middleware = fun next req ->
@@ -502,7 +502,7 @@ The signatures below are the `.mli` files from `src/shared` and `src/core` as bu
 ### Kre\_shared — shared by server and client (native + melange)
 
 ```ocaml
-(* Kre_shared.Validation — errors and rules; Nest: class-validator *)
+(* Kre_shared.Validation — errors and rules *)
 module Validation : sig
   type error = { path : string list; rule : string; message : string }
   type t = private { first : error; rest : error list }   (* non-empty set *)
@@ -548,7 +548,7 @@ module Time : sig
   val compare : t -> t -> int
 end
 
-(* Kre_shared.Page — phase 3: a page of a list; Spring Page *)
+(* Kre_shared.Page — phase 3: a page of a list *)
 module Page : sig
   type 'a t = private { items : 'a list; page : int; size : int; total : int }
   module Request : sig
@@ -591,7 +591,7 @@ module Json : sig
   module List (J : S) : S with type t = J.t list
 end
 
-(* Kre_shared.Scalar — a value that lives both in JSON and in a path/query segment; Nest: ParseIntPipe *)
+(* Kre_shared.Scalar — a value that lives both in JSON and in a path/query segment *)
 module Scalar : sig
   module type S = sig
     type t
@@ -611,7 +611,7 @@ end
 ### Kre — server (native)
 
 ```ocaml
-(* Kre.Error — the single error type; Nest: HttpException + exception filters *)
+(* Kre.Error — the single error type: HTTP errors and exception filters *)
 module Error : sig
   type status = [ Dream.client_error | Dream.server_error | `Unprocessable_Entity ]
   type t = private {
@@ -638,7 +638,7 @@ module Response : sig
   val json : ?status:Dream.status -> (module J : Kre_shared.Json.S) -> J.t -> Dream.response Lwt.t
 end
 
-(* Kre.Guard — extracts a value from the request; Nest: guards + custom param decorators *)
+(* Kre.Guard — extracts a value from the request: guards and custom parameter extractors *)
 module Guard : sig
   type 'a t = Dream.request -> ('a, Error.t) result Lwt.t
   val field : 'a Dream.field -> missing:Error.t -> 'a t
@@ -832,7 +832,7 @@ Deviations from the first version of this section (phase 0) and why:
 - `error_handler` receives the request: Problem Details requires `instance`.
 - `Validation.regex` and `Refined.Regex` are deferred: regexes are needed in both modes, but `Str` exists only in native (see open questions).
 
-`App` behaviour: each route is a `Route.t` with a method; `App.handler` builds one `Routes.one_of` per method and matches the path from `Dream.target` without the query. `MatchWithTrailingSlash` → 301 to the path without the slash, with the same query. No route → `error_handler` with `Error.not_found`. All error responses go through `error_handler` (by default `Error.to_response`); `Error.E` from a handler → its status; other exceptions → 500 `internal` and a log entry. Order: global middleware → matching → controller middleware (`[@@@use]`) → handler middleware (`[@@use]`) → guards → parameter parsing → handler body (Nest Request lifecycle). `App.run` calls `on_start`, then `Dream.serve` until SIGINT/SIGTERM, then `on_shutdown`.
+`App` behaviour: each route is a `Route.t` with a method; `App.handler` builds one `Routes.one_of` per method and matches the path from `Dream.target` without the query. `MatchWithTrailingSlash` → 301 to the path without the slash, with the same query. No route → `error_handler` with `Error.not_found`. All error responses go through `error_handler` (by default `Error.to_response`); `Error.E` from a handler → its status; other exceptions → 500 `internal` and a log entry. Order: global middleware → matching → controller middleware (`[@@@use]`) → handler middleware (`[@@use]`) → guards → parameter parsing → handler body (the request lifecycle). `App.run` calls `on_start`, then `Dream.serve` until SIGINT/SIGTERM, then `on_shutdown`.
 
 ## ppx: controller
 
@@ -840,20 +840,20 @@ One global ppxlib transformation (`Driver.register_transformation ~impl`) over t
 
 ### Attributes
 
-| Attribute | Where | Payload | Nest equivalent |
-| --- | --- | --- | --- |
-| `[@@@controller "cats"]` | first item of the file | prefix string; `""` is allowed | `@Controller('cats')` |
-| `[@@@version 2]` | floating | int → prefix `/v2` (URI mode) | `@Controller({ version: '2' })` |
-| `[@@@use [m1; m2]]` | floating | `Dream.middleware list` | `MiddlewareConsumer.forRoutes` |
-| `[@@@guards [g1; g2]]` | floating | `unit Guard.t list` — they check and discard the value | `@UseGuards` on a class |
-| `[@@@inject: module X : S]` | floating | a dependency available to the whole file (for helpers) | constructor injection |
-| `[@@get ""]` `[@@post]` `[@@put ":id"]` `[@@patch]` `[@@delete]` | on `let` | path string relative to the prefix; empty/missing = `""` | `@Get(':id')` |
-| `[@@status 201]` | on `let` | int | `@HttpCode(201)` |
-| `[@@use [...]]`, `[@@guards [...]]` | on `let` | like floating, but for one handler | `@UseGuards` on a method |
-| `[@@header ("Cache-Control", "no-store")]` | on `let` | pair of strings, repeatable | `@Header()` |
-| `[@@redirect "/x"]` | on `let` | string (+ optional status) | `@Redirect` |
-| `[@@sse]` | on `let` | none; returns `τ Lwt_stream.t` | `@Sse` |
-| `[@guard e]` / `[@from e]` | on a parameter | `e : 'a Guard.t`; synonyms | `@UseGuards` + custom param decorator |
+| Attribute | Where | Payload |
+| --- | --- | --- |
+| `[@@@controller "cats"]` | first item of the file | prefix string; `""` is allowed |
+| `[@@@version 2]` | floating | int → prefix `/v2` (URI mode) |
+| `[@@@use [m1; m2]]` | floating | `Dream.middleware list` |
+| `[@@@guards [g1; g2]]` | floating | `unit Guard.t list` — they check and discard the value |
+| `[@@@inject: module X : S]` | floating | a dependency available to the whole file (for helpers) |
+| `[@@get ""]` `[@@post]` `[@@put ":id"]` `[@@patch]` `[@@delete]` | on `let` | path string relative to the prefix; empty/missing = `""` |
+| `[@@status 201]` | on `let` | int |
+| `[@@use [...]]`, `[@@guards [...]]` | on `let` | like floating, but for one handler |
+| `[@@header ("Cache-Control", "no-store")]` | on `let` | pair of strings, repeatable |
+| `[@@redirect "/x"]` | on `let` | string (+ optional status) |
+| `[@@sse]` | on `let` | none; returns `τ Lwt_stream.t` |
+| `[@guard e]` / `[@from e]` | on a parameter | `e : 'a Guard.t`; synonyms |
 
 ### Handler shape
 
@@ -880,16 +880,16 @@ Module selection by type (syntactic): `int → Kre_shared.Scalar.Int`, `int64`, 
 
 ### Injection from the request: `[@from]` and `Kre.Extract`
 
-All Nest parameter decorators (`@Req`, `@Res`, `@Headers`, `@Ip`, `@Session`, `@HostParam`, whole `@Query()`, `createParamDecorator`) are one mechanism: a parameter with `[@from e]`, where `e : 'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t`. The parameter can be labelled (`~ip:(string [@from Extract.ip])`) or **positional** (`(ip : string [@from Extract.ip])`) — Nest style; this refines rule 5 above: a positional parameter is either `Dream.request`, or `()`, or carries `[@from]`.
+Every injection from the request (the raw request, headers, IP, session, host, the whole query, a custom extractor) is one mechanism: a parameter with `[@from e]`, where `e : 'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t`. The parameter can be labelled (`~ip:(string [@from Extract.ip])`) or **positional** (`(ip : string [@from Extract.ip])`); this refines rule 5 above: a positional parameter is either `Dream.request`, or `()`, or carries `[@from]`.
 
 For a handler with n such parameters, ppx generates n sequential `let*` in the wrapper — the arity is static, and the compiler checks the type of each extraction against the annotation. Extraction order is left to right; the first `Error` stops the chain.
 
 ```ocaml
 let find_all (module Cats : Cats_service.S)
-    (req : Dream.request)                                  (* @Req() *)
-    (ip : string [@from Extract.ip])                       (* @Ip() *)
-    (ua : string option [@from Extract.header "user-agent"])  (* @Headers('user-agent') *)
-    (sess : Session.t [@from Auth.session])                (* @Session() / custom decorator *)
+    (req : Dream.request)                                  (* the raw request *)
+    (ip : string [@from Extract.ip])                       (* client IP *)
+    (ua : string option [@from Extract.header "user-agent"])  (* one header *)
+    (sess : Session.t [@from Auth.session])                (* session / custom extractor *)
     () : Cat.t list Lwt.t = …
 [@@get]
 ```
@@ -905,17 +905,17 @@ module Extract : sig
   val header_exn : string -> string Guard.t               (* 400 if missing *)
   val headers : (string * string) list Guard.t
   val cookie  : string -> string option Guard.t
-  val query   : (string * string) list Guard.t            (* whole @Query() *)
-  val search  : 's Kre_shared.Search.t -> 's Guard.t    (* phase 3: @Query() dto, [@search] *)
-  val params  : (string * string) list Guard.t            (* whole @Param() *)
+  val query   : (string * string) list Guard.t            (* the whole query *)
+  val search  : 's Kre_shared.Search.t -> 's Guard.t    (* phase 3: query into a record, [@search] *)
+  val params  : (string * string) list Guard.t            (* all path parameters *)
   val body_raw : string Guard.t
-  val body_json : Jsonkit.t Guard.t                       (* @Body() without a DTO *)
+  val body_json : Jsonkit.t Guard.t                       (* body without a DTO *)
   val session : string -> string option Guard.t           (* Dream.session_field *)
   val field   : 'a Dream.field -> missing:Error.t -> 'a Guard.t
 end
 ```
 
-A custom decorator (`createParamDecorator`) is a plain value: `let tenant : Tenant.t Guard.t = fun req -> …`. Combinators in `Guard`: `map`, `both`, `optional : 'a t -> 'a option t`, `with_default`. There is intentionally no `@Res()` equivalent: the response is the return value, and for full control there is `Response.t Lwt.t`.
+A custom extractor is a plain value: `let tenant : Tenant.t Guard.t = fun req -> …`. Combinators in `Guard`: `map`, `both`, `optional : 'a t -> 'a option t`, `with_default`. There is intentionally no way to inject the response object: the response is the return value, and for full control there is `Response.t Lwt.t`.
 
 ### Return type
 
@@ -980,35 +980,35 @@ Phase 2: `[@@header (k, v)]` (repeatable, on a successful response), `[@@redirec
 
 Each error is a separate case in the cram test `test/ppx/errors.t` (output of `pp.exe -impl`).
 
-## DI and the other Nest primitives
+## DI and the other primitives
 
-All primitives of the Nest Overview section are expressed without a container. The table below is normative: each concept is translated this way and only this way.
+All primitives of the framework overview are expressed without a container. The table below is normative: each concept is translated this way and only this way.
 
-| Nest | Kre | Mechanism |
+| Concept | Kre | Mechanism |
 | --- | --- | --- |
-| Provider (`@Injectable`, singleton) | a module with `module type S` in `.mli` | state is the module's top-level values |
+| Provider (singleton) | a module with `module type S` in `.mli` | state is the module's top-level values |
 | Provider with dependencies | functor `Make (Db : Db.S) (Log : Logger.S) : S` | applied in `main.ml` |
 | Constructor injection | handler module parameters `(module Cats : Cats_service.S)` | modular explicits → `register` parameters |
-| `useValue` / `useClass` / `useFactory` | another module of the same `S`; factory = `let%lwt` in `main` before `Kre.App.run` | — |
-| Dynamic module `forRoot(cfg)` | functor with a config module: `Cache.Make (struct let ttl = 60 end)` | — |
-| Scope.DEFAULT | module | — |
-| Scope.REQUEST | `Dream.field` + `Guard.field` | middleware sets the value, `[@guard]` reads it |
-| Scope.TRANSIENT | plain function | — |
-| `@Module({imports, providers, exports})` | `main.ml` + `.mli` + dune `(libraries)` | does not exist as an entity |
-| Circular dependency / `forwardRef` | compile error | — |
+| Value, class and factory providers | another module of the same `S`; factory = `let%lwt` in `main` before `Kre.App.run` | — |
+| Configurable module | functor with a config module: `Cache.Make (struct let ttl = 60 end)` | — |
+| Default (singleton) scope | module | — |
+| Request scope | `Dream.field` + `Guard.field` | middleware sets the value, `[@guard]` reads it |
+| Transient scope | plain function | — |
+| Module declaration (imports, providers, exports) | `main.ml` + `.mli` + dune `(libraries)` | does not exist as an entity |
+| Circular dependency / forward reference | compile error | — |
 | Middleware | `Dream.middleware`; `[@@@use]` / `[@@use]` / `Kre.App.run ~middleware` | — |
 | Middleware with dependencies | `let use (module Log : Logger.S) : Dream.middleware = …` | applied in `[@@@use [Logger.use (module Log)]]` |
-| Guard (`canActivate`) | `'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t` | `[@guard e]` yields a value; `[@@guards [e]]` only checks |
-| Pipe (`ParseIntPipe`) | parameter type annotation | `Codec` |
-| Pipe (`ValidationPipe`) | `[@@deriving dto]` → `validate` | automatic on `body` |
+| Guard | `'a Guard.t = Dream.request -> ('a, Error.t) result Lwt.t` | `[@guard e]` yields a value; `[@@guards [e]]` only checks |
+| Pipe (parse a parameter) | parameter type annotation | `Codec` |
+| Pipe (validate the body) | `[@@deriving dto]` → `validate` | automatic on `body` |
 | Custom pipe | `[@codec e]` on a parameter / `Codec.custom` | — |
 | Interceptor (before/after) | `Dream.middleware` | — |
-| Interceptor (transform response) | middleware over `Dream.response` or an explicit `Response.json` | we do not introduce RxJS |
+| Interceptor (transform response) | middleware over `Dream.response` or an explicit `Response.json` | no observable streams |
 | Exception filter | `Kre.App.run ~error_handler`; per controller — `[@@@error_handler f]` | `Error.t -> Dream.response Lwt.t` |
-| `HttpException` | `Error.t` in `result` or `Error.fail` | — |
-| Custom param decorator (`@User()`) | `[@from Auth.current]` | any `'a Guard.t` |
+| HTTP exception | `Error.t` in `result` or `Error.fail` | — |
+| Custom parameter extractor (current user) | `[@from Auth.current]` | any `'a Guard.t` |
 | Execution context | positional `(req : Dream.request)` | — |
-| Lifecycle (`onModuleInit`, `onApplicationShutdown`) | `Kre.App.run ~on_start ~on_shutdown` | `Lwt_switch` inside |
+| Lifecycle hooks (init, shutdown) | `Kre.App.run ~on_start ~on_shutdown` | `Lwt_switch` inside |
 
 ### Wiring: `[%wire]` (phase 2)
 
@@ -1019,19 +1019,19 @@ let () =
   Kre.App.run ~on_start:app.on_start ~on_shutdown:app.on_shutdown app.controllers
 ```
 
-Like `@SpringBootApplication`, `[%wire]` scans the application directory — the parent of the directory with `main.ml` — recursively, skipping `test`/`tests`, `_build`, `node_modules` and hidden directories; copies of one module (`copy_files#` for Melange) are merged by name. To narrow: `[%wire "server"; "db"]`, paths relative to the application directory. In dune: `(preprocessor_deps (source_tree ..))` — rebuild when sources change. ppx finds the components itself:
+`[%wire]` scans the application directory — the parent of the directory with `main.ml` — recursively, skipping `test`/`tests`, `_build`, `node_modules` and hidden directories; copies of one module (`copy_files#` for Melange) are merged by name. To narrow: `[%wire "server"; "db"]`, paths relative to the application directory. In dune: `(preprocessor_deps (source_tree ..))` — rebuild when sources change. ppx finds the components itself:
 
-| What is in the file | Role | Nest / Spring |
-| --- | --- | --- |
-| `module Make () = …` | provider; a new instance | `@Injectable`, `@Scope(PROTOTYPE)` when called by hand |
-| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | provider with dependencies; parameters are constructor injection | `@Autowired` in the constructor |
-| `module type S` without `Make` | singleton: the module itself is the instance | `@Service` |
-| `[@@@controller]` | consumer: handler module parameters → `register` | `@Controller` |
-| everything else | left untouched | — |
+| What is in the file | Role |
+| --- | --- |
+| `module Make () = …` | provider; a new instance (a fresh one on each call by hand) |
+| `module Make (Db : Kre.Db.S) (Clock : Clock.S) = …` | provider with dependencies; parameters are constructor injection |
+| `module type S` without `Make` | singleton: the module itself is the instance |
+| `[@@@controller]` | consumer: handler module parameters → `register` |
+| everything else | left untouched |
 
-A provider's interface is the result annotation of `Make` in `.ml` or `.mli` (`: Cats_service.S`, `: sig include Kre.Db.S … end`), otherwise its own `module type S`; explicitly — `[@@@injectable Iface.S]`. A module with only `module type S` (no values and no `Make`) is an interface, not a provider. `[@@@fallback]` is a fallback provider (`@ConditionalOnMissingBean`, equivalent of `@Optional`): it is used and created only if there are no other implementations of the interface. If several providers give an interface: `[@@@primary]` (`@Primary`), otherwise a functor parameter name that matches the provider name (`(Fake_clock : Clock.S)` — the way Spring picks a bean by parameter name), otherwise a build error. Build errors with a location: no provider, ambiguity, cycle (`Clock -> Report -> Clock`). The compiler checks dependency types on the generated functor applications.
+A provider's interface is the result annotation of `Make` in `.ml` or `.mli` (`: Cats_service.S`, `: sig include Kre.Db.S … end`), otherwise its own `module type S`; explicitly — `[@@@injectable Iface.S]`. A module with only `module type S` (no values and no `Make`) is an interface, not a provider. `[@@@fallback]` is a fallback provider: it is used and created only if there are no other implementations of the interface. If several providers give an interface: the one marked `[@@@primary]`, otherwise the provider whose name matches the functor parameter name (`(Fake_clock : Clock.S)`), otherwise a build error. Build errors with a location: no provider, ambiguity, cycle (`Clock -> Report -> Clock`). The compiler checks dependency types on the generated functor applications.
 
-Hooks: `let on_start` / `let on_shutdown` in a provider (and in its signature) — `@PostConstruct` / `@PreDestroy`, `onModuleInit` / `onApplicationShutdown`; start runs in dependency order, shutdown in reverse. `[%wire]` returns `Kre.Wiring.t = { controllers; on_start; on_shutdown; health; commands; beans }`; `beans` is the graph for `/actuator/beans`. Directory modules must be visible from `main` (libraries `(wrapped false)`). Reference outputs: `test/wire/wire.t`; example: `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
+Hooks: `let on_start` / `let on_shutdown` in a provider (and in its signature) run after the provider is created and before the application stops; start runs in dependency order, shutdown in reverse. `[%wire]` returns `Kre.Wiring.t = { controllers; on_start; on_shutdown; health; commands; beans }`; `beans` is the graph for `/actuator/beans`. Directory modules must be visible from `main` (libraries `(wrapped false)`). Reference outputs: `test/wire/wire.t`; example: `examples/cats/bin/main.ml` (`Settings` → `Database.Make` → `Cats_db_service.Make`).
 
 ### Guards — example
 
@@ -1061,7 +1061,7 @@ Usage: `~(user : User.t [@guard Auth.current])` in parameters, ``[@@guards [Auth
 
 ### Request-scoped providers
 
-No scope "bubbling": a request-scoped value is a `Dream.field` that middleware fills. A service that needs a request value gets it as a function argument, not a constructor argument. This is a deliberate departure from Nest: it removes a whole chapter (Injection scopes) and a class of performance bugs.
+No scope "bubbling": a request-scoped value is a `Dream.field` that middleware fills. A service that needs a request value gets it as a function argument, not a constructor argument. This is deliberate: there are no injection scopes to document, and a class of performance bugs goes away.
 
 ## ppx: \[@@deriving dto\]
 
@@ -1146,26 +1146,26 @@ let of_json __kre_json =
 
 ### Field attributes
 
-| Attribute | Effect | Nest equivalent |
-| --- | --- | --- |
-| `[@key "camelName"]` | name in JSON (jsonkit `json.key`/`jsonschema.key`) | `@Expose({ name })` |
-| `[@default e]` | the field is optional in JSON, default when missing (jsonkit) | `@IsOptional` + default |
-| `[@validate r1; r2]` | rules `'a Kre_shared.Validation.rule`, applied in order, errors of all rules are collected | class-validator |
-| `[@validate.custom f]` | `f : t_field -> (t_field, string) result` → `Validation.rule ~name:"custom" f` | `@Validate(Custom)` |
-| `[@exclude]` | not serialized in `to_json`; `of_json` requires `[@default]` — phase 2 | `@Exclude` |
-| `[@expose ~groups:["admin"]]` | serialized only with `to_json ~groups` — phase 2 | `@Expose({ groups })` |
-| `[@nested]` | not needed: a nested DTO is checked by its own `T.of_json` | `@ValidateNested` |
+| Attribute | Effect |
+| --- | --- |
+| `[@key "camelName"]` | name in JSON (jsonkit `json.key`/`jsonschema.key`) |
+| `[@default e]` | the field is optional in JSON, default when missing (jsonkit) |
+| `[@validate r1; r2]` | rules `'a Kre_shared.Validation.rule`, applied in order, errors of all rules are collected |
+| `[@validate.custom f]` | `f : t_field -> (t_field, string) result` → `Validation.rule ~name:"custom" f` |
+| `[@exclude]` | not serialized in `to_json`; `of_json` requires `[@default]` — phase 2 |
+| `[@expose ~groups:["admin"]]` | serialized only with `to_json ~groups` — phase 2 |
+| `[@nested]` | not needed: a nested DTO is checked by its own `T.of_json` |
 
 Validation rules are plain values `Kre_shared.Validation.*`; ppx only calls them and collects `{ path; rule; message }`. New rules are added to the runtime, not to ppx.
 
 ### Deriver options
 
-| Option | Effect | Nest equivalent |
-| --- | --- | --- |
-| `[@@deriving dto]` | everything above | — |
-| `[@@deriving dto ~partial_of:T]` | type = all fields of `T.t` as `option`; `validate` applies the rules of `T` to the present fields | `PartialType` |
-| `[@@deriving dto ~pick_of:(T, ["name"; "age"])]` / `~omit_of` | a subset of the fields of `T` | `PickType` / `OmitType` |
-| `[@@deriving dto ~strict]` | unknown fields in JSON → 422; in the schema `additionalProperties: false` | `forbidNonWhitelisted` |
+| Option | Effect |
+| --- | --- |
+| `[@@deriving dto]` | everything above |
+| `[@@deriving dto ~partial_of:T]` | type = all fields of `T.t` as `option`; `validate` applies the rules of `T` to the present fields |
+| `[@@deriving dto ~pick_of:(T, ["name"; "age"])]` / `~omit_of` | a subset of the fields of `T` |
+| `[@@deriving dto ~strict]` | unknown fields in JSON → 422; in the schema `additionalProperties: false` |
 
 `~partial_of`/`~pick_of` require `T` to be declared in the same file or `T.t` to be visible to ppx as a record — implemented via `[@@deriving dto]` on `T`, which additionally emits `__dto_fields_T` (the list of fields with schemas) for reuse. This is phase 2; phase 1 has only the base `dto` and `~strict`.
 
@@ -1202,7 +1202,7 @@ The client side (`Kre_client.Error`) parses this format; `errors` are available 
 
 ## ppx: \[@@deriving config\]
 
-A typed config from environment variables, checked at startup. The Nest Configuration chapter (`ConfigModule.forRoot` + Joi) reduces to a single record.
+A typed config from environment variables, checked at startup. Configuration reduces to a single record: no config module and no separate schema library.
 
 ```ocaml
 (* server/config.ml *)
@@ -1251,7 +1251,7 @@ module Flag : Kre_shared.Scalar.S with type t = bool
 
 ## Data: Db, sqlgg, \[@@deriving table\], migrations
 
-No ORM. One Data chapter instead of Nest's five: queries are sqlgg, the schema is `table`, migrations are `kre migrate`.
+No ORM. One Data chapter: queries are sqlgg, the schema is `table`, migrations are `kre migrate`.
 
 ### Kre.Db
 
@@ -1286,13 +1286,13 @@ module Driver : Kre.Db.DRIVER with type conn = Client.t      (* mariadb://user:p
 
 A service with a database is a functor: `module Make (Db : Kre.Db.S with type conn = Kre_db_mariadb.Client.t) = struct module Sql = Cats_sql.Make (Kre_db_mariadb.Sql) … end`. `Kre_db_pgx` is phase 2.
 
-Transactions as in Spring (phase 2): `transaction` puts its connection into an Lwt key (`Lwt.with_value`, the analogue of the ThreadLocal in `TransactionSynchronizationManager`). Everything that runs inside it, `with_conn` of any service and a nested `transaction`, takes this connection instead of a new one from the pool. So services do not need `~conn` in their signature to take part in a controller's transaction. A nested transaction is part of the outer one (`REQUIRED`): the outer one decides commit or rollback, and live events go out once, after its commit. The cost: inside a transaction, queries run one at a time over one connection, and an `Lwt.async` started inside inherits the connection, so background work is started after the transaction.
+Implicit transactions (phase 2): `transaction` puts its connection into an Lwt key (`Lwt.with_value`), a value local to the current chain of promises. Everything that runs inside it, `with_conn` of any service and a nested `transaction`, takes this connection instead of a new one from the pool. So services do not need `~conn` in their signature to take part in a controller's transaction. A nested transaction is part of the outer one: the outer one decides commit or rollback, and live events go out once, after its commit. The cost: inside a transaction, queries run one at a time over one connection, and an `Lwt.async` started inside inherits the connection, so background work is started after the transaction.
 
 Postgres (phase 2): the driver is `Kre_db_postgresql` on libpq (the `postgresql` package), not pgx. Reason: sqlgg traits require `execute_response.affected_rows`, and pgx reads the number of changed rows but does not expose it; libpq does (`cmd_tuples`). libpq queries go through `Lwt_preemptive.detach`: the libpq socket is an `int`, and it cannot be turned into a `Unix.file_descr` without `Obj.magic`. sqlgg limitations for `-dialect postgresql`: no `RETURNING`, `BIGSERIAL`, `GENERATED … AS IDENTITY`. So a `[@primary] [@auto]` key is `SERIAL`, and the driver fills `insert_id` with `SELECT lastval()` on the same connection, so services are written the same way for both databases. `Kre.Table.schema` takes a dialect: Postgres has `DOUBLE PRECISION` and a separate `CREATE INDEX`; CRUD queries are shared.
 
 ### sqlgg
 
-The `table` + sqlgg pair is Kre's flagship feature, which neither Nest nor Rails has: **the schema is an OCaml type, and the compiler checks every SQL query against it.** The chain:
+The `table` + sqlgg pair is Kre's flagship feature: **the schema is an OCaml type, and the compiler checks every SQL query against it.** The chain:
 
 1. `[@@deriving table]` on a record generates `schema : Kre.Table.t`, and a dune rule writes `schema.sql` (DDL for the chosen dialect) from all such types.
 2. sqlgg takes `schema.sql` + user queries (`queries/*.sql` or inline via `ppx_sqlgg`) and generates typed functions; nullability is inferred by the fork's lattice analysis and matches `option` in the records.
@@ -1336,7 +1336,7 @@ type t = {
 
 - Column types: `int`/`int64` → `BIGINT`, `string` → `VARCHAR(size)` or `TEXT`, `bool` → `BOOLEAN`, `float` → `DOUBLE`, `τ option` → `NULL`. A field of an abstract type `T.t` (`Refined`) requires `[@column int|string|bool|float]`: the ppx does not see the representation of `T.t`, and the argument type of `of_row` must match what sqlgg provides; the value goes through `T.of_string` (`Kre.Table.decode`), so `Refined` rules are also checked when reading from the database. Time is `Kre_shared.Time.t` (phase 3, no `[@column]`): `DOUBLE` seconds in the database, RFC 3339 on the wire; not `Ptime` and not `TIMESTAMP`, because the type is also needed in Melange, and sqlgg types `TIMESTAMP` differently in MySQL and Postgres.
 - Attributes: `[@primary]`, `[@auto]` (only with `[@primary]`), `[@unique]`, `[@index]`, one role per field; `[@size n]`; `[@references M]` → `FOREIGN KEY … REFERENCES <M.table> (id)`; `[@sql.default "SQL"]`, not `[@default]`, because `[@default]` already means the jsonkit deriver's default (an OCaml value, not SQL).
-- `[@created_at]`, `[@updated_at]` (a `Kre_shared.Time.t` field) and `[@version]` (`int`) are phase 3, like timestamps and `lock_version` in Rails, auditing and `@Version` in JPA. `for_insert` sets both timestamps to `Kre.Table.now ()` and the version to 0; `for_update` updates `updated_at`, leaves `created_at` alone and passes the version that was read; `crud` prints `UPDATE … SET …, version = version + 1 WHERE id = @id AND version = @version`. 0 changed rows means the record was changed after it was read: the service responds 409 (`examples/shelter/server/cats_service.ml`, `rename`). Until the examples are released, `0001_init.sql` is regenerated; after release, migrations are only added (`kre migrate diff` is phase 3).
+- `[@created_at]`, `[@updated_at]` (a `Kre_shared.Time.t` field) and `[@version]` (`int`) are phase 3: creation and update timestamps and optimistic locking. `for_insert` sets both timestamps to `Kre.Table.now ()` and the version to 0; `for_update` updates `updated_at`, leaves `created_at` alone and passes the version that was read; `crud` prints `UPDATE … SET …, version = version + 1 WHERE id = @id AND version = @version`. 0 changed rows means the record was changed after it was read: the service responds 409 (`examples/shelter/server/cats_service.ml`, `rename`). Until the examples are released, `0001_init.sql` is regenerated; after release, migrations are only added (`kre migrate diff` is phase 3).
 - `Kre.Table.schema [ Cat.table; … ]` prints DDL (MariaDB/MySQL). There is no registry: a small binary with the list of tables builds `schema.sql`, and a dune rule passes it to sqlgg (`examples/cats/db/dune`): `sqlgg -dialect mysql -gen caml_io -name Make schema.sql queries/cats.sql`.
 - Under Melange (`(pps … kre-ppx -- -melange)`) `table` generates nothing; `dto` on the same type works.
 - Tested on a live MariaDB 11.8: `examples/cats/db` (insert through the controller, read with `Sql.List.all conn ~limit Cat.of_row` and `Sql.Single.by_id`, transaction rollback); alias `dune build @examples/cats/db/test/db` with `KRE_TEST_DB_URL`.
@@ -1438,7 +1438,7 @@ module Http : sig
   val transport : transport ref
 end
 
-(* kre-client.testing — phase 3; Nest Testing + supertest, Spring MockMvc *)
+(* kre-client.testing — phase 3; in-process tests through the typed client *)
 module Kre_testing : sig
   val use : ?middleware:Dream.middleware list -> Kre.Controller.t list -> unit   (* transport := Local (App.handler …) *)
 end
@@ -1448,11 +1448,11 @@ A test calls the same generated functions as the frontend (`Cats_client.create ~
 
 ### OpenAPI
 
-`--emit-openapi` (and `kre openapi --spec`) builds a 3.1 document with `Kre.Openapi.document ~title ~version specs`: `paths` from `spec.routes`, `components.schemas` from the `jsonschema` of every DTO encountered (module name = schema name), `parameters` from `Codec.schema`, `responses` with the code from `status` and the error envelope for 4xx. Tags are controller prefixes. Operation descriptions are the `[@@summary "…"]` and `[@@description "…"]` attributes on the handler (like `@ApiOperation`); they go into `Spec.route` and OpenAPI. Docstrings are not used, because the code rules forbid comments above functions. DTO schemas with a simple module name (`Cat`) go into `components.schemas` and are referenced with `$ref`; the rest (`Kre_shared.Scalar.Int`, `Kre_shared.Json.List (Cat)`) are inlined. Errors are a `default` response `application/problem+json` with the `Problem` schema. The cats document passes `openapi-spec-validator` (a CI step). Swagger UI is phase 2.
+`--emit-openapi` (and `kre openapi --spec`) builds a 3.1 document with `Kre.Openapi.document ~title ~version specs`: `paths` from `spec.routes`, `components.schemas` from the `jsonschema` of every DTO encountered (module name = schema name), `parameters` from `Codec.schema`, `responses` with the code from `status` and the error envelope for 4xx. Tags are controller prefixes. Operation descriptions are the `[@@summary "…"]` and `[@@description "…"]` attributes on the handler; they go into `Spec.route` and OpenAPI. Docstrings are not used, because the code rules forbid comments above functions. DTO schemas with a simple module name (`Cat`) go into `components.schemas` and are referenced with `$ref`; the rest (`Kre_shared.Scalar.Int`, `Kre_shared.Json.List (Cat)`) are inlined. Errors are a `default` response `application/problem+json` with the `Problem` schema. The cats document passes `openapi-spec-validator` (a CI step). Swagger UI is phase 2.
 
 ## Frontend: Kre\_client and typed router
 
-The model is TanStack Router: a route is a value with `params`/`search`/`data` types, the compiler checks `Link` and `navigate`, the loader is on the route, layouts nest. React is through reason-react, markup is `.mlx`.
+A route is a value with `params`/`search`/`data` types, the compiler checks `Link` and `navigate`, the loader is on the route, layouts nest. React is through reason-react, markup is `.mlx`.
 
 ### Kre\_client.Router
 
@@ -1507,7 +1507,7 @@ We considered `[@@get Cat_routes.params_path]` with a `Path` shared by server an
 
 - There is almost no duplication for it to remove. The API client is already generated from the controller's `spec`. Only the page and API paths coincide, but they are different things: in a real application the API moves under `/api` or `/v2`, and pages are named for the user's convenience.
 - The ppx would stop seeing path segments in the source text. Checking `:id` against the parameter, `Paths` on routes and `spec` would have to move to runtime, while now all of it is checked at compile time.
-- The handler would take a record instead of labels (`~id`), which is further from Nest. We would need two matching implementations or give up the routes trie on the server.
+- The handler would take a record instead of labels (`~id`), unlike every other handler. We would need two matching implementations or give up the routes trie on the server.
 
 String paths in the controller are already typed: the ppx builds `Routes.path` from the string and the label types, and `Cats_controller.Paths` provides typed values for links and tests. Revisit the question if a real case appears where the page path and the API path must coincide.
 
@@ -1519,11 +1519,11 @@ JSX is written only in `.mlx`: the dialect is enabled in `dune-project` (`mlx-pp
 
 ### What we do not do
 
-File-based routing (`routes/cats.$id.tsx`) is not needed: a tree of values gives the same result without code generation from the file system. SSR of Melange components is out of scope; server HTML is Dream eml/tyxml as an option.
+File-based routing (one file per route, the path taken from the file name) is not needed: a tree of values gives the same result without code generation from the file system. SSR of Melange components is out of scope; server HTML is Dream eml/tyxml as an option.
 
 ## Testing
 
-Four levels, each its own directory in `test/`. Nest's `Test.createTestingModule` is not needed: replacing a dependency is applying the functor/`register` to a different module.
+Four levels, each its own directory in `test/`. No special testing module is needed: replacing a dependency is applying the functor/`register` to a different module.
 
 | Level | Tool | What it checks |
 | --- | --- | --- |
@@ -1553,32 +1553,32 @@ The client router is tested in node through melange: `Path` matching and `Search
 
 ## CLI kre
 
-A cmdliner binary, mirroring the `nest` CLI. Generators write files from templates taken from `examples/cats`; they do nothing "magically", only the files the developer would write by hand anyway.
+A cmdliner binary. Generators write files from templates taken from `examples/cats`; they do nothing "magically", only the files the developer would write by hand anyway.
 
-| Command | Does | Nest |
-| --- | --- | --- |
-| `kre new NAME` | dune-project, 4 directories, cats example, CI, `.ocamlformat`, opam files | `nest new` |
-| `kre generate controller cats` | `server/cats_controller.ml` with `[@@@controller]` and a CRUD skeleton, `shared/cat.ml`, `shared/create_cat_dto.ml` | `nest g resource` |
-| `kre generate service cats` | `server/cats_service.ml` + `.mli` with `module type S` | `nest g service` |
-| `kre generate dto name` | `shared/name_dto.ml` | — |
-| `kre client --spec --out [--target melange\|native]` | typed clients from spec | openapi-generator |
-| `kre openapi --spec --out` | OpenAPI 3.1 JSON; same as `main.exe --emit-openapi` | `@nestjs/swagger` |
-| `kre migrate up\|down\|status\|new NAME` | SQL migrations (phase 1), `diff` (phase 3) | TypeORM CLI |
-| `kre routes` | route table from spec | — |
-| `kre start [--watch]` | `dune build -w` + restart of `main.exe`; melange rebuild also through dune | `nest start --watch` |
+| Command | Does |
+| --- | --- |
+| `kre new NAME` | dune-project, 4 directories, cats example, CI, `.ocamlformat`, opam files |
+| `kre generate controller cats` | `server/cats_controller.ml` with `[@@@controller]` and a CRUD skeleton, `shared/cat.ml`, `shared/create_cat_dto.ml` |
+| `kre generate service cats` | `server/cats_service.ml` + `.mli` with `module type S` |
+| `kre generate dto name` | `shared/name_dto.ml` |
+| `kre client --spec --out [--target melange\|native]` | typed clients from spec |
+| `kre openapi --spec --out` | OpenAPI 3.1 JSON; same as `main.exe --emit-openapi` |
+| `kre migrate up\|down\|status\|new NAME` | SQL migrations (phase 1), `diff` (phase 3) |
+| `kre routes` | route table from spec |
+| `kre start [--watch]` | `dune build -w` + restart of `main.exe`; melange rebuild also through dune |
 
-`kre routes`, `kre openapi` and `kre client` read the `spec.json` that the server binary writes (`--emit-spec`), so there is one serialization of `spec`. Templates are files `src/cli/templates/<new|controller|service|dto>/…/*.tmpl` (`data_only_dirs`); at build time `embed.exe` embeds them in the binary. Substitutions are `{{name}}`, `{{plural}}`, `{{Plural}}`, `{{singular}}`, `{{Singular}}`, and in paths the words `plural`/`singular`; the singular is the name without the trailing `s`. `kre new` has no client and no database yet: `shared/` (native + melange), `server/` with a health controller, `bin/main.ml`, a test; `generate controller` makes a resource like `nest g resource` (type and DTO in `shared/`, in-memory service, controller, test in `test/<plural>/`), and the developer adds the registration in `main.ml` by hand. No overwriting: if even one file exists, nothing is written.
+`kre routes`, `kre openapi` and `kre client` read the `spec.json` that the server binary writes (`--emit-spec`), so there is one serialization of `spec`. Templates are files `src/cli/templates/<new|controller|service|dto>/…/*.tmpl` (`data_only_dirs`); at build time `embed.exe` embeds them in the binary. Substitutions are `{{name}}`, `{{plural}}`, `{{Plural}}`, `{{singular}}`, `{{Singular}}`, and in paths the words `plural`/`singular`; the singular is the name without the trailing `s`. `kre new` has no client and no database yet: `shared/` (native + melange), `server/` with a health controller, `bin/main.ml`, a test; `generate controller` makes a whole resource (type and DTO in `shared/`, in-memory service, controller, test in `test/<plural>/`), and the developer adds the registration in `main.ml` by hand. No overwriting: if even one file exists, nothing is written.
 
-## Borrowed from Spring
+## Errors, transactions and actuator
 
-Nest sets the structure; from Spring we take five things that Nest lacks or does worse. Spring implements all five with runtime proxies (AOP); we use compile-time ppx rewriting, so traps like self-invocation do not exist.
+Five features on top of controllers and DI: a standard error format, authorization, transactions, runtime introspection and environment profiles. All five are compile-time ppx rewriting, not runtime proxies, so a call from inside the same module behaves the same as a call from outside.
 
-| Spring | Kre | Phase |
+| Feature | Kre | Phase |
 | --- | --- | --- |
 | Problem Details (RFC 9457, `application/problem+json`) | format of `Error.to_json` and of the client `Error.t` | 0 |
-| `@PreAuthorize("… #id == principal.id")` | `[@@authorize f]` — a typed function over the extracted parameters | 2 |
-| `@Transactional` | `[@@transactional]`; the connection is implicit via an Lwt key (or explicit `[@from Db.tx]`) | 2 |
-| Actuator | `Kre.Actuator.routes` | 2 |
+| Authorization over the request data ("the user owns this `id`") | `[@@authorize f]` — a typed function over the extracted parameters | 2 |
+| Declarative transactions | `[@@transactional]`; the connection is implicit via an Lwt key (or explicit `[@from Db.tx]`) | 2 |
+| Actuator: health, info, metrics, routes | `Kre.Actuator.routes` | 2 |
 | Profiles | `KRE_ENV` + `config/*.env` layers — done | 1 |
 
 ### Problem Details — replaces the error envelope
@@ -1621,7 +1621,7 @@ let adopt (module Adoptions : Adoptions_service.S)
 [@@post] [@@transactional]
 ```
 
-Like `@Transactional` in Spring: the connection is not visible in the code; services inside use the usual `Db.with_conn` and join the transaction (see "Kre.Db"). Nest has no such decorator — there you call `dataSource.transaction(…)`/`QueryRunner` by hand or use the third-party `@nestjs-cls/transactional`.
+The connection is not visible in the code: services inside use the usual `Db.with_conn` and join the transaction (see "Kre.Db"). There is no need to open a transaction by hand and pass the connection down.
 
 `Kre.Db.S` gained `tx : conn Guard.t` (reads the connection from a request field) and `within : Dream.request -> (unit -> ('a, Error.t) result Lwt.t) -> ('a, Error.t) result Lwt.t` (opens a transaction or joins the open one, puts the connection in the field, `Ok` → commit, `Error`/exception → rollback). ppx takes the module from the handler's single `Kre.Db.S` dependency, or from the `[@from M.tx]` parameter if there is one (then the connection arrives explicitly as a parameter, as in `examples/cats/db/batch_controller.ml`), and wraps parameter parsing and the handler call in `M.within`; guards run before the transaction. `[@@transactional]` without a `Kre.Db.S` dependency, with two such dependencies and no `[@from M.tx]`, and `[@from M.tx]` without `[@@transactional]` are compile errors. Isolation options and `read_only` — when needed. Example — `examples/shelter/server/adoptions_controller.ml`; tests — the `@db` and `@shelter` aliases.
 
@@ -1645,21 +1645,21 @@ Protected with `[@@@guards]` like any controller; by default — loopback only.
 
 `Kre.Config.profile ()` reads `config/default.env`, then `config/${KRE_ENV}.env` (default `dev`), then the real environment; later sources take precedence. Usage: `Config.load_exn ~env:(Kre.Config.profile ()) ()`. A provider for one environment — `[@@@profile "dev"]`: `[%wire]` builds `let module X = (val (match Kre.Wiring.profile () with "dev" -> (module Dev.Make () : I.S) | _ -> (module X.Make () : I.S)))`, so only the selected one is built. A provider without a profile is required; group members have no hooks, `[@@on_event]`, `[@@job]`, `[@@health]` or schedules — only `I.S` is visible from outside.
 
-## Borrowed from IHP
+## Live data, scripts and jobs
 
-IHP (Rails for Haskell) is strong where Nest and Spring are empty: live data without manual subscriptions, web developer tools, and DB-backed jobs. We take four ideas; one of them comes out stricter than in IHP.
+Live data without manual subscriptions, web developer tools, and DB-backed jobs. Four ideas; live data is checked at compile time instead of tracked at runtime.
 
-| IHP | Kre | Phase |
+| Feature | Kre | Phase |
 | --- | --- | --- |
-| Auto Refresh (the page refreshes when the tables it read change) | Live loaders: a route's table dependencies are known **statically** from sqlgg | 2 |
+| Auto refresh (the page refreshes when the tables it read change) | Live loaders: a route's table dependencies are known **statically** from sqlgg | 2 |
 | Scripts (one-off scripts with the application context) | `[@@command]` (phase 3, `docs/commands.md`) instead of `kre generate script` + `kre run NAME` | 3 |
 | Jobs as tables (`CREATE TABLE … job`) | `Kre.Job` (phase 3): one `kre_jobs` table and typed queues instead of a table per job type | ✅ |
-| IDE: Schema Designer, Data browser, Logs | `kre dev` — a web UI on top of Actuator | 3 |
-| Schema.sql as the source of truth, types from it | we **do not take** the direction, we take the import: `kre import-schema` for brownfield | 1 |
+| Developer UI: schema designer, data browser, logs | `kre dev` — a web UI on top of Actuator | 3 |
+| `schema.sql` as the source of truth, types from it | we **do not take** the direction, we take the import: `kre import-schema` for brownfield | 1 |
 
-### Live loaders — Auto Refresh via static analysis
+### Live loaders — auto refresh via static analysis
 
-IHP tracks the tables read during rendering at runtime and listens to Postgres `LISTEN/NOTIFY`. For us both halves are known at compile time, because sqlgg parses SQL:
+There is no need to track the tables read during rendering at runtime and listen to Postgres `LISTEN/NOTIFY`: both halves are known at compile time, because sqlgg parses SQL:
 
 1. sqlgg knows which tables each query **reads** and which it **writes** (`INSERT/UPDATE/DELETE`). Kre extends the generated code with per-function metadata `reads : string list`, `writes : string list`.
 2. A handler that calls service functions does not know their tables statically (that is beyond ppx). So dependencies are declared on the handler: `[@@live ["cats"; "users"]]`, and an e2e test checks that the declared set ⊇ the set actually read (the runtime counts the `reads` of the called sqlgg functions in `KRE_ENV=test` mode). A mismatch is a test failure, not a silent loss of updates.
@@ -1670,7 +1670,7 @@ Result: `Cats.index` on the frontend updates when someone adds a cat, without a 
 
 ### Scripts
 
-`kre generate script backfill_ages` creates `scripts/backfill_ages.ml` with the stub `let main (module Db : Db.S) (config : Config.t) = …`; `kre run backfill_ages` builds and runs it with the same `Config.load` and pool as the server. This replaces `rake` tasks and "if only I could quickly run one data migration".
+`kre generate script backfill_ages` creates `scripts/backfill_ages.ml` with the stub `let main (module Db : Db.S) (config : Config.t) = …`; `kre run backfill_ages` builds and runs it with the same `Config.load` and pool as the server. This covers one-off tasks and "if only I could quickly run one data migration".
 
 ### Jobs as tables
 
@@ -1681,67 +1681,67 @@ type t = { id : int [@primary] [@auto]; cat_id : int; email : string }
 [@@deriving table ~name:"send_welcome_jobs" ~job]
 ```
 
-`~job` adds the columns `status`, `attempts`, `run_at`, `last_error`, `locked_by` and generates `enqueue : t -> unit Lwt.t` and `Worker.run ~handler:(t -> (unit, string) result Lwt.t) ~concurrency ~retry`. The queue is the table itself with `SELECT … FOR UPDATE SKIP LOCKED`; no Redis for the basic case. This is the default implementation of the Queues chapter (phase 3); a BullMQ-like backend — only if needed.
+`~job` adds the columns `status`, `attempts`, `run_at`, `last_error`, `locked_by` and generates `enqueue : t -> unit Lwt.t` and `Worker.run ~handler:(t -> (unit, string) result Lwt.t) ~concurrency ~retry`. The queue is the table itself with `SELECT … FOR UPDATE SKIP LOCKED`; no Redis for the basic case. This is the default implementation of the Queues chapter (phase 3); a Redis-backed queue — only if needed.
 
 ### kre dev
 
-A web UI on the same port under `/__kre/`: the route list (`spec`), table schema and data (from `Kre.Table.Registry` + sqlgg queries, row editing), real-time request logs (SSE), live subscription status, OpenAPI. We do not build a Schema Designer as in IHP: the schema is OCaml code and needs no editor. Enabled only with `KRE_ENV=dev`.
+A web UI on the same port under `/__kre/`: the route list (`spec`), table schema and data (from `Kre.Table.Registry` + sqlgg queries, row editing), real-time request logs (SSE), live subscription status, OpenAPI. There is no schema designer: the schema is OCaml code and needs no editor. Enabled only with `KRE_ENV=dev`.
 
 ### Direction of truth: the type, not SQL
 
-IHP keeps `Schema.sql` and generates types. We keep OCaml records (where opaque types and `dto` live) and generate `schema.sql`. For brownfield (an existing MariaDB/TiDB) — `kre import-schema --url … --out shared/gen/`: sqlgg parses `SHOW CREATE TABLE` and writes records with `[@@deriving table, dto]`, which are then edited by hand and become the source. A one-off import, not two-way sync.
+The source of truth is not `schema.sql` with types generated from it. We keep OCaml records (where opaque types and `dto` live) and generate `schema.sql`. For brownfield (an existing MariaDB/TiDB) — `kre import-schema --url … --out shared/gen/`: sqlgg parses `SHOW CREATE TABLE` and writes records with `[@@deriving table, dto]`, which are then edited by hand and become the source. A one-off import, not two-way sync.
 
-## Borrowed from Rails, Symfony and again Spring/Nest/IHP (phase 3)
+## Phase 3 features
 
-The porting rule is the same: only functions, modules, functors and ppx; no classes, reflection or runtime registries. If an idea in the original relies on runtime magic (ActiveRecord callbacks, Doctrine proxies, AOP), we take the result and replace the mechanism with a build-time check. What already exists (controllers, DI, guards, interceptors, dto, config, events, cron, cache, SSE/WS, JWT, Actuator, live loaders, table + sqlgg, migrations, typed client and router, `[@@transactional]`, `[@@authorize]`) is not included here.
+The rule is the same: only functions, modules, functors and ppx; no classes, reflection or runtime registries. If a feature is usually built on runtime magic (model callbacks, lazy-loading proxies, aspect-oriented interception), we take the result and replace the mechanism with a build-time check. What already exists (controllers, DI, guards, interceptors, dto, config, events, cron, cache, SSE/WS, JWT, Actuator, live loaders, table + sqlgg, migrations, typed client and router, `[@@transactional]`, `[@@authorize]`) is not included here.
 
-| # | Source | Kre | Wave |
-| --- | --- | --- | --- |
-| 1 | Spring Data derived queries (`findByStatus`), Rails `find_by`/`where`, Doctrine `findBy` | `Kre.Table.crud` prints `by_<col>` for `[@unique]` (one row), `[@index]` and `[@references]` (a list), and `count`; sqlgg types them | ✅ |
-| 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` on GET: ETag from the body, `If-None-Match` → 304 | ✅ |
-| 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` on any function → `Kre.Retry.run`; retry on exception. Not an interceptor: in Spring it is an annotation on a service method, and the same for us | ✅ |
-| 4 | Nest Devtools (module graph), Spring `/actuator/beans` | `[%wire]` exposes the graph (`Wiring.beans`); `/actuator/beans` (JSON) and `/actuator/beans.mmd` (mermaid) | ✅ |
-| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `kre-client.testing`: the generated typed client calls the application handler without a socket (`Kre_testing.use`) | ✅ |
-| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | the whole query string into a record with `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. The codec moved to `Kre_shared.Search` (native and Melange): one `Cat_search.codec` for the server (`Kre.Extract.search`), the page router and the client (`Spec.Search`, `Wire.search`) | ✅ |
-| 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Kre_shared.Page`: `Request.t` is a ready-made search record (`?page&size`, page ≥ 1, size 1–100) for `[@search]`; `'a t` with `total`; `-- @page` (`LIMIT/OFFSET`) in `Table.crud`; return `Cat.t Kre_shared.Page.t`, the client gets the same type | ✅ |
-| 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` on a function with module parameters in a separate file: `[%wire]` collects `app.commands`, `App.run ~commands` runs `main.exe seed --count 3` between `on_start` and `on_shutdown`; options come from labels, parsing — `Kre_shared.Scalar` (no cmdliner: the same modules as for query) | ✅ |
-| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Kre.Job`: typed queues (`'a queue` = name + dto), one `kre_jobs` table (`Kre.Job.table`), `FOR UPDATE SKIP LOCKED`, retries with a doubling delay, `dead` after `attempts`; `[@@job q]` in a provider, the worker is the hooks of the `Kre.Job.S` provider, started by `[%wire]`. `enqueue` goes through `Db` and joins the open transaction | ✅ |
-| 10 | Rails timestamps and `lock_version`, JPA `@Version` and auditing, Doctrine Timestampable | `Kre_shared.Time` (RFC 3339, native and Melange, `DOUBLE` seconds in the database), `[@created_at]`, `[@updated_at]`, `[@version]` in `table`; `update` with `WHERE version = …`, 0 rows → 409 | ✅ |
-| 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | entity parameter: `~(cat : (Cat.t[@load Cats.find]))` with the `:cat` segment — the segment is parsed by `Cat.Id` (type `M.t` → `M.Id`: ppx does not see the loader's type), `Kre.Route.load` → 404; `[@@authorize]` receives the loaded record | ✅ |
-| 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `kre generate controller dogs name:string age:int born:time good:bool` (phase 1 templates + fields): a type with `[@@deriving table, dto]`, DTO, in-memory service, controller, test with sample values; the project builds and passes the test (`test/scaffold/new.t`). SQL and `.mlx` pages are not generated: the sqlgg rule lives in the project's dune, and pages depend on the application's router | ✅ |
-| 13 | Symfony Workflow, Rails AASM, Spring Statemachine | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: transitions are a `function` over constructors (a typo is a compile error), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native and Melange (`docs/workflow.md`) | ✅ |
-| 14 | Symfony Profiler, Rails dev log and Bullet, Spring `httpexchanges` | `Kre.Profiler`: a middleware collects per request the SQL (drivers and `Db.query` call `Profiler.sql`), time, status; `/__kre/profiler` (HTML) and `.json`, N+1 flag (≥ 3 identical queries); `KRE_ENV=dev` only | ✅ |
-| 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Kre.Mail`: `t` (recipient required, `Refined.Email.t`), `render` (RFC 5322, multipart, subject encoding), providers `Smtp (Config)` (no TLS) and `Outbox ()` with a preview at `/__kre/mail`. Mail is not in `.mlx`: there is no server-side reason-react rendering in native | ✅ |
-| 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — a signature of calls → a functor `(Config : sig val url : string val headers : … end)` on top of `Kre_client.Http`/`Wire` (`Http.request ?base`); native and Melange (`docs/http-client.md`) | ✅ |
-| 17 | Static asset links checked at build time | `[%asset "logo.png"]` → `Kre_shared.Asset.t` with the address `/assets/logo.<hash>.png` (missing file — build error with a hint of a similar name); `[%icon "cat"]` → `Kre_shared.Icon.t`, SVG from `assets/icons/cat.svg`, embedded at build time; `Kre.Assets.middleware ~dir` serves files with a permanent cache; `Kre_client.Icon.view` renders the icon | ✅ |
+| # | Kre | Wave |
+| --- | --- | --- |
+| 1 | `Kre.Table.crud` prints `by_<col>` for `[@unique]` (one row), `[@index]` and `[@references]` (a list), and `count`; sqlgg types them | ✅ |
+| 2 | `[@@etag]` on GET: ETag from the body, `If-None-Match` → 304 | ✅ |
+| 3 | `[@@retry n]` `[@@backoff s]` on any function → `Kre.Retry.run`; retry on exception. Not an interceptor: it is an attribute on a service function | ✅ |
+| 4 | `[%wire]` exposes the graph (`Wiring.beans`); `/actuator/beans` (JSON) and `/actuator/beans.mmd` (mermaid) | ✅ |
+| 5 | `kre-client.testing`: the generated typed client calls the application handler without a socket (`Kre_testing.use`) | ✅ |
+| 6 | the whole query string into a record with `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. The codec moved to `Kre_shared.Search` (native and Melange): one `Cat_search.codec` for the server (`Kre.Extract.search`), the page router and the client (`Spec.Search`, `Wire.search`) | ✅ |
+| 7 | `Kre_shared.Page`: `Request.t` is a ready-made search record (`?page&size`, page ≥ 1, size 1–100) for `[@search]`; `'a t` with `total`; `-- @page` (`LIMIT/OFFSET`) in `Table.crud`; return `Cat.t Kre_shared.Page.t`, the client gets the same type | ✅ |
+| 8 | `[@@command "…"]` on a function with module parameters in a separate file: `[%wire]` collects `app.commands`, `App.run ~commands` runs `main.exe seed --count 3` between `on_start` and `on_shutdown`; options come from labels, parsing — `Kre_shared.Scalar` (no cmdliner: the same modules as for query) | ✅ |
+| 9 | `Kre.Job`: typed queues (`'a queue` = name + dto), one `kre_jobs` table (`Kre.Job.table`), `FOR UPDATE SKIP LOCKED`, retries with a doubling delay, `dead` after `attempts`; `[@@job q]` in a provider, the worker is the hooks of the `Kre.Job.S` provider, started by `[%wire]`. `enqueue` goes through `Db` and joins the open transaction | ✅ |
+| 10 | `Kre_shared.Time` (RFC 3339, native and Melange, `DOUBLE` seconds in the database), `[@created_at]`, `[@updated_at]`, `[@version]` in `table`; `update` with `WHERE version = …`, 0 rows → 409 | ✅ |
+| 11 | entity parameter: `~(cat : (Cat.t[@load Cats.find]))` with the `:cat` segment — the segment is parsed by `Cat.Id` (type `M.t` → `M.Id`: ppx does not see the loader's type), `Kre.Route.load` → 404; `[@@authorize]` receives the loaded record | ✅ |
+| 12 | `kre generate controller dogs name:string age:int born:time good:bool` (phase 1 templates + fields): a type with `[@@deriving table, dto]`, DTO, in-memory service, controller, test with sample values; the project builds and passes the test (`test/scaffold/new.t`). SQL and `.mlx` pages are not generated: the sqlgg rule lives in the project's dune, and pages depend on the application's router | ✅ |
+| 13 | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid); … }]`: transitions are a `function` over constructors (a typo is a compile error), `transition`, `next`, `apply` (`` `Not_allowed ``), `allowed`, `sources`, `workflow_mermaid`; native and Melange (`docs/workflow.md`) | ✅ |
+| 14 | `Kre.Profiler`: a middleware collects per request the SQL (drivers and `Db.query` call `Profiler.sql`), time, status; `/__kre/profiler` (HTML) and `.json`, N+1 flag (≥ 3 identical queries); `KRE_ENV=dev` only | ✅ |
+| 15 | `Kre.Mail`: `t` (recipient required, `Refined.Email.t`), `render` (RFC 5322, multipart, subject encoding), providers `Smtp (Config)` (no TLS) and `Outbox ()` with a preview at `/__kre/mail`. Mail is not in `.mlx`: there is no server-side reason-react rendering in native | ✅ |
+| 16 | `[%http_client: val … [@@get "/users/:login"]]` — a signature of calls → a functor `(Config : sig val url : string val headers : … end)` on top of `Kre_client.Http`/`Wire` (`Http.request ?base`); native and Melange (`docs/http-client.md`) | ✅ |
+| 17 | Static asset links checked at build time: `[%asset "logo.png"]` → `Kre_shared.Asset.t` with the address `/assets/logo.<hash>.png` (missing file — build error with a hint of a similar name); `[%icon "cat"]` → `Kre_shared.Icon.t`, SVG from `assets/icons/cat.svg`, embedded at build time; `Kre.Assets.middleware ~dir` serves files with a permanent cache; `Kre_client.Icon.view` renders the icon | ✅ |
 
 The `assets/` folder lives at the application root (the parent of the file's directory, as for `[%wire]`); in dune it must be listed in `(preprocessor_deps (source_tree ../assets))` so that a file change rebuilds the links. The hash is the first 8 characters of the MD5 of the contents: the address changes with the file, so the cache can be permanent. `Kre.Assets.middleware` serves `/assets/<name>.<hash>.<extension>` from the directory and checks that the hash matches the current file (otherwise 404, not an old file under a new name).
 
-What we do not take: ActiveRecord callbacks and Doctrine lifecycle events (hidden side effects — for us that is a service function or `Events`), Symfony Flex/recipes and Spring Boot autoconfiguration (we have `[%wire]` at build time), Rails concerns and Symfony bundles (these are modules and dune libraries), HATEOAS.
+What we do not do: model callbacks and ORM lifecycle events (hidden side effects — for us that is a service function or `Events`), install recipes and runtime autoconfiguration (we have `[%wire]` at build time), mixins and plugin bundles (these are modules and dune libraries), HATEOAS.
 
-### Wave 4: more from the PHP world (Laravel, Symfony, Doctrine, API Platform)
+### Wave 4 features
 
 | # | What | Kre | Status |
 | --- | --- | --- | --- |
-| 18 | `#[IsGranted]` | `[@@role g]` — a guard of any type; the handler does not need the value | ✅ |
-| 19 | validation against the database (`#[UniqueEntity]`) | `[@@check f]` — a check over the parsed arguments, `Error` → 422 with field paths; `Kre.Route.validated`; runs after `[@@authorize]` | ✅ |
+| 18 | role check | `[@@role g]` — a guard of any type; the handler does not need the value | ✅ |
+| 19 | validation against the database (unique values) | `[@@check f]` — a check over the parsed arguments, `Error` → 422 with field paths; `Kre.Route.validated`; runs after `[@@authorize]` | ✅ |
 | 20 | signed URLs | `[@@signed secret]` + `Kre.Signed.url` — `expires` and HMAC-SHA256 as the last parameter, otherwise 403; `Kre.Signed.guard` | ✅ |
 | 21 | slugs | `[@slug_from name]` in `table`: `for_insert`/`for_update` fill the field with `Kre_shared.Slug.of_string` of the source column's value; a missing field is a build error | ✅ |
 | 22 | ULID keys | `Kre_shared.Ulid.Make ()` (format check, native and Melange) + `Kre.Ulid.next ()` (48 bits of time, 80 random), `[@ulid]` in `table` — `VARCHAR(26)`, no auto-increment, the id is inserted | ✅ |
-| 23 | `Prunable` | `[@prune]` on a time field: `-- @prune` in `Table.crud` (`DELETE … WHERE field < @before`); run it with `[@@interval]` in a provider | ✅ |
+| 23 | pruning old rows | `[@prune]` on a time field: `-- @prune` in `Table.crud` (`DELETE … WHERE field < @before`); run it with `[@@interval]` in a provider | ✅ |
 | 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` in `Table.crud`; sqlgg checks the conditions | ✅ |
-| 25 | API filters (`#[ApiFilter]`) | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` with sqlgg `{ … }?` conditions (`None` — the condition is dropped); on the client — a search record (`examples/shelter/shared/cat_filter.ml`) | ✅ |
+| 25 | API filters | `[@filter Exact | Partial | Range]` → `-- @filter`/`@filter_count` with sqlgg `{ … }?` conditions (`None` — the condition is dropped); on the client — a search record (`examples/shelter/shared/cat_filter.ml`) | ✅ |
 | 26 | relations and eager loading | `[@references M]` → `by_<fk>_any` (`IN @<fk>_list`) in `Table.crud`, `Kre.Table.group ~key` — children of many parents in one query (`Cats.owned_by`) | ✅ |
-| 27 | `#[Embedded]` | `[@embedded]` — a record from the same `type … and …` is stored as `<field>_<subfield>` columns; the table is the record that nobody embeds; `of_row` assembles the nested record; nesting of any depth | ✅ |
+| 27 | embedded records | `[@embedded]` — a record from the same `type … and …` is stored as `<field>_<subfield>` columns; the table is the record that nobody embeds; `of_row` assembles the nested record; nesting of any depth | ✅ |
 | 28 | serializer groups | `[@groups ["admin"]]` in `dto` → `to_json_<group>` and `t_jsonschema_<group>`; outside the group the field is hidden (`writeOnly`), the field must be an `option` (`[@option]` is added); the handler picks the representation: `(Member.t [@view "admin"]) Lwt.t` | ✅ |
-| 29 | `#[AsDecorator]` | `[@@@decorates I.S]` — a wrapper provider; consumers get the wrapper, the wrapper gets the original; several wrappers form a chain in file order; `Make` must take `I.S` | ✅ |
-| 30 | tagged iterator | parameter `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` passes all `I.S` providers except the provider itself and the wrappers | ✅ |
-| 31 | `#[When(env)]` | `[@@@profile "dev"]` — the provider is chosen at startup by `KRE_ENV` (`Kre.Wiring.profile`); a provider without a profile is required; hooks in a group are a build error | ✅ |
-| 32 | `#[AsLock]` | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (table `kre_locks`: insert or take over an expired row, owner check, release in `finalize`, TTL 600 s) — the function never runs on two servers at once; a held lock means skip | ✅ |
+| 29 | provider decorators | `[@@@decorates I.S]` — a wrapper provider; consumers get the wrapper, the wrapper gets the original; several wrappers form a chain in file order; `Make` must take `I.S` | ✅ |
+| 30 | all providers of an interface | parameter `(All : Kre.Wiring.ALL with type t = (module I.S))` — `[%wire]` passes all `I.S` providers except the provider itself and the wrappers | ✅ |
+| 31 | per-environment providers | `[@@@profile "dev"]` — the provider is chosen at startup by `KRE_ENV` (`Kre.Wiring.profile`); a provider without a profile is required; hooks in a group are a build error | ✅ |
+| 32 | locks | `[@@lock "name"]` + `Kre.Lock.Make (Db)` (table `kre_locks`: insert or take over an expired row, owner check, release in `finalize`, TTL 600 s) — the function never runs on two servers at once; a held lock means skip | ✅ |
 | 33 | API tokens with abilities | `Kre.Token.Make (Db)` (table `kre_tokens`: ULID, owner, SHA-256 of the token, space-separated abilities; `*` — everything) + `[@@ability "cats:write"]` — guard `Tokens.ability`, the dependency `Tokens : Kre.Token.S` is added to `register` and to `[%wire]`; 401 without a token, 403 without the ability | ✅ |
 | 34 | queue dashboard | `Jobs.dashboard` — `/__kre/jobs` (HTML), `/__kre/jobs.json`, `POST …/:id/retry` and `…/:id/delete`; loopback only; `[%wire]` adds it to `app.controllers` by itself | ✅ |
 | 35 | precognition | the header `Precognition: true` on POST/PUT/PATCH/DELETE — parsing, guards, `[@@authorize]` and `[@@check]` without calling the handler: 204 `Precognition-Success: true` or the same error (`Kre.Route.precognition`) | ✅ |
-| 36 | `#[ApiResource]` | `[%%resource { service = (module Books : Books.S); entity = Book; actions = [ Index Book_filter; Show; Create Book_draft; Remove ] }]` — before the controller pass it expands into ordinary handlers (`[@search]`, `[@load Books.find]`, 201, 204), the service must have `page`/`find`/`create`/`remove`; `[%wire]` expands it too | ✅ |
+| 36 | a resource from one declaration | `[%%resource { service = (module Books : Books.S); entity = Book; actions = [ Index Book_filter; Show; Create Book_draft; Remove ] }]` — before the controller pass it expands into ordinary handlers (`[@search]`, `[@load Books.find]`, 201, 204), the service must have `page`/`find`/`create`/`remove`; `[%wire]` expands it too | ✅ |
 
 ## Phases and acceptance criteria
 
@@ -1773,7 +1773,7 @@ A phase is closed when its criterion passes in CI. Order within a phase is top t
 | ✅ `kre new`, `kre generate controller/service/dto` | cram (`test/scaffold/new.t`) with installed packages: the project builds and passes its test; the resource from `generate controller` builds and passes a CRUD test; existing files are not overwritten |
 | ✅ Docs: chapters Overview + Fundamentals + Validation/Serialization/Configuration + Data (+ OpenAPI/CLI, client) | 24 chapters in `docs/`; their code is files from `examples/cats` and `docs/examples`, mdx (`$MDX file=`) checks the text against the files, and `docs/examples/test` runs the chapter examples via `Dream.test` |
 
-**Phase 1 criterion:** `examples/cats` — a port of the Nest example — builds (`dune build @all`), `dune test` is green, `kre client` regenerates the client with no diff, the page `/cats/1` in the browser shows a cat from the DB.
+**Phase 1 criterion:** `examples/cats` — the running example — builds (`dune build @all`), `dune test` is green, `kre client` regenerates the client with no diff, the page `/cats/1` in the browser shows a cat from the DB.
 
 **Status (phase 1 is closed, except the manual check in a browser).** `dune build @all` and `dune test` are green (`NODE=` for the Melange tests), `@db` is green on MariaDB 11.8; the client is generated by a dune rule from `spec.json`, so it cannot diverge from the controller. Web part: `examples/cats/web` builds the page into ES modules (React from esm.sh via an import map, no bundler), `bin/web.ml` serves `/static/**` and `page.html` on GET with `Accept: text/html`, everything else is the API. With `DATABASE_URL` the server uses `Cats_db_service` and applies migrations at startup; `curl` confirms HTML on `/cats/1` for the browser and JSON with a cat from the database for `fetch`. Opening the page in a browser by hand has not been checked yet:
 
@@ -1784,14 +1784,14 @@ open http://localhost:8080/cats/1
 
 ### Phase 2 — a real application (4–6 weeks)
 
-`[@@sse]` and `[@@@gateway]`/`[@@subscribe]` for websockets with types from shared; `[@@cron]`; `Events` (typed bus); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth strategies (session, JWT) + `Auth.role`; helmet/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Kre_db_pgx`. Criterion: the Security, HTTP, WebSockets, Events, Task scheduling, Caching chapters are closed.
+`[@@sse]` and `[@@@gateway]`/`[@@subscribe]` for websockets with types from shared; `[@@cron]`; `Events` (typed bus); `[@@cache]`; `table` CRUD; `dto` mapped types (`~partial_of`, `~pick_of`); auth strategies (session, JWT) + `Auth.role`; secure headers/CORS/rate-limit middleware; `[@@@version]`; docstrings → OpenAPI; `Kre_db_pgx`. Criterion: the Security, HTTP, WebSockets, Events, Task scheduling, Caching chapters are closed.
 
 **Phase 2 status** (updated as work goes):
 - ✅ `[@@header]`, `[@@redirect]`, `[@@timeout]`, `[@@@error_handler]`
-- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`; then transactions as in Spring: `with_conn`/`transaction` inside an open one join it, `[@@transactional]` needs only a `Kre.Db.S` dependency
-- ✅ helmet/CORS/rate-limit: `Kre.Secure_headers`, `Kre.Cors`, `Kre.Rate_limit` (`docs/security.md`)
+- ✅ `[@@transactional]` + `[@from Db.tx]`, `[@@authorize]`; then implicit transactions: `with_conn`/`transaction` inside an open one join it, `[@@transactional]` needs only a `Kre.Db.S` dependency
+- ✅ secure headers/CORS/rate-limit: `Kre.Secure_headers`, `Kre.Cors`, `Kre.Rate_limit` (`docs/security.md`)
 - ✅ `[@@sse]`: the type `T.t Lwt_stream.t Lwt.t` and the attribute must go together; `Kre.Route.events` with an explicit module — a GADT constructor with `'a Lwt_stream.t` is impossible (the type is not injective); `kre client` skips such routes for now (subscription — `EventSource`)
-- ✅ WebSocket: `Kre.Gateway` (`{event, data}` frames as in Nest, `on`/`notify` with explicit body and response modules, `send`/`broadcast`, errors — an `error` event with Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` sees gateways; tested with a live WebSocket from node 22
+- ✅ WebSocket: `Kre.Gateway` (`{event, data}` frames, `on`/`notify` with explicit body and response modules, `send`/`broadcast`, errors — an `error` event with Problem Details), ppx `[@@@gateway "chat"]` + `[@@subscribe "event"]`, `[%wire]` sees gateways; tested with a live WebSocket from node 22
 - ✅ Actuator: `Kre.Actuator.make` (`/health`, `/info`, `/env`, `/routes`, `/openapi.json`, `/metrics`), `[@@health]` in providers, `Config.pairs` from the deriver (`docs/actuator.md`)
 - ✅ cache: `[@@cache ttl]` (GET response by URL, `X-Cache`), `Kre.Cache.memoize` (`find`/`evict`/`clear`) (`docs/caching.md`)
 - ✅ scheduling: `[@@cron]` (`Kre_shared.Cron` is parsed in ppx at build time, `next` without `Unix` — works in Melange too), `[@@interval]`, `[@@after]`; `Kre.Schedule`, start/stop via `Kre.Wiring` (`docs/task-scheduling.md`)
@@ -1800,7 +1800,7 @@ open http://localhost:8080/cats/1
 - ✅ Controllers page: `[@@head]`, `[@@options]`, `[@@all]`, the `*` mask + `[@wildcard]`, HEAD via GET, `[@@@host]` + `[@host_param]`
 - ✅ `Kre_shared.Id.Make ()`: typed entity identifiers (`Cat.Id.t`)
 - ✅ interceptors: `Kre.Interceptor.t` (a polymorphic `around` over a typed result), `[@@intercept]`/`[@@@intercept]`, ready-made `logging`, `timeout`, `map_error`, `tap`, `chain`
-- ✅ Nest/Spring parameter decorators: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Kre.Extract`), headers and cookies in spec/OpenAPI, headers in the client
+- ✅ parameter attributes: `[@param]`, `[@query]`, `[@body]`, `[@header]`, `[@cookie]`, `[@signed_cookie]`, `[@session]`, `[@headers]`, `[@cookies]`, `[@ip]`, `[@host]`, `[@req]` (`Kre.Extract`), headers and cookies in spec/OpenAPI, headers in the client
 - ✅ build-time DI: `[%wire]`, providers by module shape, `[@@@primary]`, selection by parameter name, hooks, build errors (see "Wiring")
 - ✅ table CRUD: `Kre.Table.crud` → `crud.sql` → sqlgg `Cats_crud` (`all`/`insert`/`find`/`update`/`delete`), `for_insert`/`for_update` (`docs/data.md`)
 - ✅ live loaders: `Kre.Live` (in-memory bus, `publish`/`subscribe`, channel `/__kre/live`), the driver reports SQL (`read`/`wrote`), `Db.transaction` holds changes until commit, `[@@live]` → `spec.live` + `x-kre-live` + `Cats_client.Live`, `Router.child ~live`, list check with `KRE_ENV=test` (`docs/live.md`). sqlgg does not provide `reads`/`writes` metadata — tables are taken from the SQL text in the traits
@@ -1810,11 +1810,11 @@ open http://localhost:8080/cats/1
 
 ### Phase 3 — ecosystem
 
-Borrowings from Rails/Symfony/Spring/Nest/IHP — the table "Borrowed from Rails, Symfony…", by wave. `kre migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice transports. Prioritized by the first real project on Kre.
+The tables "Phase 3 features" and "Wave 4 features", by wave. `kre migrate diff`; queues; GraphQL code-first; resilience/idempotency/outbox; i18n; file storage; microservice transports. Prioritized by the first real project on Kre.
 
-### Map of docs.nestjs.com chapters
+### Map of docs chapters
 
-| Nest section | Status in Kre |
+| Section | Status in Kre |
 | --- | --- |
 | Overview (10 chapters) | phase 1; Custom decorators = `[@from]` |
 | Fundamentals | phase 1; Circular dependency, Module reference, Discovery, Lazy-loading, Platform agnosticism — one page "not needed and why" |
@@ -1827,7 +1827,7 @@ Borrowings from Rails/Symfony/Spring/Nest/IHP — the table "Borrowed from Rails
 | GraphQL, Microservices | phase 3 |
 | WebSockets | phase 2 |
 | Standalone apps, CLI, OpenAPI | phase 1 |
-| Recipes | REPL = utop, Hot reload = dune -w, Serve static = Dream.static, Commander = cmdliner, CRUD generator = `kre generate`; CQRS — 3 |
+| Recipes | REPL = utop, Hot reload = dune -w, Serve static = Dream.static, CLI commands = cmdliner, CRUD generator = `kre generate`; CQRS — 3 |
 
 ## Development conventions and open questions
 
@@ -1853,7 +1853,7 @@ These rules are for the repository's `CLAUDE.md`; they override any defaults.
 
 - For each transformation: an expect test of the reference output + one test per error.
 - `examples/cats` is always green; it is the integration test of the core.
-- Chapters in `docs/` follow the Nest table of contents; each contains a port of the Nest example. Code in a chapter is not text but a `<!-- $MDX file=… -->` reference to a file that builds (`examples/` or `docs/examples/`); `dune test` fails if the text diverges from the file, `dune promote` updates the chapter. `sh` blocks are marked `<!-- $MDX skip -->`. A chapter without such a block does not count as written.
+- Chapters in `docs/` follow the "Map of docs chapters"; each contains a working example. Code in a chapter is not text but a `<!-- $MDX file=… -->` reference to a file that builds (`examples/` or `docs/examples/`); `dune test` fails if the text diverges from the file, `dune promote` updates the chapter. `sh` blocks are marked `<!-- $MDX skip -->`. A chapter without such a block does not count as written.
 
 ### Process for Claude Code
 

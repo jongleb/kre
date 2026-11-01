@@ -1,6 +1,6 @@
 # Events
 
-Nest: `EventEmitter2` and `@OnEvent('user.created')`. Spring: `ApplicationEventPublisher` and `@EventListener`. Kre: a typed topic, a bus provider and `[@@on_event]`.
+Events in Kre are a typed topic, a bus provider and `[@@on_event]`.
 
 - A topic is a value carrying the event type: `Kre.Events.topic "user.signed_up" : Signup.t Kre.Events.topic`. An event of a different type cannot be published to it.
 - The bus is the provider `Kre.Events.Make ()`; whoever publishes receives it as a parameter (`(module Bus : Kre.Events.S)`).

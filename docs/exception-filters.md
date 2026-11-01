@@ -1,6 +1,6 @@
 # Exception filters
 
-Nest: `HttpException` and filters. Kre: a `Kre.Error.t` value (status (4xx/5xx only), code, text, extensions) is serialized as RFC 9457 Problem Details (`application/problem+json`). A handler returns `(_, Kre.Error.t) result` or calls `Kre.Error.fail`; any other exception becomes a 500 with a log entry.
+In Kre an error is a `Kre.Error.t` value (status (4xx/5xx only), code, text, extensions), serialized as RFC 9457 Problem Details (`application/problem+json`). A handler returns `(_, Kre.Error.t) result` or calls `Kre.Error.fail`; any other exception becomes a 500 with a log entry.
 
 ```json
 { "type": "urn:kre:error:not_found", "title": "Not Found", "status": 404,

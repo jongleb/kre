@@ -2,7 +2,7 @@
 
 **What exists and what is in progress: [FEATURES.md](FEATURES.md).** All example controllers in one server: `examples/showcase`. The whole application: `examples/shelter`: JWT login, roles, `[@@authorize]`, `[@@transactional]`, live loaders, MariaDB via sqlgg, a Melange client.
 
-The table of contents follows [docs.nestjs.com](https://docs.nestjs.com/). Each chapter shows a port of the Nest example; the code in the chapters is the files of `examples/cats` and `docs/examples`, which are built and checked by tests (mdx makes sure the text in a chapter matches the file).
+The code in each chapter is the files of `examples/cats` and `docs/examples`, which are built and checked by tests; mdx makes sure the text in a chapter matches the file.
 
 **Overview:** [First steps](first-steps.md) · [Controllers](controllers.md) · [Providers](providers.md) · [Modules](modules.md) · [Middleware](middleware.md) · [Exception filters](exception-filters.md) · [Pipes](pipes.md) · [Guards](guards.md) · [Interceptors](interceptors.md) · [Custom decorators](custom-decorators.md)
 
@@ -10,7 +10,7 @@ The table of contents follows [docs.nestjs.com](https://docs.nestjs.com/). Each 
 
 **WebSockets:** [Gateways](websockets.md)
 
-**Security:** [Authentication and Authorization](authentication.md) · [Helmet, CORS, rate limiting](security.md)
+**Security:** [Authentication and Authorization](authentication.md) · [Secure headers, CORS, rate limiting](security.md)
 
 **Techniques:** [Configuration](configuration.md) · [Commands](commands.md) · [Events](events.md) · [Queues](jobs.md) · [Mail](mail.md) · [Workflow](workflow.md) · [Task scheduling](task-scheduling.md) · [Caching](caching.md) · [Actuator and health](actuator.md) · [Profiler](profiler.md) · [Validation](validation.md) · [Serialization](serialization.md) · [Data](data.md) · [Live loaders](live.md)
 

@@ -1,6 +1,6 @@
 # Serialization
 
-Nest: class-transformer, `@Expose`, `@Exclude`. Kre: `[@@deriving dto]` gives codecs and JSON Schema from jsonkit; the JSON name is `[@key]`, the default value is `[@default]`.
+In Kre `[@@deriving dto]` gives codecs and JSON Schema from jsonkit; the JSON name is `[@key]`, the default value is `[@default]`.
 
 <!-- $MDX file=examples/profile.ml -->
 ```ocaml
@@ -20,7 +20,7 @@ A module with `dto` is already a `Kre_shared.Json.S`, so it can be returned from
 let respond profile = Kre.Response.json ~status:`OK (module Profile) profile
 ```
 
-`[@exclude]` (`@Exclude`, `@JsonIgnore`): the field is accepted on input but not sent in the response; in the schema it is `writeOnly`. `[@transform f]` (`@Transform`): a function applied to the field on output. Mapped types (`PickType`, `OmitType`, `PartialType`): an abstract type in the same file, expanded by the ppx, plus typed functions: `summary_of_t : t -> summary`, `update_apply : update -> t -> t`.
+`[@exclude]`: the field is accepted on input but not sent in the response; in the schema it is `writeOnly`. `[@transform f]`: a function applied to the field on output. Mapped types (`~pick_of`, `~omit_of`, `~partial_of`): an abstract type in the same file, expanded by the ppx, plus typed functions: `summary_of_t : t -> summary`, `update_apply : update -> t -> t`.
 
 <!-- $MDX file=examples/account.ml -->
 ```ocaml
@@ -38,4 +38,4 @@ type summary [@@deriving dto ~pick_of:(t, [ "id"; "display_name" ])]
 type update [@@deriving dto ~partial_of:t]
 ```
 
-Groups `@Expose({ groups })` are separate projection types (`~pick_of`) instead of a runtime flag.
+Different views of one type (for example, public and admin) are separate projection types (`~pick_of`) instead of a runtime flag.

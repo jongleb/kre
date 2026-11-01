@@ -11,7 +11,7 @@ kre migrate up --url mariadb://user:pass@localhost/db
 kre generate controller dogs name:string age:int born:time good:bool
 ```
 
-`kre generate controller` is like `rails generate scaffold` and `nest g resource`: a type with `[@@deriving table, dto]` (fields from `name:type` arguments, types `string`, `int`, `float`, `bool`, `time`; by default `name:string`), a create DTO, an in-memory service (`Make ()`, later replaced by a database-backed service), a CRUD controller and a test with sample values. Everything goes into the existing `shared`/`server` libraries; `[%wire]` and `kre client` pick up the resource on their own; the generated project builds and passes its test (`test/scaffold/new.t`).
+`kre generate controller` scaffolds a whole resource: a type with `[@@deriving table, dto]` (fields from `name:type` arguments, types `string`, `int`, `float`, `bool`, `time`; by default `name:string`), a create DTO, an in-memory service (`Make ()`, later replaced by a database-backed service), a CRUD controller and a test with sample values. Everything goes into the existing `shared`/`server` libraries; `[%wire]` and `kre client` pick up the resource on their own; the generated project builds and passes its test (`test/scaffold/new.t`).
 
 `spec` is what the ppx generated in the controller:
 

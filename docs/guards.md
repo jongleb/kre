@@ -1,6 +1,6 @@
 # Guards
 
-Nest: `CanActivate` and `@UseGuards`. Kre: a guard is a function `Dream.request -> ('a, Kre.Error.t) result Lwt.t` (`'a Kre.Guard.t`). `[@@@guards [ g ]]` and `[@@guards [ g ]]` only check (`unit Kre.Guard.t`); a `[@guard g]` parameter checks **and** passes the result to the handler.
+In Kre a guard is a function `Dream.request -> ('a, Kre.Error.t) result Lwt.t` (`'a Kre.Guard.t`). `[@@@guards [ g ]]` and `[@@guards [ g ]]` only check (`unit Kre.Guard.t`); a `[@guard g]` parameter checks **and** passes the result to the handler.
 
 It works best when a guard returns evidence: a value of a type that cannot be obtained any other way:
 

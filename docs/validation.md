@@ -1,6 +1,6 @@
 # Validation
 
-Nest: class-validator and `ValidationPipe`. Kre: parse, don't validate. The best way is fields of opaque types from `Kre_shared.Refined`: an invalid value cannot even be built. One-off rules are `[@validate …]` on a field; rules are values of `Kre_shared.Validation`.
+Kre follows the rule "parse, don't validate". The best way is fields of opaque types from `Kre_shared.Refined`: an invalid value cannot even be built. One-off rules are `[@validate …]` on a field; rules are values of `Kre_shared.Validation`.
 
 <!-- $MDX file=../examples/cats/shared/create_cat_dto.ml -->
 ```ocaml

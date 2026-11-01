@@ -1,6 +1,6 @@
 # Authentication and Authorization
 
-Nest: Passport strategies, `JwtAuthGuard`, `@Roles()` and `RolesGuard`. Kre: a strategy is a guard. `Kre.Jwt.bearer ~secret` checks an HS256 token from `Authorization: Bearer …` and returns `Kre.Jwt.claims`; `Kre.Guard.session "user_id"` reads a Dream session field. A role is `Kre.Guard.check`, which turns claims into evidence: there is no other way to get a value of `Admin.t`.
+In Kre an authentication strategy is a guard. `Kre.Jwt.bearer ~secret` checks an HS256 token from `Authorization: Bearer …` and returns `Kre.Jwt.claims`; `Kre.Guard.session "user_id"` reads a Dream session field. A role is `Kre.Guard.check`, which turns claims into evidence: there is no other way to get a value of `Admin.t`.
 
 <!-- $MDX file=examples/token_auth.ml -->
 ```ocaml

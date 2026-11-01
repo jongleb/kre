@@ -1,6 +1,6 @@
 # HTTP client
 
-Nest: `HttpModule` and axios. Spring: `@HttpExchange` on an interface. Symfony: HttpClient. In Kre a third-party API is described by a signature, and `[%http_client: …]` turns it into a functor over the base URL and headers (like `forRoot`):
+In Kre a third-party API is described by a signature, and `[%http_client: …]` turns it into a functor over the base URL and headers:
 
 <!-- $MDX skip -->
 ```ocaml

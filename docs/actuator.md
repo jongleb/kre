@@ -1,6 +1,6 @@
 # Actuator and health checks
 
-Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Kre: `Kre.Actuator.make`, a controller under `/actuator` and a metrics middleware.
+`Kre.Actuator.make` builds a controller under `/actuator` and a metrics middleware.
 
 | Path | What |
 | --- | --- |
@@ -13,7 +13,7 @@ Spring: Actuator (`/health`, `/info`, `/env`, `/metrics`). Nest: Terminus. Kre: 
 | `/actuator/beans` | the application graph from `[%wire]`: providers in start order, then controllers, each with what it received |
 | `/actuator/beans.mmd` | the same graph in mermaid |
 
-The graph is like `/actuator/beans` in Spring and the module graph in Nest Devtools, except that it is built at compile time: `[%wire]` puts it into `app.beans`, and it matches what is actually applied. The graph of `examples/shelter`:
+The graph is built at compile time: `[%wire]` puts it into `app.beans`, so it matches what is actually applied. The graph of `examples/shelter`:
 
 ```mermaid
 graph TD

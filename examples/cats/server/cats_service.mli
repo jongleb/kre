@@ -6,6 +6,6 @@ module type S = sig
 end
 
 module Make () : S
-(** A provider with its own state; [new CatsService()]. *)
+(** A provider with its own state: each application is a fresh instance. *)
 
 include S

@@ -31,7 +31,7 @@
 
 (package
  (name kre)
- (synopsis "NestJS-like server runtime on Dream")
+ (synopsis "Kre server runtime on Dream")
  (depends
   (ocaml
    (and

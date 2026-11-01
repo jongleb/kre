@@ -1,6 +1,6 @@
 # First steps
 
-Nest: `nest new project` and `main.ts` with `NestFactory.create(AppModule)`. Kre: `kre new project` and `bin/main.ml`, where the list of controllers is the application.
+`kre new project` creates a project; its entry point is `bin/main.ml`, where the list of controllers is the application.
 
 <!-- $MDX skip -->
 ```sh

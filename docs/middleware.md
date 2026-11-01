@@ -1,6 +1,6 @@
 # Middleware
 
-Nest: the `NestMiddleware` class and `MiddlewareConsumer.forRoutes`. Kre: `Dream.middleware`, nothing of its own.
+Middleware in Kre is `Dream.middleware`; Kre adds nothing of its own.
 
 <!-- $MDX file=../examples/cats/server/logger_middleware.ml -->
 ```ocaml

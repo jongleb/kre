@@ -1,6 +1,6 @@
 # Commands
 
-Symfony: `#[AsCommand]`. Rails: rake tasks and `rails runner`. Spring: `CommandLineRunner`. IHP: Scripts. In every case this is code that needs the application context (database, services, config) but not HTTP. In Kre it is a function with `[@@command "description"]`: module parameters are providers that `[%wire]` passes in, labelled ones (`~count`, `?count`) are command-line options.
+A command is code that needs the application context (database, services, config) but not HTTP. In Kre it is a function with `[@@command "description"]`: module parameters are providers that `[%wire]` passes in, labelled ones (`~count`, `?count`) are command-line options.
 
 <!-- $MDX file=../examples/shelter/server/tasks.ml -->
 ```ocaml

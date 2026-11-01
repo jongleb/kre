@@ -1,6 +1,6 @@
 # Providers
 
-Nest: an `@Injectable()` singleton class that the container injects into the controller constructor. Kre: a module. Its `.mli` with `module type S` is the contract, the state is top-level values, injection is a `(module Cats : Cats_service.S)` parameter of the handler.
+A provider is a module. Its `.mli` with `module type S` is the contract, the state is top-level values, injection is a `(module Cats : Cats_service.S)` parameter of the handler.
 
 <!-- $MDX file=../examples/cats/server/cats_service.mli -->
 ```ocaml
@@ -12,7 +12,7 @@ module type S = sig
 end
 
 module Make () : S
-(** A provider with its own state; [new CatsService()]. *)
+(** A provider with its own state: each application is a fresh instance. *)
 
 include S
 ```
@@ -47,4 +47,4 @@ end
 include Make ()
 ```
 
-`Make ()` is a generative functor: each application gives new state, like `new CatsService()`; `include Make ()` is the single instance that the container holds in Nest. Wiring happens in the composition root: `Cats_controller.register (module Cats_service)`; in a test, a fresh instance: `let module Fresh = Cats_service.Make () in Cats_controller.register (module Fresh)`. Forgetting to pass the module is a compile error, not a startup error.
+`Make ()` is a generative functor: each application gives new state; `include Make ()` is the single instance the whole application shares. Wiring happens in the composition root: `Cats_controller.register (module Cats_service)`; in a test, a fresh instance: `let module Fresh = Cats_service.Make () in Cats_controller.register (module Fresh)`. Forgetting to pass the module is a compile error, not a startup error.

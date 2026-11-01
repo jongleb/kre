@@ -1,12 +1,12 @@
 # Task scheduling
 
-Nest: `@Cron('0 3 * * *')`, `@Interval(30000)`, `@Timeout(5000)`. Spring: `@Scheduled(cron=…, fixedRate=…, initialDelay=…)`. Kre: an attribute on a provider function `unit -> unit Lwt.t`.
+In Kre a scheduled task is an attribute on a provider function `unit -> unit Lwt.t`.
 
 | Attribute | When |
 | --- | --- |
 | `[@@cron "0 3 * * *"]` | by a cron expression (minute hour day month day-of-week, UTC) |
 | `[@@interval 30.0]` | every N seconds |
-| `[@@after 5.0]` | once, N seconds after start (`@Timeout`) |
+| `[@@after 5.0]` | once, N seconds after start |
 
 `[%wire]` collects the tasks of all providers: `on_start` starts them, `on_shutdown` stops them. The cron expression is parsed at build time: `[@@cron "61 * * * *"]` does not compile (`minute 61 is outside 0-59`). A task's exception is logged and does not stop the schedule.
 

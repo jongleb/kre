@@ -1,6 +1,6 @@
 # Configuration
 
-Nest: `ConfigModule.forRoot` and a Joi schema. Kre: a record with `[@@deriving config]`. `load` reads all fields and reports all errors at once; `pp` prints the config with secrets hidden.
+In Kre the configuration is a record with `[@@deriving config]`. `load` reads all fields and reports all errors at once; `pp` prints the config with secrets hidden.
 
 <!-- $MDX file=../examples/cats/server/config.ml -->
 ```ocaml
@@ -18,4 +18,4 @@ type t = {
 [@@deriving config]
 ```
 
-Profiles (Spring profiles): `Kre.Config.profile ()` layers `config/default.env`, then `config/$KRE_ENV.env`, then the real environment; see `bin/main.ml` in [First steps](first-steps.md). The process environment is not changed.
+Profiles: `Kre.Config.profile ()` layers `config/default.env`, then `config/$KRE_ENV.env`, then the real environment; see `bin/main.ml` in [First steps](first-steps.md). The process environment is not changed.

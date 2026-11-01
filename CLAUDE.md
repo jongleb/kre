@@ -1,6 +1,6 @@
 # Kre
 
-NestJS-like full-stack framework in OCaml 5.5: Dream on the server, Melange on
+Full-stack web framework in OCaml 5.5: Dream on the server, Melange on
 the client. `DESIGN.md` is the source of truth: the plan, the target `.mli`s,
 the phases. Read the relevant section before implementing it.
 

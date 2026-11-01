@@ -1,6 +1,6 @@
 # Workflow
 
-Symfony: the Workflow component. Rails: AASM. Spring: Statemachine. In all three, states and transitions are described as strings in config or a DSL, and the runtime finds the errors. In Kre states are a variant, and transitions are plain `function`s over its constructors:
+In Kre the states of a workflow are a variant, and transitions are plain `function`s over its constructors, so the compiler, not the runtime, finds the errors:
 
 <!-- $MDX file=examples/order.ml -->
 ```ocaml
