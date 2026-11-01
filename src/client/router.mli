@@ -18,7 +18,7 @@ val child :
   ?live:string list ->
   parent ->
   path:'p Path.t ->
-  search:'s Search.t ->
+  search:'s Forge_shared.Search.t ->
   loader:('p -> 's -> 'd Js.Promise.t) ->
   component:(data:'d -> params:'p -> search:'s -> React.element) ->
   ('p, 's, 'd) route

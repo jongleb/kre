@@ -526,6 +526,21 @@ module Validation : sig
   val email : string rule
 end
 
+(* Forge_shared.Search — фаза 3: кодек query-строки ↔ запись; [@@deriving search] *)
+module Search : sig
+  type 's t
+  type ('a, 'b) presence = Required : ('a, 'a) presence | Optional : ('a, 'a option) presence
+                        | Default : 'a -> ('a, 'a) presence | Repeated : ('a, 'a list) presence
+  type 'a field
+  val none : unit t
+  val field : string -> (module S : Scalar.S) -> (S.t, 'b) presence -> 'b field
+  val read : 'a field -> (string * string) list -> ('a, Validation.t) result
+  val show : 'a field -> 'a -> (string * string) list
+  val make : parse:((string * string) list -> ('s, Validation.t) result) -> print:('s -> (string * string) list list) -> 's t
+  val decode : 's t -> (string * string) list -> ('s, Validation.t) result
+  val encode : 's t -> 's -> (string * string) list
+end
+
 (* Forge_shared.Json — форма, которую даёт [@@deriving json, jsonschema] из jsonkit *)
 module Json : sig
   module type S = sig
@@ -601,7 +616,8 @@ end
 module Spec : sig
   type verb = [ `GET | `POST | `PUT | `PATCH | `DELETE ]
   type presence = Required | Optional | Repeated
-  type location = Path | Query of presence     (* path-параметр не бывает необязательным *)
+  type location = Path | Query of presence | Header of presence | Cookie of presence
+                | Search                       (* фаза 3: вся query-строка в запись, [@search] *)
   type dto = { name : string; schema : Jsonkit.Jsonschema.t }
   type param = { name : string; location : location; scalar : string; schema : Jsonkit.Jsonschema.t }
   type returns = Unit | Text | Json of value | Events of value | Raw
@@ -782,6 +798,7 @@ module Extract : sig
   val headers : (string * string) list Guard.t
   val cookie  : string -> string option Guard.t
   val query   : (string * string) list Guard.t            (* @Query() целиком *)
+  val search  : 's Forge_shared.Search.t -> 's Guard.t    (* фаза 3: @Query() dto, [@search] *)
   val params  : (string * string) list Guard.t            (* @Param() целиком *)
   val body_raw : string Guard.t
   val body_json : Jsonkit.t Guard.t                       (* @Body() без DTO *)
@@ -1356,7 +1373,7 @@ end
 ```
 
 Отличия от первой версии (фаза 1):
-- `?search` и `?loader` «по умолчанию unit» не типизируются в OCaml (необязательный аргумент не может менять тип результата), поэтому они обязательны: `~search:Forge_client.Search.none`, `~loader:Forge_client.Router.no_data`.
+- `?search` и `?loader` «по умолчанию unit» не типизируются в OCaml (необязательный аргумент не может менять тип результата), поэтому они обязательны: `~search:Forge_shared.Search.none`, `~loader:Forge_client.Router.no_data`.
 - Пути маршрутов абсолютные; родитель (`parent`) даёт только layout'ы. Параметры родителя не наследуются — запись `params` описывает весь путь.
 - `link` — функция, а не полиморфный компонент: ошибка в `params` — ошибка типов на вызове (`test/router/link.t`).
 - Матчинг — сверху вниз по списку `make`; неразобранный `search` — как отсутствие маршрута (`not_found`). Loader вызывается в `useEffect` при смене URL; ответ устаревшего URL отбрасывается по ключу. Кэш loader'ов, `preload`, `use_params`/`use_search`/`use_loader_data`, `on_error` — фаза 2.
@@ -1368,7 +1385,7 @@ end
 
 ```ocaml
 type params = { id : int } [@@deriving params ~path:"/cats/:id"]   (* → params_path : params Forge_client.Path.t *)
-type search = { limit : int; [@default 20] breed : string option } [@@deriving search]   (* → search_codec : search Forge_client.Search.t *)
+type search = { limit : int; [@default 20] breed : string option } [@@deriving search]   (* → search_codec : search Forge_shared.Search.t *)
 let index = Forge_client.Router.child root ~path:[%path "/cats"] ~search:search_codec …   (* [%path] — только без параметров *)
 ```
 
@@ -1575,7 +1592,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` на любой функции → `Forge.Retry.run`; повтор при исключении. Не interceptor: в Spring это аннотация метода сервиса, и у нас тоже | ✅ |
 | 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф (`Wiring.beans`); `/actuator/beans` (JSON) и `/actuator/beans.mmd` (mermaid) | ✅ |
 | 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `forge-client.testing`: сгенерированный типизированный клиент идёт в обработчик приложения без сокета (`Forge_testing.use`) | ✅ |
-| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
+| 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search, dto]`: `~(search : (Cat_search.t[@search]))`. Кодек переехал в `Forge_shared.Search` (native и Melange): один `Cat_search.codec` у сервера (`Forge.Extract.search`), у страничного роутера и у клиента (`Spec.Search`, `Wire.search`) | ✅ |
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
 | 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Forge_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
 | 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Forge.Job`: типизированные очереди (`'a queue` = имя + dto), одна таблица `forge_jobs` (`Forge.Job.table`), `FOR UPDATE SKIP LOCKED`, повторы с удвоением паузы, `dead` после `attempts`; `[@@job q]` в провайдере, воркер — хуки провайдера `Forge.Job.S`, их запускает `[%wire]`. `enqueue` идёт через `Db` и попадает в открытую транзакцию | ✅ |

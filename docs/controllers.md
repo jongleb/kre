@@ -7,10 +7,20 @@ Nest: класс с `@Controller('cats')` и методами `@Get()`, `@Get(':
 [@@@controller "cats"]
 [@@@use [ Logger_middleware.use ]]
 
-let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () :
-    Cat.t list Lwt.t =
+let find_all (module Cats : Cats_service.S) ~(search : (Cat_search.t[@search]))
+    () : Cat.t list Lwt.t =
   let%lwt all = Cats.find_all () in
-  Lwt.return (List.filteri (fun i _ -> i < limit) all)
+  Lwt.return
+    (List.filteri
+       (fun i _ -> i < search.limit)
+       (List.filter
+          (fun (cat : Cat.t) ->
+            Option.fold ~none:true
+              ~some:(fun breed ->
+                String.equal (Cat.Breed.to_repr breed)
+                  (Cat.Breed.to_repr cat.breed))
+              search.breed)
+          all))
 [@@get] [@@summary "List cats"] [@@live [ "cats" ]]
 
 let find_one (module Cats : Cats_service.S) ~(id : Cat.Id.t) :
@@ -31,6 +41,7 @@ let create (module Cats : Cats_service.S) ~(user : (string[@guard Auth.user]))
 
 - `~(id : int)` совпадает с `:id` в пути — **path**-параметр; не разобрался как `int` → 404.
 - `?(limit : int = 20)` — **query** с дефолтом; `~(x : t)` — обязательный query, `~(x : t list)` — повторяемый.
+- `~(search : (Cat_search.t[@search]))` — **вся query-строка** в одну запись, как `#[MapQueryString]` в Symfony, `@Query() dto` в Nest и `@ModelAttribute` в Spring. Запись с `[@@deriving search, dto]` лежит в shared: тот же `Cat_search.codec` разбирает URL страницы в роутере (`~search:Cat_search.codec`), а сгенерированный клиент принимает `~search` того же типа. Ошибка разбора → 400 с ошибками полей; в OpenAPI это `style: form, explode: true` со схемой записи.
 - `~(body : Create_cat_dto.t)` — **тело**: JSON → `Create_cat_dto.of_json`; не JSON → 400, не прошёл разбор → 422.
 - `~(user : string [@guard Auth.user])` — значение из запроса (guard), в `spec` и клиент не попадает.
 - `(module Cats : Cats_service.S)` — **зависимость** (modular explicit): `register` принимает модуль и передаёт его хендлеру.

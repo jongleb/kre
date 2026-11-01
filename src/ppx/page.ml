@@ -153,18 +153,18 @@ let search ~ctxt (_, declarations) =
                  absent list is []"
                 label.pld_name.txt
           | Ptyp_constr ({ txt = Lident "option"; _ }, [ element ]), None ->
-              ([%expr Forge_client.Search.Optional], element)
+              ([%expr Forge_shared.Search.Optional], element)
           | Ptyp_constr ({ txt = Lident "list"; _ }, [ element ]), None ->
-              ([%expr Forge_client.Search.Repeated], element)
+              ([%expr Forge_shared.Search.Repeated], element)
           | _, Some default ->
-              ([%expr Forge_client.Search.Default [%e default]], label.pld_type)
-          | _, None -> ([%expr Forge_client.Search.Required], label.pld_type)
+              ([%expr Forge_shared.Search.Default [%e default]], label.pld_type)
+          | _, None -> ([%expr Forge_shared.Search.Required], label.pld_type)
         in
         value_binding ~loc
           ~pat:(pvar ~loc (variable label))
           ~expr:
             [%expr
-              Forge_client.Search.field
+              Forge_shared.Search.field
                 [%e estring ~loc label.pld_name.txt]
                 [%e pexp_pack ~loc (scalar element)]
                 [%e presence]])
@@ -174,16 +174,16 @@ let search ~ctxt (_, declarations) =
     [%stri
       let [%p pvar ~loc (value_name name "codec")] :
           [%t ptyp_constr ~loc { txt = Lident name; loc } []]
-          Forge_client.Search.t =
+          Forge_shared.Search.t =
         [%e
           pexp_let ~loc Nonrecursive fields
             [%expr
-              Forge_client.Search.make
+              Forge_shared.Search.make
                 ~parse:(fun __forge_pairs ->
                   [%e
                     applicative ~loc labels ~read:(fun label ->
                         [%expr
-                          Forge_client.Search.read
+                          Forge_shared.Search.read
                             [%e evar ~loc (variable label)]
                             __forge_pairs])])
                 ~print:(fun __forge_search ->
@@ -192,7 +192,7 @@ let search ~ctxt (_, declarations) =
                       (List.map
                          (fun label ->
                            [%expr
-                             Forge_client.Search.show
+                             Forge_shared.Search.show
                                [%e evar ~loc (variable label)]
                                [%e field ~loc "__forge_search" label]])
                          labels)])]]];

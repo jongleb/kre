@@ -23,6 +23,8 @@ type source =
       value : value;
     }  (** [[@header]], [[@cookie]], [[@signed_cookie]], [[@session]]. *)
   | Body of value
+  | Searched of value
+      (** [[@search]]: the query string as a record with a search codec. *)
   | Extracted of expression  (** [[@guard e]] or [[@from e]]. *)
   | Wildcard  (** [[@wildcard]]: what a trailing [*] matched. *)
   | Request
@@ -301,6 +303,16 @@ let transform structure =
                   in
                   Some (Query { name; presence; value = scalar ~loc element })
               | None -> Some (extractor "queries"))
+          | "search" -> (
+              match type_.ptyp_desc with
+              | Ptyp_constr ({ txt = Ldot (path, "t"); loc }, []) ->
+                  Some
+                    (Searched
+                       { type_; module_ = pmod_ident ~loc { txt = path; loc } })
+              | _ ->
+                  Location.raise_errorf ~loc:attribute.attr_loc
+                    "[@@search] reads the query string into a record M.t with \
+                     [@@@@deriving search, dto]")
           | "body" -> (
               match named () with
               | Some field ->
@@ -810,8 +822,8 @@ let transform structure =
                                (fun argument ->
                                  match (argument.label, argument.source) with
                                  | ( (Labelled known | Optional known),
-                                     ( Path _ | Query _ | Body _ | Extracted _
-                                     | Located _ ) )
+                                     ( Path _ | Query _ | Body _ | Searched _
+                                     | Extracted _ | Located _ ) )
                                    when String.equal known label ->
                                      Some argument
                                  | _ -> None)
@@ -1100,6 +1112,15 @@ let transform structure =
                                  [%e pexp_pack ~loc value.module_]
                                  __forge_request] );
                          ]
+                     | Searched value ->
+                         [
+                           ( bound index argument,
+                             [%expr
+                               Forge.Extract.search
+                                 (let module M = [%m value.module_] in
+                                  M.codec)
+                                 __forge_request] );
+                         ]
                      | Extracted guard ->
                          [
                            ( bound index argument,
@@ -1144,7 +1165,8 @@ let transform structure =
                        | Unit -> [%expr ()]
                        | Path { segment; _ } -> evar ~loc (variable segment)
                        | Wildcard -> [%expr Forge.Route.rest __forge_rest]
-                       | Query _ | Body _ | Extracted _ | Located _ ->
+                       | Query _ | Body _ | Searched _ | Extracted _ | Located _
+                         ->
                            evar ~loc (bound index argument) ))
                    handler.arguments)
             in
@@ -1354,6 +1376,13 @@ let transform structure =
                                      [%expr
                                        Forge.Spec.Cookie
                                          [%e presence_expression presence]],
+                                     value )
+                             | Searched value ->
+                                 Some
+                                   ( (match argument.label with
+                                     | Labelled label | Optional label -> label
+                                     | Nolabel -> "search"),
+                                     [%expr Forge.Spec.Search],
                                      value )
                              | Located { carrier = Session | Form; _ }
                              | Dependency _ | Body _ | Extracted _ | Wildcard

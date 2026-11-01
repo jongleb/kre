@@ -10,6 +10,7 @@ type location =
   | Query of presence
   | Header of presence
   | Cookie of presence
+  | Search  (** The whole query string, read into a record by its codec. *)
 
 type value = {
   type_ : string;  (** The OCaml type as written, e.g. ["Cat.t list"]. *)

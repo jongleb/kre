@@ -6,6 +6,7 @@ type location =
   | Query of presence
   | Header of presence
   | Cookie of presence
+  | Search
 
 type value = { type_ : string; module_ : string; schema : Jsonkit.Jsonschema.t }
 
@@ -56,6 +57,7 @@ let to_json spec =
       | Cookie Required -> ("cookie", "required")
       | Cookie Optional -> ("cookie", "optional")
       | Cookie Repeated -> ("cookie", "repeated")
+      | Search -> ("search", "required")
     in
     `Assoc
       [
@@ -126,6 +128,7 @@ let of_json json =
         | "cookie", "required" -> Cookie Required
         | "cookie", "optional" -> Cookie Optional
         | "cookie", "repeated" -> Cookie Repeated
+        | "search", _ -> Search
         | location, presence -> fail (location ^ "/" ^ presence));
       value = value (member "value" json);
     }

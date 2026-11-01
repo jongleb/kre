@@ -15,7 +15,7 @@ A link to a route is checked against the route's params and search types.
   > let root = Forge_client.Router.root ()
   > type params = { id : int } [@@deriving params ~path:"/cats/:id"]
   > let show =
-  >   Forge_client.Router.child root ~path:params_path ~search:Forge_client.Search.none
+  >   Forge_client.Router.child root ~path:params_path ~search:Forge_shared.Search.none
   >     ~loader:Forge_client.Router.no_data
   >     ~component:(fun ~data:() ~params:_ ~search:() -> React.null)
   > let ok = Forge_client.Router.link show ~params:{ id = 1 } ~search:() ~children:React.null

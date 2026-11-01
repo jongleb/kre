@@ -15,6 +15,7 @@ val query :
   (module S : Forge_shared.Scalar.S) ->
   (S.t, 'b) Forge_shared.Presence.t -> string -> 'b -> (string * string) list
 
+val search : 's Forge_shared.Search.t -> 's -> (string * string) list
 val body : (module J : Forge_shared.Json.S) -> J.t -> string
 
 val url :

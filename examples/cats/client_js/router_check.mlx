@@ -14,10 +14,10 @@ let matched path =
 
 let searched query =
   Result.fold ~error:errors
-    ~ok:(fun (search : Routes.Cats.search) ->
+    ~ok:(fun (search : Cat_search.t) ->
       Printf.sprintf "%d/%s" search.limit
-        (Option.value search.breed ~default:"-"))
-    (Forge_client.Search.parse Routes.Cats.search_codec query)
+        (Option.fold ~none:"-" ~some:Cat.Breed.to_repr search.breed))
+    (Forge_client.Search.parse Cat_search.codec query)
 
 let view url =
   ReactDOMServer.renderToStaticMarkup
@@ -35,7 +35,11 @@ let () =
           ~search:() );
       ( "href",
         Forge_client.Router.href Routes.Cats.index ~params:()
-          ~search:{ limit = 5; breed = Some "maine coon" } );
+          ~search:
+            {
+              limit = 5;
+              breed = Some (Result.get_ok (Cat.Breed.of_repr "maine coon"));
+            } );
       ("match", matched [ "cats"; "7" ]);
       ("match", matched [ "cats"; "seven" ]);
       ("search", searched "?breed=persian");

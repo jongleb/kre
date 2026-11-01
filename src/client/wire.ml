@@ -71,3 +71,5 @@ let decode (type a) (returns : a returns) response : (a, Error.t) result =
               Error
                 (Error.Decode
                    (Forge_shared.Validation.fail ~rule:"json" message))))
+
+let search codec value = Forge_shared.Search.encode codec value

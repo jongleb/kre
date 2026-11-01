@@ -48,7 +48,9 @@ let () =
        Cats_client.create ~body:{ tom with note = "far too long for a note" }
      in
      Js.log (show (Result.map (fun _ -> "") rejected));
-     let* all = Cats_client.find_all ~limit:5 () in
+     let* all =
+       Cats_client.find_all ~search:{ Cat_search.limit = 5; breed = None }
+     in
      Js.log
        (show (Result.map (fun cats -> string_of_int (List.length cats)) all));
      let* missing =

@@ -37,6 +37,7 @@ let document ~title ~version specs =
                     | Query presence -> ("query", presence)
                     | Header presence -> ("header", presence)
                     | Cookie presence -> ("cookie", presence)
+                    | Search -> ("query", Spec.Optional)
                   in
                   let required, schema =
                     match presence with
@@ -51,12 +52,17 @@ let document ~title ~version specs =
                             ] )
                   in
                   `Assoc
-                    [
-                      ("name", `String param.name);
-                      ("in", `String location);
-                      ("required", `Bool required);
-                      ("schema", schema);
-                    ])
+                    ([
+                       ("name", `String param.name);
+                       ("in", `String location);
+                       ("required", `Bool required);
+                       ("schema", schema);
+                     ]
+                    @
+                    match param.location with
+                    | Search ->
+                        [ ("style", `String "form"); ("explode", `Bool true) ]
+                    | Path | Query _ | Header _ | Cookie _ -> []))
                 route.params) );
          ( "responses",
            `Assoc

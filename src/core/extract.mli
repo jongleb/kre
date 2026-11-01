@@ -21,6 +21,7 @@ val session :
   (module S : Forge_shared.Scalar.S) ->
   (S.t, 'b) Forge_shared.Presence.t -> string -> 'b Guard.t
 
+val search : 's Forge_shared.Search.t -> 's Guard.t
 val body_field : (module J : Forge_shared.Json.S) -> string -> J.t Guard.t
 val host_param : pattern:string -> string -> string Guard.t
 val file : string -> Upload.t Guard.t

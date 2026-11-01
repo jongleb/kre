@@ -5,13 +5,13 @@ module Cats = struct
 
   let show =
     Forge_client.Router.child ~live:Cats_client.Live.find_one root
-      ~path:params_path ~search:Forge_client.Search.none
+      ~path:params_path ~search:Forge_shared.Search.none
       ~loader:(fun { id } () -> Cats_client.find_one ~id)
       ~component:Pages.cat
 
   let index =
     Forge_client.Router.child ~live:Cats_client.Live.available root
-      ~path:[%path "/cats"] ~search:Forge_client.Search.none
+      ~path:[%path "/cats"] ~search:Forge_shared.Search.none
       ~loader:(fun () () -> Cats_client.available ())
       ~component:
         (Pages.cats ~link:(fun (cat : Cat.t) children ->
@@ -21,13 +21,13 @@ end
 
 let adoptions =
   Forge_client.Router.child ~live:Adoptions_client.Live.mine root
-    ~path:[%path "/adoptions"] ~search:Forge_client.Search.none
+    ~path:[%path "/adoptions"] ~search:Forge_shared.Search.none
     ~loader:(fun () () -> Adoptions_client.mine ())
     ~component:Pages.adoptions
 
 let login =
   Forge_client.Router.child root ~path:[%path "/login"]
-    ~search:Forge_client.Search.none ~loader:Forge_client.Router.no_data
+    ~search:Forge_shared.Search.none ~loader:Forge_client.Router.no_data
     ~component:(fun ~data:() ~params:() ~search:() ->
       <Pages.Login
         on_login=(fun (session : Session.t) ->

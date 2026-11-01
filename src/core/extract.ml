@@ -164,3 +164,12 @@ let form (module S : Forge_shared.Scalar.S) presence name request =
             ~missing:(Error.bad_request ("missing form field " ^ name))
             (List.map (fun (upload : Upload.t) -> upload.content) uploads)))
     (uploads name request)
+
+let search codec request =
+  Lwt.return
+    (Result.map_error
+       (fun errors ->
+         Error.bad_request
+           ~extensions:[ ("errors", Forge_shared.Validation.to_json errors) ]
+           "invalid query string")
+       (Forge_shared.Search.decode codec (Dream.all_queries request)))

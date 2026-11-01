@@ -3,7 +3,7 @@ type parent = { layouts : (children:React.element -> React.element) list }
 type ('p, 's, 'd) route = {
   parent : parent;
   path : 'p Path.t;
-  search : 's Search.t;
+  search : 's Forge_shared.Search.t;
   loader : 'p -> 's -> 'd Js.Promise.t;
   component : data:'d -> params:'p -> search:'s -> React.element;
   live : string list;

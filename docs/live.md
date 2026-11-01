@@ -6,8 +6,8 @@
 
 <!-- $MDX skip -->
 ```ocaml
-let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () :
-    Cat.t list Lwt.t = …
+let find_all (module Cats : Cats_service.S)
+    ~(search : (Cat_search.t[@search])) () : Cat.t list Lwt.t = …
 [@@get] [@@summary "List cats"] [@@live [ "cats" ]]
 ```
 
@@ -27,8 +27,8 @@ let find_all (module Cats : Cats_service.S) ?(limit : int = 20) () :
 <!-- $MDX skip -->
 ```ocaml
 Forge_client.Router.child ~live:Cats_client.Live.find_all root
-  ~path:[%path "/cats"] ~search:search_codec
-  ~loader:(fun () search -> Cats_client.find_all ~limit:search.limit ())
+  ~path:[%path "/cats"] ~search:Cat_search.codec
+  ~loader:(fun () search -> Cats_client.find_all ~search)
   ~component:Pages.index
 ```
 

@@ -26,8 +26,12 @@ let tests =
         Alcotest.(check string) "name" "tom" (Cat.Name.to_repr (ok found).name);
         Lwt.return_unit);
     Alcotest_lwt.test_case "optional query parameter" `Quick (fun _ () ->
-        let%lwt none = Cats_client.find_all ~limit:0 () in
-        let%lwt all = Cats_client.find_all () in
+        let%lwt none =
+          Cats_client.find_all ~search:{ Cat_search.limit = 0; breed = None }
+        in
+        let%lwt all =
+          Cats_client.find_all ~search:{ Cat_search.limit = 20; breed = None }
+        in
         Alcotest.(check (pair int int))
           "lengths" (0, 1)
           (List.length (ok none), List.length (ok all));
@@ -46,7 +50,9 @@ let tests =
       (fun _ () ->
         let base = !Forge_client.Http.base_url in
         Forge_client.Http.base_url := "http://127.0.0.1:1";
-        let%lwt result = Cats_client.find_all () in
+        let%lwt result =
+          Cats_client.find_all ~search:{ Cat_search.limit = 20; breed = None }
+        in
         Forge_client.Http.base_url := base;
         Alcotest.(check bool)
           "network" true

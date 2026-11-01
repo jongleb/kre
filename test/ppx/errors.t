@@ -436,3 +436,17 @@ A stream needs [@@sse], and [@@sse] needs a stream.
                                                        ^^^^^^^^
   Error: [@@etag] answers 304 to a repeated GET; f is not a GET
   [1]
+
+[@search] reads into a record type M.t.
+
+  $ cat > input.ml <<'ML'
+  > [@@@controller "c"]
+  > let f ~(search : (string[@search])) () : unit Lwt.t = ignore search; Lwt.return_unit
+  > [@@get]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 2, characters 24-33:
+  2 | let f ~(search : (string[@search])) () : unit Lwt.t = ignore search; Lwt.return_unit
+                              ^^^^^^^^^
+  Error: [@search] reads the query string into a record M.t with [@@deriving search, dto]
+  [1]
