@@ -1,4 +1,7 @@
 A link to a route is checked against the route's params and search types.
+Colors would hide the "Error" prefix from grep.
+
+  $ export CLICOLOR_FORCE=0
 
   $ cat > dune-project <<'EOF2'
   > (lang dune 3.21)
