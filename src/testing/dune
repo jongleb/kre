@@ -1,0 +1,6 @@
+; Generated native clients talking to the application in-process, for tests.
+
+(library
+ (name forge_testing)
+ (public_name forge-client.testing)
+ (libraries forge forge-client.native dream lwt))

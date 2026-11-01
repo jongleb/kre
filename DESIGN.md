@@ -1274,8 +1274,19 @@ module Http : sig
   val headers : (string * string) list ref        (* auth, csrf — упрощённые interceptors *)
   val request : Wire.verb -> path:string list -> ?query:(string * string) list list -> ?body:string ->
     'a Wire.returns -> ('a, Error.t) result promise
+  (* только native, фаза 3: куда идут запросы *)
+  type exchange = { verb : Wire.verb; target : string; headers : (string * string) list; body : string option }
+  type transport = Network | Local of (exchange -> Wire.response Lwt.t)
+  val transport : transport ref
+end
+
+(* forge-client.testing — фаза 3; Nest Testing + supertest, Spring MockMvc *)
+module Forge_testing : sig
+  val use : ?middleware:Dream.middleware list -> Forge.Controller.t list -> unit   (* transport := Local (App.handler …) *)
 end
 ```
+
+Тест вызывает те же сгенерированные функции, что и фронтенд (`Cats_client.create ~body`), но без сокета: `Forge_testing.use` подменяет транспорт на обработчик приложения в том же процессе. Ошибка в пути, теле или типе ответа — ошибка компиляции теста, а не 400 в рантайме; пример — `examples/cats/client_native/test_in_process.ml`.
 
 ### OpenAPI
 
@@ -1530,7 +1541,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 2 | Rails `fresh_when`/ETag, Spring `ShallowEtagHeaderFilter`, Symfony `isNotModified` | `[@@etag]` на GET: ETag из тела, `If-None-Match` → 304 | ✅ |
 | 3 | Spring Retry `@Retryable`, Symfony Messenger retry | `[@@retry n]` `[@@backoff s]` на любой функции → `Forge.Retry.run`; повтор при исключении. Не interceptor: в Spring это аннотация метода сервиса, и у нас тоже | ✅ |
 | 4 | Nest Devtools (граф модулей), Spring `/actuator/beans` | `[%wire]` отдаёт граф (`Wiring.beans`); `/actuator/beans` (JSON) и `/actuator/beans.mmd` (mermaid) | ✅ |
-| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `Forge.Testing`: запросы в обработчик без сокета, ответ как `status`/`json`/`problem` | 1 |
+| 5 | Nest `Test.createTestingModule` + supertest, Spring MockMvc, Rails integration tests, Symfony `WebTestCase` | `forge-client.testing`: сгенерированный типизированный клиент идёт в обработчик приложения без сокета (`Forge_testing.use`) | ✅ |
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
 | 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами: `[%wire]` собирает команды, `main.exe seed --count 3` запускает с теми же провайдерами; аргументы — из меток (cmdliner) | 2 |

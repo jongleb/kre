@@ -129,3 +129,55 @@ let () =
 ```
 
 Уровни в репозитории: cram на вывод ppx (`test/ppx`), alcotest на рантайм (`test/core`), контроллеры через `Dream.test`, e2e — сгенерированный клиент против живого сервера (`examples/cats/client_native`, `client_js`), база — алиас `@db`.
+
+## Типизированный клиент без сети
+
+Nest проверяет HTTP через supertest, Spring — через MockMvc: запросы собираются строками. В Forge тест может звать тот же сгенерированный клиент, что и фронтенд. `Forge_testing.use` (библиотека `forge-client.testing`) направляет его запросы прямо в обработчик приложения, без порта и сокета. Неверный путь, поле тела или тип ответа ломают компиляцию теста.
+
+<!-- $MDX file=../examples/cats/client_native/test_in_process.ml -->
+```ocaml
+let tom =
+  {
+    Create_cat_dto.name = Result.get_ok (Cat.Name.of_repr "tom");
+    age = Result.get_ok (Cat.Age.of_repr 3);
+    breed = Result.get_ok (Cat.Breed.of_repr "siamese");
+    note = "";
+  }
+
+let outcome = function
+  | Ok (cat : Cat.t) -> "ok " ^ Cat.Name.to_repr cat.name
+  | Error (Forge_client.Error.Problem problem) ->
+      Printf.sprintf "%d %s" problem.status
+        (String.concat ","
+           (List.map
+              (fun (error : Forge_shared.Validation.error) ->
+                String.concat "." error.path ^ ":" ^ error.rule)
+              problem.errors))
+  | Error error -> Forge_client.Error.message error
+
+let () =
+  let module Fresh = Cats_service.Make () in
+  Forge_testing.use [ Cats_controller.register (module Fresh) ];
+  Forge_client.Http.headers := [ ("X-User", "ann") ];
+  Lwt_main.run
+    (Alcotest_lwt.run "in-process client"
+       [
+         ( "cats",
+           [
+             Alcotest_lwt.test_case "typed calls, no socket" `Quick (fun _ () ->
+                 let%lwt created = Cats_client.create ~body:tom in
+                 let%lwt rejected =
+                   Cats_client.create
+                     ~body:{ tom with note = "far too long for a note" }
+                 in
+                 let%lwt missing =
+                   Cats_client.find_one ~id:(Result.get_ok (Cat.Id.of_repr 9))
+                 in
+                 Alcotest.(check (list string))
+                   "outcomes"
+                   [ "ok tom"; "422 note:max_length"; "404 " ]
+                   [ outcome created; outcome rejected; outcome missing ];
+                 Lwt.return_unit);
+           ] );
+       ])
+```

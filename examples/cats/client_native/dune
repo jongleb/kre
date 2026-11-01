@@ -23,9 +23,10 @@
    --out
    %{targets})))
 
-(test
- (name test_client)
+(tests
+ (names test_client test_in_process)
  (libraries
+  forge-client.testing
   cats_server
   cats_shared
   forge
