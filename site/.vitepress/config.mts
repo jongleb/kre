@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import { attributes } from './attributes'
 
 export default withMermaid(
   defineConfig({
@@ -23,7 +24,8 @@ export default withMermaid(
     ],
     markdown: {
       theme: { light: 'vitesse-light', dark: 'vitesse-dark' },
-      languageAlias: { ml: 'ocaml', mli: 'ocaml', mlx: 'ocaml', dune: 'scheme' }
+      languageAlias: { ml: 'ocaml', mli: 'ocaml', mlx: 'ocaml', dune: 'scheme' },
+      codeTransformers: [attributes]
     },
     themeConfig: {
       logo: { light: '/logo-light.svg', dark: '/logo-dark.svg' },

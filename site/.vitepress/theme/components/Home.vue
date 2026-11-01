@@ -22,22 +22,27 @@ import Capabilities from './Capabilities.vue'
   </div>
   <div class="stage">
   <div class="window">
-    <div class="bar"><i></i><i></i><i></i><span>server/adoptions_controller.ml</span></div>
-<pre><span class="at">[@@@controller "adoptions"]</span>
+    <div class="bar"><i></i><i></i><i></i><span>server/cats_controller.ml</span></div>
+<pre><span class="attr">[@@@controller "cats"]</span>
 
-<span class="kw">let</span> adopt (<span class="kw">module</span> <span class="ty">Adoptions</span> : <span class="ty">Adoptions_service</span>.S)
-    (<span class="kw">module</span> <span class="ty">Db</span> : <span class="ty">Kre.Db</span>.S)
-    ~(user : (<span class="ty">User</span>.t <span class="at">[@guard Auth.current]</span>))
-    ~(body : <span class="ty">Adopt_dto</span>.t)
-    : (<span class="ty">Adoption</span>.t, <span class="ty">Kre.Error</span>.t) result <span class="ty">Lwt</span>.t =
-  <span class="ty">Adoptions</span>.adopt body.cat_id user.id
-<span class="at">[@@post] [@@status 201] [@@transactional]</span>
+<span class="kw">let</span> find_one (<span class="kw">module</span> <span class="ty">Cats</span> : <span class="ty">Cats_service</span>.S)
+    ~(cat : (<span class="ty">Cat</span>.t <span class="attr">[@load Cats.find]</span>)) : <span class="ty">Cat</span>.t <span class="ty">Lwt</span>.t =
+  <span class="ty">Lwt</span>.return cat
+<span class="attr">[@@get ":cat"]</span> <span class="attr">[@@live [ "cats" ]]</span>
 
-<span class="kw">let</span> mine (<span class="kw">module</span> <span class="ty">Adoptions</span> : <span class="ty">Adoptions_service</span>.S)
-    ~(user : (<span class="ty">User</span>.t <span class="at">[@guard Auth.current]</span>)) ()
-    : <span class="ty">Adoption</span>.t list <span class="ty">Lwt</span>.t =
-  <span class="ty">Adoptions</span>.of_user user.id
-<span class="at">[@@get <span class="st">"mine"</span>] [@@live [ <span class="st">"adoptions"</span> ]]</span></pre>
+<span class="kw">let</span> create (<span class="kw">module</span> <span class="ty">Cats</span> : <span class="ty">Cats_service</span>.S)
+    ~admin:(_ : (<span class="ty">Auth.Admin</span>.t <span class="attr">[@guard Auth.admin]</span>))
+    ~(body : <span class="ty">Create_cat_dto</span>.t) : <span class="ty">Cat</span>.t <span class="ty">Lwt</span>.t =
+  <span class="ty">Cats</span>.create body
+<span class="attr">[@@post]</span> <span class="attr">[@@status 201]</span>
+
+<span class="kw">let</span> rename (<span class="kw">module</span> <span class="ty">Cats</span> : <span class="ty">Cats_service</span>.S)
+    ~user:(_ : (<span class="ty">User</span>.t <span class="attr">[@guard Auth.current]</span>))
+    ~(cat : (<span class="ty">Cat</span>.t <span class="attr">[@load Cats.find]</span>)) ~(body : <span class="ty">Rename_dto</span>.t)
+    : (<span class="ty">Cat</span>.t, <span class="ty">Kre.Error</span>.t) result <span class="ty">Lwt</span>.t =
+  <span class="ty">Cats</span>.rename cat.id body
+<span class="attr">[@@put ":cat"]</span>
+<span class="attr">[@@authorize fun ~user ~cat -> Auth.owner_or_admin ~user cat]</span></pre>
   </div>
   <div class="term">
 <pre><span class="pr">$</span> kre generate controller dogs name:string age:int

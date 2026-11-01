@@ -516,3 +516,35 @@ body {
   .home .band { grid-template-columns: repeat(2, 1fr); }
   .home .band > div:nth-child(3) { padding-left: 0; border-left: none; }
 }
+
+/* ---------- decorators ---------- */
+.vp-doc [class*='language-'] .kre-attr,
+.home .attr {
+  color: var(--k-attr) !important;
+  background: var(--k-attr-bg);
+}
+.vp-doc [class*='language-'] .kre-attr-start,
+.home .attr { border-radius: 4px 0 0 4px; box-shadow: -3px 0 0 var(--k-attr-bg); }
+.vp-doc [class*='language-'] .kre-attr-end { border-radius: 0 4px 4px 0; box-shadow: 3px 0 0 var(--k-attr-bg); }
+.vp-doc [class*='language-'] .kre-attr-start.kre-attr-end,
+.home .attr { border-radius: 4px; box-shadow: -3px 0 0 var(--k-attr-bg), 3px 0 0 var(--k-attr-bg); }
+:root { --k-attr: #c2410c; --k-attr-bg: rgba(229, 72, 42, 0.08); }
+.dark { --k-attr: #ff8a6b; --k-attr-bg: rgba(255, 107, 74, 0.11); }
+
+/* hero: the terminal sits below the code, overlapping only its frame */
+.home .stage { padding-bottom: 0; }
+.home .term {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: 82%;
+  margin: -22px 0 0 auto;
+  transform: translateX(28px);
+}
+.home .window pre { padding-bottom: 36px; }
+.home .window .attr { font-weight: 500; }
+.home .hero { align-items: start; }
+.home .hero > div:first-child { padding-top: 36px; }
+@media (max-width: 960px) {
+  .home .term { width: 100%; transform: none; margin-top: 14px; }
+}
