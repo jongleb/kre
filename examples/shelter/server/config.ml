@@ -4,5 +4,9 @@ type t = {
   database_url : string; [@env "DATABASE_URL"] [@secret]
   jwt_secret : string; [@env "JWT_SECRET"] [@secret]
   admin_email : Kre_shared.Refined.Email.t option; [@env "ADMIN_EMAIL"]
+  assets : string;
+      [@env "ASSETS_DIR"]
+      [@default
+        Filename.concat (Filename.dirname Sys.executable_name) "../assets"]
 }
 [@@deriving config]

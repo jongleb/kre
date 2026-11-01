@@ -1,4 +1,10 @@
-let layout ~children = <main>children</main>
+let layout ~children =
+  <main>
+    <header>
+      <img src=(Kre_shared.Asset.url [%asset "logo.svg"]) alt="Shelter" />
+    </header>
+    children
+  </main>
 
 let failed error =
   <p className="error">(React.string (Kre_client.Error.message error))</p>
@@ -78,6 +84,7 @@ let cats ~link ~data ~params:() ~search:() =
               (List.map
                  (fun (cat : Cat.t) ->
                    <li key=(Cat.Id.to_string cat.id)>
+                     (Kre_client.Icon.view [%icon "cat"])
                      (link cat (React.string (Cat.Name.to_repr cat.name)))
                    </li>)
                  cats)))

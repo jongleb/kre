@@ -1132,6 +1132,35 @@ let mail =
              (Outbox.sent ())));
   ]
 
+let assets =
+  let dir = Filename.concat (Filename.get_temp_dir_name ()) "kre-assets-test" in
+  (try Sys.mkdir dir 0o755 with Sys_error _ -> ());
+  Out_channel.with_open_bin (Filename.concat dir "logo.svg") (fun out ->
+      Out_channel.output_string out "<svg/>");
+  let hash = String.sub (Digest.to_hex (Digest.string "<svg/>")) 0 8 in
+  let handler =
+    Dream.test (Kre.Assets.middleware ~dir (fun _ -> Dream.empty `Not_Found))
+  in
+  let get target =
+    let response = handler (Dream.request ~target "") in
+    ( Dream.status_to_int (Dream.status response),
+      Option.value ~default:"-" (Dream.header response "Cache-Control") )
+  in
+  [
+    Alcotest.test_case "hashed URL, stale hash, traversal" `Quick (fun () ->
+        Alcotest.(check (list (pair int string)))
+          "responses"
+          [
+            (200, "public, max-age=31536000, immutable"); (404, "-"); (404, "-");
+          ]
+          (List.map get
+             [
+               "/assets/logo." ^ hash ^ ".svg";
+               "/assets/logo.deadbeef.svg";
+               "/assets/../logo." ^ hash ^ ".svg";
+             ]));
+  ]
+
 let () =
   Alcotest.run "kre"
     [
@@ -1144,6 +1173,7 @@ let () =
       ("Time", time);
       ("Profiler", profiler);
       ("Mail", mail);
+      ("Assets", assets);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

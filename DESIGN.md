@@ -526,6 +526,19 @@ module Validation : sig
   val email : string rule
 end
 
+(* Kre_shared.Asset и Icon — фаза 3: значения, которые дают только [%asset] и [%icon] *)
+module Asset : sig
+  type t
+  val checked : string -> t        (* для ppx *)
+  val url : t -> string
+end
+module Icon : sig
+  type t
+  val checked : name:string -> string -> t   (* для ppx *)
+  val name : t -> string
+  val svg : t -> string
+end
+
 (* Kre_shared.Time — фаза 3: момент времени UTC; RFC 3339 в JSON и URL, секунды в базе *)
 module Time : sig
   type t
@@ -747,6 +760,11 @@ module Mail : sig
   module type S = sig val send : t -> (unit, string) result Lwt.t end
   module Smtp (Config : sig val host : string val port : int val helo : string end) : S
   module Outbox () : sig include S val sent : unit -> t list val controller : Controller.t end
+end
+
+(* Kre.Assets — фаза 3: /assets/<имя>.<хеш>.<расширение> с вечным кэшем; ссылки даёт [%asset] *)
+module Assets : sig
+  val middleware : dir:string -> Dream.middleware
 end
 
 (* Kre.Live — live loaders, фаза 2 *)
@@ -1652,6 +1670,9 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 14 | Symfony Profiler, Rails dev log и Bullet, Spring `httpexchanges` | `Kre.Profiler`: middleware собирает по запросу SQL (драйверы и `Db.query` зовут `Profiler.sql`), время, статус; `/__kre/profiler` (HTML) и `.json`, пометка N+1 (≥ 3 одинаковых запроса); только `KRE_ENV=dev` | ✅ |
 | 15 | Rails ActionMailer + previews, Symfony Mailer, IHP Mail | `Kre.Mail`: `t` (адресат обязателен, `Refined.Email.t`), `render` (RFC 5322, multipart, кодирование темы), провайдеры `Smtp (Config)` (без TLS) и `Outbox ()` с превью `/__kre/mail`. Письмо не в `.mlx`: серверного рендера reason-react в native нет | ✅ |
 | 16 | Spring `@HttpExchange`, Nest `HttpModule`, Symfony HttpClient | `[%http_client: val … [@@get "/users/:login"]]` — сигнатура вызовов → функтор `(Config : sig val url : string val headers : … end)` поверх `Kre_client.Http`/`Wire` (`Http.request ?base`); native и Melange (`docs/http-client.md`) | ✅ |
+| 17 | Ссылки на статику, проверяемые при сборке | `[%asset "logo.png"]` → `Kre_shared.Asset.t` с адресом `/assets/logo.<хеш>.png` (нет файла — ошибка сборки с подсказкой похожего имени); `[%icon "cat"]` → `Kre_shared.Icon.t`, SVG из `assets/icons/cat.svg`, вшитый при сборке; `Kre.Assets.middleware ~dir` отдаёт файлы с вечным кэшем; `Kre_client.Icon.view` рисует иконку | ✅ |
+
+Папка `assets/` лежит в корне приложения (родитель каталога файла, как у `[%wire]`); в dune её нужно указать в `(preprocessor_deps (source_tree ../assets))`, чтобы изменение файла пересобирало ссылки. Хеш — первые 8 символов MD5 содержимого: адрес меняется вместе с файлом, поэтому кэш можно делать вечным. `Kre.Assets.middleware` отдаёт `/assets/<имя>.<хеш>.<расширение>` из каталога и проверяет, что хеш совпадает с текущим файлом (иначе 404, а не старый файл под новым именем).
 
 Чего не берём: ActiveRecord callbacks и Doctrine lifecycle events (скрытые побочные эффекты — у нас это сервисная функция или `Events`), Symfony Flex/recipes и Spring Boot autoconfiguration (у нас `[%wire]` при сборке), Rails concerns и Symfony bundles (это модули и библиотеки dune), HATEOAS.
 

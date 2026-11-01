@@ -1,0 +1,7 @@
+let view ?className icon =
+  <span
+    ?className
+    role="img"
+    ariaLabel=(Kre_shared.Icon.name icon)
+    dangerouslySetInnerHTML=[%mel.obj { __html = Kre_shared.Icon.svg icon }]
+  />

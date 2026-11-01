@@ -6,7 +6,13 @@ let () =
       app.controllers
   in
   Kre.App.run ~interface:Settings.config.interface ~port:Settings.config.port
-    ~middleware:[ Dream.logger; Kre.Profiler.middleware; actuator.metrics ]
+    ~middleware:
+      [
+        Dream.logger;
+        Kre.Profiler.middleware;
+        actuator.metrics;
+        Kre.Assets.middleware ~dir:Settings.config.assets;
+      ]
     ~on_start:app.on_start ~on_shutdown:app.on_shutdown ~commands:app.commands
     (actuator.controller :: Kre.Live.controller :: Kre.Profiler.controller
    :: Mail.controller :: app.controllers)

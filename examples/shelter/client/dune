@@ -41,7 +41,9 @@
   jsonkit-melange
   reason-react)
  (preprocess
-  (pps melange.ppx reason-react-ppx kre-ppx)))
+  (pps melange.ppx reason-react-ppx kre-ppx))
+ (preprocessor_deps
+  (source_tree ../assets)))
 
 (melange.emit
  (target js)

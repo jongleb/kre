@@ -78,6 +78,7 @@ export default withMermaid(
           items: [
             { text: 'Typed client & router', link: '/client/client-router' },
             { text: 'Pages in mlx', link: '/client/pages' },
+            { text: 'Assets & icons', link: '/client/assets' },
             { text: 'Calling other APIs', link: '/client/http-client' }
           ]
         },

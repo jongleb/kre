@@ -1,5 +1,5 @@
-// Marks OCaml attributes ([@x], [@@x], [@@@x]) in highlighted code so the
-// theme can set them apart: they are what a reader of Kre code looks for.
+// Marks OCaml attributes ([@x], [@@x], [@@@x]) and extension points ([%x])
+// in highlighted code so the theme can set the ppx parts apart.
 
 type Node = { type: string; value?: string; tagName?: string; properties?: Record<string, unknown>; children?: Node[] }
 
@@ -9,7 +9,7 @@ const text = (node: Node): string =>
 const ranges = (line: string): [number, number][] => {
   const found: [number, number][] = []
   for (let start = 0; start < line.length; start++) {
-    if (line[start] !== '[' || line[start + 1] !== '@') continue
+    if (line[start] !== '[' || (line[start + 1] !== '@' && line[start + 1] !== '%')) continue
     let depth = 0
     let end = start
     for (; end < line.length; end++) {

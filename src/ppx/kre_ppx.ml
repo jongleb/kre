@@ -13,6 +13,8 @@ let () =
         Ppxlib.Context_free.Rule.extension Wire.extension;
         Ppxlib.Context_free.Rule.extension Embed.extension;
         Ppxlib.Context_free.Rule.extension Http_client.extension;
+        Ppxlib.Context_free.Rule.extension Asset.asset;
+        Ppxlib.Context_free.Rule.extension Asset.icon;
       ];
   ignore
     (Ppxlib.Deriving.add "config"
