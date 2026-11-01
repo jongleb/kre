@@ -104,34 +104,66 @@ module Driver = struct
   let commit conn = Lwt.bind (Client.commit conn) (check "commit")
   let rollback conn = Lwt.bind (Client.rollback conn) (check "rollback")
 
-  let run conn sql consume =
+  let run conn ?(params = []) sql consume =
     let open Lwt.Syntax in
     let* statement = Lwt.bind (Client.prepare conn sql) (check sql) in
-    let* result = Lwt.bind (Client.Stmt.execute statement [||]) (check sql) in
+    let* result =
+      Lwt.bind
+        (Client.Stmt.execute statement
+           (Array.of_list
+              (List.map
+                 (Option.fold ~none:`Null ~some:(fun text -> `String text))
+                 params)))
+        (check sql)
+    in
     let* value = consume result in
     let+ () = Lwt.bind (Client.Stmt.close statement) (check "close") in
     value
 
   let execute conn sql = run conn sql (fun _ -> Lwt.return_unit)
 
+  let rows sql cell result =
+    let rec fetch collected =
+      Lwt.bind
+        (Lwt.bind
+           (Client.Res.fetch (module Client.Row.Array) result)
+           (check sql))
+        (function
+          | None -> Lwt.return (List.rev collected)
+          | Some (row : Client.Field.t array) -> fetch (cell row :: collected))
+    in
+    fetch []
+
+  let query conn sql params =
+    run conn ~params sql
+      (match
+         String.split_on_char ' '
+           (String.lowercase_ascii
+              (String.trim (String.map (function '\n' -> ' ' | c -> c) sql)))
+       with
+      | ("select" | "with") :: _ ->
+          rows sql (fun row ->
+              Array.to_list
+                (Array.map
+                   (fun field ->
+                     match Client.Field.value field with
+                     | `String text -> Some text
+                     | `Bytes bytes -> Some (Bytes.to_string bytes)
+                     | `Int n -> Some (string_of_int n)
+                     | `Int64 n -> Some (Int64.to_string n)
+                     | `UInt64 n -> Some (Unsigned.UInt64.to_string n)
+                     | `Float f -> Some (Printf.sprintf "%.17g" f)
+                     | `Time _ | `Null -> None)
+                   row))
+      | _ -> fun _ -> Lwt.return [])
+
   let strings conn sql =
-    run conn sql (fun result ->
-        let rec rows collected =
-          Lwt.bind
-            (Lwt.bind
-               (Client.Res.fetch (module Client.Row.Array) result)
-               (check sql))
-            (function
-              | None -> Lwt.return (List.rev collected)
-              | Some (row : Client.Field.t array) ->
-                  rows
-                    ((match Client.Field.value row.(0) with
-                     | `String text -> text
-                     | `Bytes bytes -> Bytes.to_string bytes
-                     | `Int n -> string_of_int n
-                     | `Int64 n -> Int64.to_string n
-                     | `UInt64 _ | `Float _ | `Time _ | `Null -> "")
-                    :: collected))
-        in
-        rows [])
+    run conn sql
+      (rows sql (fun row ->
+           match Client.Field.value row.(0) with
+           | `String text -> text
+           | `Bytes bytes -> Bytes.to_string bytes
+           | `Int n -> string_of_int n
+           | `Int64 n -> Int64.to_string n
+           | `UInt64 _ | `Float _ | `Time _ | `Null -> ""))
 end

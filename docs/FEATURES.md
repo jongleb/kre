@@ -22,6 +22,7 @@
 | — | `@Profile` | `Forge.Config.profile ()` (`config/$FORGE_ENV.env`) | ✅ | `docs/configuration.md` |
 | `@Optional` provider | `@ConditionalOnMissingBean`, `required=false` | `[@@@fallback]` — запасной провайдер, если другого нет | ✅ | |
 | — | `@Lazy`, `@Conditional` | | ⏳ | |
+| `@nestjs/bullmq` | `@Async`; Rails ActiveJob, Symfony Messenger, IHP Jobs | `Forge.Job` + `[@@job q]`: очередь в той же БД, `SKIP LOCKED`, повторы, enqueue в транзакции | ✅ | `docs/jobs.md` |
 | `nest-commander` | `CommandLineRunner`; Symfony `#[AsCommand]`, Rails rake | `[@@command "…"]` + `app.commands` → `main.exe seed --count 3` | ✅ | `docs/commands.md` |
 | Devtools graph | `/actuator/beans` | `app.beans` из `[%wire]` → `/actuator/beans`, `/actuator/beans.mmd` | ✅ | `docs/actuator.md` |
 | circular deps, `forwardRef`, `ModuleRef`, discovery | `ApplicationContext` | ошибка компиляции / не нужно | — | `docs/not-needed.md` |

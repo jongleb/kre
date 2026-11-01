@@ -392,4 +392,24 @@ module Driver = struct
       (fun (result : Postgresql.result) ->
         List.init result#ntuples (fun index -> result#getvalue index 0))
       (Sql.run conn sql)
+
+  let query conn sql params =
+    Lwt.map
+      (fun (result : Postgresql.result) ->
+        List.init result#ntuples (fun row ->
+            List.init result#nfields (fun field ->
+                match result#getisnull row field with
+                | true -> None
+                | false -> Some (result#getvalue row field))))
+      (Sql.run conn
+         ~params:
+           (Array.of_list
+              (List.map (Option.value ~default:Postgresql.null) params))
+         (String.concat ""
+            (List.mapi
+               (fun index part ->
+                 match index with
+                 | 0 -> part
+                 | _ -> Printf.sprintf "$%d%s" index part)
+               (String.split_on_char '?' sql))))
 end

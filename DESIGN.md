@@ -669,6 +669,23 @@ module Command : sig
   val invoke : t list -> string list -> invocation
 end
 
+(* Forge.Job — фаза 3: очереди в БД; [@@job q] регистрирует обработчик, воркер — хуки провайдера *)
+module Job : sig
+  type 'a queue
+  type handler
+  val queue : string -> (module Forge_shared.Json.S with type t = 'a) -> 'a queue
+  val handle : 'a queue -> ('a -> (unit, string) result Lwt.t) -> handler
+  val table : Table.t
+  module type S = sig
+    val enqueue : ?delay:float -> 'a queue -> 'a -> unit Lwt.t
+    val register : handler -> unit
+    val drain : unit -> int Lwt.t
+    val on_start : unit -> unit Lwt.t
+    val on_shutdown : unit -> unit Lwt.t
+  end
+  module Make (Db : Db.S) (Config : sig val poll : float val attempts : int end) : S
+end
+
 (* Forge.Live — live loaders, фаза 2 *)
 module Live : sig
   val publish : string list -> unit                        (* хранилища без SQL *)
@@ -1123,9 +1140,11 @@ module type DRIVER = sig
   val start : conn -> unit Lwt.t
   val commit : conn -> unit Lwt.t
   val rollback : conn -> unit Lwt.t
+  val query : conn -> string -> string option list -> string option list list Lwt.t   (* фаза 3: ? → $n у Postgres *)
 end
 module type S = sig
   type conn
+  val query : string -> string option list -> string option list list Lwt.t   (* через with_conn: внутри транзакции — в ней *)
   val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t                              (* Lwt_pool; внутри транзакции — её соединение *)
   val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t  (* Ok → commit; Error/исключение → rollback; внутри другой — присоединяется *)
 end
@@ -1507,7 +1526,7 @@ IHP (Rails для Haskell) силён там, где Nest и Spring пусты: 
 | --- | --- | --- |
 | Auto Refresh (страница обновляется при изменении таблиц, которые она читала) | Live loaders: зависимости маршрута от таблиц известны **статически** из sqlgg | 2 |
 | Scripts (одноразовые скрипты с контекстом приложения) | `[@@command]` (фаза 3, `docs/commands.md`) вместо `forge generate script` + `forge run NAME` | 3 |
-| Jobs как таблицы (`CREATE TABLE … job`) | `[@@deriving table ~job]` + воркер | 3 |
+| Jobs как таблицы (`CREATE TABLE … job`) | `Forge.Job` (фаза 3): одна таблица `forge_jobs` и типизированные очереди вместо таблицы на тип задачи | ✅ |
 | IDE: Schema Designer, Data browser, Logs | `forge dev` — веб-UI поверх Actuator | 3 |
 | Schema.sql как источник правды, типы из него | **не берём** направление, берём импорт: `forge import-schema` для brownfield | 1 |
 
@@ -1527,6 +1546,8 @@ IHP отслеживает таблицы, прочитанные при рен�
 `forge generate script backfill_ages` создаёт `scripts/backfill_ages.ml` с заготовкой `let main (module Db : Db.S) (config : Config.t) = …`; `forge run backfill_ages` собирает и запускает с тем же `Config.load` и пулом, что и сервер. Это замена `rake`-задачам и «вот бы быстро прогнать одну миграцию данных».
 
 ### Jobs как таблицы
+
+Сделано в фазе 3 иначе, чем ниже: одна таблица `forge_jobs` с JSON-нагрузкой и очереди `'a Forge.Job.queue` (имя + dto). Таблица на тип задачи дала бы миграцию и сгенерированный код на каждую очередь, а тип нагрузки всё равно проверяет dto. См. `docs/jobs.md`. Исходный набросок:
 
 ```ocaml
 type t = { id : int [@primary] [@auto]; cat_id : int; email : string }
@@ -1557,7 +1578,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 6 | Symfony `#[MapQueryString]`, Nest `@Query() dto`, Spring `@ModelAttribute` | query-строка целиком в запись с `[@@deriving search]` (тот же кодек, что на клиенте): `~(filter : (Filter.t[@search]))` | 2 |
 | 7 | Spring `Pageable`/`Page`, kaminari, Pagerfanta | `Forge_shared.Page` (`request`, `t` с `total`), `page` в `crud`, параметр `[@page]`, клиент получает типизированный `Page.t` | 2 |
 | 8 | Symfony Console `#[AsCommand]`, Rails rake/runner, IHP Scripts, Spring `CommandLineRunner` | `[@@command "…"]` на функции с модульными параметрами в отдельном файле: `[%wire]` собирает `app.commands`, `App.run ~commands` запускает `main.exe seed --count 3` между `on_start` и `on_shutdown`; опции — из меток, разбор — `Forge_shared.Scalar` (без cmdliner: те же модули, что у query) | ✅ |
-| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `[@@deriving table ~job]` + `[@@job]` в провайдере; очередь — таблица с `FOR UPDATE SKIP LOCKED`, воркер запускает `[%wire]` | 2 |
+| 9 | IHP Jobs, Rails ActiveJob + Solid Queue, Symfony Messenger, Nest BullMQ, Spring `@Async` | `Forge.Job`: типизированные очереди (`'a queue` = имя + dto), одна таблица `forge_jobs` (`Forge.Job.table`), `FOR UPDATE SKIP LOCKED`, повторы с удвоением паузы, `dead` после `attempts`; `[@@job q]` в провайдере, воркер — хуки провайдера `Forge.Job.S`, их запускает `[%wire]`. `enqueue` идёт через `Db` и попадает в открытую транзакцию | ✅ |
 | 10 | Rails timestamps и `lock_version`, JPA `@Version` и auditing, Doctrine Timestampable | `Forge_shared.Time` (ISO 8601, native и Melange), `[@created_at]`, `[@updated_at]`, `[@version]` в `table`; `update` с `WHERE version = …` → 409 | 2 |
 | 11 | Symfony `#[MapEntity]`, Spring `DomainClassConverter`, Rails `before_action :set_cat` | параметр-сущность: `~(cat : (Cat.t[@load Cats.find]))` — сегмент пути разбирается типом аргумента загрузчика, `None` → 404 | 2 |
 | 12 | Rails scaffold, Nest `g resource`, Symfony `make:crud` | `forge generate resource dogs name:string age:int` — тип с `table`/`dto`, SQL, сервис, контроллер, страницы `.mlx`, тест; всё сразу компилируется | 3 |

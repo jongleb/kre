@@ -7,20 +7,26 @@
    %{targets}
    (run %{exe:../../schema/schema.exe}))))
 
-; The first migration is the schema: change a table without a migration and
-; this diff fails; `dune promote` writes the new one.
+; The migrations are the schema: change a table without a migration and this
+; diff fails; `dune promote` writes the new one.
 
 (rule
- (targets init.sql)
+ (targets init.sql jobs.sql)
  (action
-  (with-stdout-to
-   %{targets}
-   (run %{exe:../../schema/schema.exe} migration))))
+  (progn
+   (with-stdout-to
+    init.sql
+    (run %{exe:../../schema/schema.exe} migration app))
+   (with-stdout-to
+    jobs.sql
+    (run %{exe:../../schema/schema.exe} migration jobs)))))
 
 (rule
  (alias runtest)
  (action
-  (diff ../migrations/0001_init.sql init.sql)))
+  (progn
+   (diff ../migrations/0001_init.sql init.sql)
+   (diff ../migrations/0002_jobs.sql jobs.sql))))
 
 (rule
  (targets users.sql cats.sql adoptions.sql credentials.sql)

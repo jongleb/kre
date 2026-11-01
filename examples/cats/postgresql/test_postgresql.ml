@@ -42,6 +42,14 @@ let () =
          let%lwt () =
            Forge_db_postgresql.Driver.execute conn "DROP TABLE IF EXISTS cats"
          in
+         let%lwt () =
+           Forge_db_postgresql.Driver.execute conn
+             "DROP TABLE IF EXISTS forge_jobs"
+         in
+         let%lwt () =
+           Forge_db_postgresql.Driver.execute conn
+             (Forge.Table.ddl Postgresql Forge.Job.table)
+         in
          let%lwt _ = Crud.create_cats conn in
          let%lwt _ = Crud.create_index_cats_breed conn in
          Lwt.return_unit));
@@ -111,6 +119,52 @@ let () =
                 "rows and changes"
                 ([], [ "tom" ], [ "cats" ])
                 (rolled_back, names (), Lwt_stream.get_available changes));
+        ] );
+      ( "jobs",
+        [
+          Alcotest.test_case
+            "enqueue in a transaction, a failure waits to retry" `Quick
+            (fun () ->
+              let module Jobs =
+                Forge.Job.Make
+                  (Db)
+                  (struct
+                    let poll = 0.1
+                    let attempts = 3
+                  end) in
+              let queue = Forge.Job.queue "greet" (module Cat) in
+              let seen = ref [] in
+              Jobs.register
+                (Forge.Job.handle queue (fun (cat : Cat.t) ->
+                     let name = Cat.Name.to_repr cat.name in
+                     seen := name :: !seen;
+                     Lwt.return
+                       (match name with
+                       | "tom" -> Error "tom is shy"
+                       | _ -> Ok ())));
+              let enqueue result cat =
+                ignore
+                  (Lwt_main.run
+                     (Db.transaction (fun _ ->
+                          Lwt.map (fun () -> result) (Jobs.enqueue queue cat))))
+              in
+              enqueue (Error ()) tom;
+              enqueue (Ok ())
+                { tom with name = Result.get_ok (Cat.Name.of_repr "felix") };
+              enqueue (Ok ()) tom;
+              let ran = Lwt_main.run (Jobs.drain ()) in
+              let left =
+                Lwt_main.run
+                  (Db.query
+                     "SELECT status, attempts, last_error FROM forge_jobs" [])
+              in
+              Alcotest.(
+                check (triple int (list string) (list (list (option string)))))
+                "two ran, tom waits for a retry"
+                ( 2,
+                  [ "felix"; "tom" ],
+                  [ [ Some "queued"; Some "1"; Some "tom is shy" ] ] )
+                (ran, List.sort String.compare !seen, left));
         ] );
       ( "migrations",
         [

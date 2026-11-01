@@ -9,6 +9,9 @@ module type DRIVER = sig
   val rollback : conn -> unit Lwt.t
   val execute : conn -> string -> unit Lwt.t
   val strings : conn -> string -> string list Lwt.t
+
+  val query :
+    conn -> string -> string option list -> string option list list Lwt.t
 end
 
 (** A pooled database; services take it as a functor argument. *)
@@ -17,6 +20,7 @@ module type S = sig
 
   val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t
   val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t
+  val query : string -> string option list -> string option list list Lwt.t
   val tx : conn Guard.t
 
   val within :

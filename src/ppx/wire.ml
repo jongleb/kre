@@ -23,6 +23,8 @@ type provider = {
       (** [on_start] and/or [on_shutdown] defined by the provider. *)
   listeners : (string * expression) list;
       (** Functions marked [[@@on_event topic]]. *)
+  performs : (string * expression) list;
+      (** Functions marked [[@@job queue]]. *)
   checks : (string * string) list;
       (** Functions marked [[@@health "name"]], with that name. *)
   jobs : (string * expression) list;
@@ -328,7 +330,10 @@ let scan path =
                 name;
                 provides;
                 construction;
-                hooks = hooks (items body);
+                hooks =
+                  (match provides with
+                  | "Forge.Job.S" -> [ "on_start"; "on_shutdown" ]
+                  | _ -> hooks (items body));
                 checks =
                   List.concat_map
                     (fun (item : structure_item) ->
@@ -477,6 +482,39 @@ let scan path =
                                           attribute.attr_payload )
                                       with
                                       | ( "on_event",
+                                          PStr
+                                            [
+                                              {
+                                                pstr_desc = Pstr_eval (topic, _);
+                                                _;
+                                              };
+                                            ] ) ->
+                                          Some topic
+                                      | _ -> None)
+                                    binding.pvb_attributes )
+                              with
+                              | Ppat_var { txt; _ }, Some topic ->
+                                  Some (txt, topic)
+                              | _ -> None)
+                            bindings
+                      | _ -> [])
+                    (items body);
+                performs =
+                  List.concat_map
+                    (fun (item : structure_item) ->
+                      match item.pstr_desc with
+                      | Pstr_value (_, bindings) ->
+                          List.filter_map
+                            (fun (binding : value_binding) ->
+                              match
+                                ( binding.pvb_pat.ppat_desc,
+                                  List.find_map
+                                    (fun (attribute : attribute) ->
+                                      match
+                                        ( attribute.attr_name.txt,
+                                          attribute.attr_payload )
+                                      with
+                                      | ( "job",
                                           PStr
                                             [
                                               {
@@ -669,6 +707,27 @@ let expand ~loc ~input directories =
                     { txt = Ldot (Lident provider.name, listener); loc }]])
           provider.listeners)
       order
+  in
+  let subscriptions =
+    subscriptions
+    @ List.concat_map
+        (fun provider ->
+          List.map
+            (fun (performer, queue) ->
+              let jobs =
+                resolve ~needed:"Forge.Job.S" ~site:provider.loc
+                  ~by:provider.name ()
+              in
+              [%expr
+                [%e
+                  pexp_ident ~loc
+                    { txt = Ldot (Lident jobs.name, "register"); loc }]
+                  (Forge.Job.handle [%e queue]
+                     [%e
+                       pexp_ident ~loc
+                         { txt = Ldot (Lident provider.name, performer); loc }])])
+            provider.performs)
+        order
   in
   let wiring =
     [%expr

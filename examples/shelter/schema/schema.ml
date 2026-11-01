@@ -7,7 +7,10 @@ let () =
           (List.find_opt
              (fun (table : Forge.Table.t) -> String.equal table.name name)
              tables)
-    | [| _; "migration" |] ->
+    | [| _; "migration"; set |] ->
+        let tables =
+          match set with "jobs" -> [ Forge.Job.table ] | _ -> tables
+        in
         String.concat "\n"
           [
             "-- migrate:up";

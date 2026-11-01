@@ -36,7 +36,7 @@ let () =
          Lwt_list.iter_s
            (fun table ->
              Forge_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
-           [ "adoptions"; "credentials"; "cats"; "users" ]
+           [ "forge_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
        in
        let%lwt () = Forge_db_mariadb.Driver.close conn in
        let%lwt output =

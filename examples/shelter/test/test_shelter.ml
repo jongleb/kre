@@ -54,7 +54,7 @@ let () =
        Lwt_list.iter_s
          (fun table ->
            Forge_db_mariadb.Driver.execute conn ("DELETE FROM " ^ table))
-         [ "adoptions"; "credentials"; "cats"; "users" ]
+         [ "forge_jobs"; "adoptions"; "credentials"; "cats"; "users" ]
      in
      Forge_db_mariadb.Driver.close conn);
   let boss = token "boss@shelter.test" in
@@ -165,6 +165,32 @@ let () =
                 (List.length
                    (Yojson.Basic.Util.to_list
                       (snd (call ~token:ann `GET "/adoptions/mine")))));
+        ] );
+      ( "jobs",
+        [
+          Alcotest.test_case
+            "a letter per committed adoption, none for the rolled back one"
+            `Quick (fun () ->
+              let letters () =
+                let user =
+                  Printf.sprintf "user %d "
+                    (number "id" (snd (call ~token:ann `GET "/auth/me")))
+                in
+                List.length
+                  (List.filter
+                     (String.starts_with ~prefix:user)
+                     (Mailer.sent ()))
+              in
+              let rec wait tries =
+                match (letters (), tries) with
+                | 2, _ | _, 0 -> ()
+                | _ ->
+                    Lwt_main.run (Lwt_unix.sleep 0.05);
+                    wait (tries - 1)
+              in
+              wait 100;
+              Lwt_main.run (Lwt_unix.sleep 0.3);
+              Alcotest.(check int) "letters to ann" 2 (letters ()));
         ] );
       ( "commands",
         [

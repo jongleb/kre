@@ -8,6 +8,9 @@ module type DRIVER = sig
   val rollback : conn -> unit Lwt.t
   val execute : conn -> string -> unit Lwt.t
   val strings : conn -> string -> string list Lwt.t
+
+  val query :
+    conn -> string -> string option list -> string option list list Lwt.t
 end
 
 module type S = sig
@@ -15,6 +18,7 @@ module type S = sig
 
   val with_conn : (conn -> 'a Lwt.t) -> 'a Lwt.t
   val transaction : (conn -> ('a, 'e) result Lwt.t) -> ('a, 'e) result Lwt.t
+  val query : string -> string option list -> string option list list Lwt.t
   val tx : conn Guard.t
 
   val within :
@@ -64,6 +68,7 @@ struct
                 let* () = Driver.rollback conn in
                 Lwt.reraise exn))
 
+  let query sql params = with_conn (fun conn -> Driver.query conn sql params)
   let field : conn Dream.field = Dream.new_field ~name:"forge.transaction" ()
 
   let tx =
