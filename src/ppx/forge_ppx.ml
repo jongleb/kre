@@ -26,6 +26,10 @@ let () =
             Ppxlib.Deriving.Args.(empty +> arg "path" (estring __))
             Page.params));
   ignore
+    (Ppxlib.Deriving.add "workflow"
+       ~str_type_decl:
+         (Ppxlib.Deriving.Generator.V2.make_noarg Workflow.structure));
+  ignore
     (Ppxlib.Deriving.add "search"
        ~str_type_decl:(Ppxlib.Deriving.Generator.V2.make_noarg Page.search))
 

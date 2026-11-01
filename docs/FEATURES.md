@@ -87,6 +87,7 @@
 | --- | --- | --- | --- |
 | class-validator | Bean Validation | `Refined`, `[@validate]`, `~strict` | ✅ |
 | entity id | `@Id` | `Forge_shared.Id.Make ()` — свой тип id на сущность | ✅ |
+| — | Spring Statemachine; Symfony Workflow, Rails AASM | `[@@deriving workflow]` + `[@@transitions { pay = (function Cart -> Paid) }]`: `apply`, `allowed`, `sources`, mermaid | ✅ |
 | TS `enum`, `@IsEnum` | `@Enumerated(STRING)` | вариант без аргументов + `[@@deriving dto]` — строка в JSON, пути, query и столбце | ✅ |
 | TypeORM entity | `@Entity` | `[@@deriving table]` → DDL, `of_row` | ✅ |
 | timestamps, `lock_version` | `@CreatedDate`, `@LastModifiedDate`, `@Version` | `[@created_at]`, `[@updated_at]`, `[@version]` в `table` + `Forge_shared.Time`; устаревшая версия → 409 | ✅ |

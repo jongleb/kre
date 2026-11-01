@@ -12,6 +12,29 @@ let () =
     [
       ( "examples",
         [
+          Alcotest.test_case "workflow: transitions are checked" `Quick
+            (fun () ->
+              let step state transition =
+                Result.fold ~ok:Order.to_string
+                  ~error:(fun (`Not_allowed (transition, state)) ->
+                    Printf.sprintf "no %s from %s"
+                      (Order.transition_name transition)
+                      (Order.to_string state))
+                  (Order.apply transition state)
+              in
+              Alcotest.(check (list string))
+                "steps"
+                [ "paid"; "no ship from cart"; "cancelled"; "pay,cancel" ]
+                [
+                  step Cart Pay;
+                  step Cart Ship;
+                  step Paid Cancel;
+                  String.concat ","
+                    (List.map Order.transition_name (Order.allowed Cart));
+                ];
+              Alcotest.(check (list string))
+                "sources of cancel" [ "cart"; "paid" ]
+                (List.map Order.to_string (Order.sources Cancel)));
           Alcotest.test_case "guards: controller-wide, then evidence" `Quick
             (fun () ->
               let admin =
