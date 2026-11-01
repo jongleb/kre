@@ -1132,6 +1132,16 @@ let mail =
              (Outbox.sent ())));
   ]
 
+let slug =
+  [
+    Alcotest.test_case "slugs" `Quick (fun () ->
+        Alcotest.(check (list string))
+          "slugs"
+          [ "tom-jerry"; "maine-coon-2"; "" ]
+          (List.map Kre_shared.Slug.of_string
+             [ "Tom & Jerry!"; "  Maine Coon -- 2 "; "!!!" ]));
+  ]
+
 let assets =
   let dir = Filename.concat (Filename.get_temp_dir_name ()) "kre-assets-test" in
   (try Sys.mkdir dir 0o755 with Sys_error _ -> ());
@@ -1174,6 +1184,7 @@ let () =
       ("Profiler", profiler);
       ("Mail", mail);
       ("Assets", assets);
+      ("Slug", slug);
       ("Cache", cache);
       ("Cron", cron);
       ("Jwt", jwt);

@@ -138,3 +138,36 @@ for_update; the update needs the version it read.
                                                  ^^^^^^^^^^^^^
   Error: [@created_at] fills a timestamp; give at the type Kre_shared.Time.t
   [1]
+
+[@slug_from name] fills a field from another one on insert and update.
+
+  $ cat > input.ml <<'ML'
+  > type t = {
+  >   id : int; [@primary] [@auto]
+  >   title : string;
+  >   slug : string; [@slug_from title] [@unique]
+  > }
+  > [@@deriving table ~name:"posts"]
+  > ML
+  $ ./pp.exe -impl input.ml | sed -n '/let for_insert/,/let _ = for_update/p'
+      let for_insert (__kre_record : t) __kre_query =
+        let __kre_now = Kre.Table.now () in
+        __kre_query ~title:(__kre_record.title)
+          ~slug:(Kre_shared.Slug.of_string __kre_record.title)
+      let _ = for_insert
+      let for_update (__kre_record : t) __kre_query =
+        let __kre_now = Kre.Table.now () in
+        __kre_query ~title:(__kre_record.title)
+          ~slug:(Kre_shared.Slug.of_string __kre_record.title)
+          ~id:(Int64.of_int __kre_record.id)
+      let _ = for_update
+  $ cat > input.ml <<'ML'
+  > type t = { id : int; [@primary] slug : string [@slug_from headline] }
+  > [@@deriving table ~name:"posts"]
+  > ML
+  $ ./pp.exe -impl input.ml
+  File "input.ml", line 1, characters 46-67:
+  1 | type t = { id : int; [@primary] slug : string [@slug_from headline] }
+                                                    ^^^^^^^^^^^^^^^^^^^^^
+  Error: [@slug_from headline]: the record has no field headline
+  [1]

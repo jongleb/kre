@@ -1689,7 +1689,7 @@ IHP держит `Schema.sql` и генерирует типы. Мы держи�
 | 18 | `#[IsGranted]` | `[@@role g]` — guard любого типа, значение не нужно хендлеру | ✅ |
 | 19 | валидация с базой (`#[UniqueEntity]`) | `[@@check f]` — проверка над разобранными аргументами, `Error` → 422 с путями полей; `Kre.Route.validated`; выполняется после `[@@authorize]` | ✅ |
 | 20 | подписанные ссылки | `[@@signed secret]` + `Kre.Signed.url` — `expires` и HMAC-SHA256 последним параметром, иначе 403; `Kre.Signed.guard` | ✅ |
-| 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют `Kre_shared.Slug` | 4 |
+| 21 | слаги | `[@slug_from name]` в `table`: `for_insert`/`for_update` заполняют поле `Kre_shared.Slug.of_string` из значения столбца-источника; нет поля — ошибка сборки | ✅ |
 | 22 | ULID-ключи | `Kre_shared.Ulid.Make ()` + `Kre.Ulid.next ()`, `[@ulid]` в `table` — `CHAR(26)` без автоинкремента | 4 |
 | 23 | `Prunable` | `[@prune]` на поле времени: `-- @prune` в `Table.crud` (`DELETE … WHERE поле < @before`) | 4 |
 | 24 | scopes | `[@@scopes [ ("available", "status = 'available'") ]]` → `all_<scope>`, `page_<scope>`, `count_<scope>` в `Table.crud` | 4 |

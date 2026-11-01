@@ -215,6 +215,21 @@ This is `rename` in the shelter:
 `[@created_at]` on a `float` field is a build error: `[@created_at] fills a timestamp; give at the type Kre_shared.Time.t`.
 :::
 
+## Slugs
+
+A field marked `[@slug_from title]` is filled by `for_insert` and `for_update` from another column, so URLs stay readable without code in every service. `"Tom & Jerry!"` becomes `tom-jerry`:
+
+```ocaml
+type t = {
+  id : int; [@primary] [@auto]
+  title : string;
+  slug : string; [@slug_from title] [@unique]
+}
+[@@deriving table ~name:"posts"]
+```
+
+With `[@unique]` the CRUD module also gets `by_slug`, ready for `[@load Posts.by_slug]`. Naming a field the record does not have is a compile error.
+
 ## Pages
 
 Paging uses `Kre_shared.Page`, shared by server and browser:

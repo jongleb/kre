@@ -323,6 +323,49 @@ let structure ~ctxt (_, declarations) table_name =
                    fields)]]
       in
       let now = [%expr Kre_shared.Time.to_seconds __kre_now] in
+      let slug (label : label_declaration) =
+        Option.map
+          (fun (attribute : attribute) ->
+            match attribute.attr_payload with
+            | PStr
+                [
+                  {
+                    pstr_desc =
+                      Pstr_eval
+                        ( {
+                            pexp_desc = Pexp_ident { txt = Lident source; _ };
+                            _;
+                          },
+                          _ );
+                    _;
+                  };
+                ] -> (
+                match
+                  List.find_opt
+                    (fun (other : label_declaration) ->
+                      String.equal other.pld_name.txt source)
+                    labels
+                with
+                | Some other ->
+                    [%expr
+                      Kre_shared.Slug.of_string
+                        [%e
+                          encode other
+                            (pexp_field ~loc [%expr __kre_record]
+                               { txt = Lident source; loc })]]
+                | None ->
+                    Location.raise_errorf ~loc:attribute.attr_loc
+                      "[@@slug_from %s]: the record has no field %s" source
+                      source)
+            | _ ->
+                Location.raise_errorf ~loc:attribute.attr_loc
+                  "[@@slug_from] names the field to build the slug from: \
+                   [@@slug_from name]")
+          (List.find_opt
+             (fun (attribute : attribute) ->
+               String.equal attribute.attr_name.txt "slug_from")
+             label.pld_attributes)
+      in
       [
         [%stri
           let [%p pvar ~loc (value_name "table")] : Kre.Table.t =
@@ -338,7 +381,7 @@ let structure ~ctxt (_, declarations) table_name =
                        match managed label with
                        | Some (`Created_at | `Updated_at) -> Some now
                        | Some `Version -> Some [%expr 0L]
-                       | None -> None ))
+                       | None -> slug label ))
                    (List.filter
                       (fun label ->
                         not (has label "primary" && has label "auto"))
@@ -356,7 +399,7 @@ let structure ~ctxt (_, declarations) table_name =
                            match managed label with
                            | Some (`Created_at | `Version) -> None
                            | Some `Updated_at -> Some (label, Some now)
-                           | None -> Some (label, None))
+                           | None -> Some (label, slug label))
                          (List.filter
                             (fun (label : label_declaration) ->
                               not
